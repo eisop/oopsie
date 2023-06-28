@@ -1,0 +1,151 @@
+plugins {
+    id("java")
+    // https://github.com/tbroyer/gradle-errorprone-plugin
+    id("net.ltgt.errorprone").version("3.1.0")
+    id("maven-publish")
+    id("com.diffplug.spotless").version("6.19.0")
+    // https://docs.gradle.org/current/userguide/eclipse_plugin.html
+    id("eclipse")
+    // To show task list as a tree, run: ./gradlew <taskname> taskTree
+    id("com.dorongold.task-tree").version("2.1.1")
+}
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+}
+
+apply plugin: "java"
+apply plugin: "eclipse"
+apply plugin: "net.ltgt.errorprone"
+
+group = "io.github.eisop"
+version = "0.0.1-SNAPSHOT"
+
+ext.versions= [
+    checkerFramework: "3.34.0-eisop1",
+]
+
+dependencies {
+    implementation("io.github.eisop:checker-qual:${versions.checkerFramework}")
+    compileOnly("io.github.eisop:checker:${versions.checkerFramework}")
+
+    errorprone("com.google.errorprone:error_prone_core:2.20.0")
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("io.github.eisop:checker:${versions.checkerFramework}")
+    testImplementation("io.github.eisop:framework-test:${versions.checkerFramework}")
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir("src/main/java")
+        }
+
+        resources {
+            srcDir("src/main/java")
+            exclude("**/*.java")
+        }
+    }
+
+    test {
+        java {
+            srcDirs = ["src/test/java"]
+        }
+    }
+}
+
+java {
+    sourceCompatibility = 17
+}
+
+tasks.withType(JavaCompile).all {
+    options.compilerArgs.addAll(["-Werror", "-Xlint:all"])
+    options.compilerArgs.addAll(
+            [
+                "api",
+                "code",
+                "comp",
+                "file",
+                "main",
+                "model",
+                "parser",
+                "processing",
+                "resources",
+                "tree",
+                "util",
+            ].collect { "--add-exports=jdk.compiler/com.sun.tools.javac.$it=ALL-UNNAMED" })
+}
+
+test {
+    inputs.files("tests/opsc")
+}
+
+tasks.withType(Test) {
+    jvmArgs(
+            [
+                "code",
+                "comp",
+                "main",
+                "processing",
+                "tree",
+                "util"
+            ]
+            .collect { "--add-opens=jdk.compiler/com.sun.tools.javac.$it=ALL-UNNAMED" })
+
+    testLogging {
+        showStackTraces = false
+        showStandardStreams = true
+        events "failed"
+        exceptionFormat "full"
+    }
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            artifactId = "opsc"
+            from components.java
+        }
+    }
+}
+
+
+eclipse.classpath {
+    defaultOutputDir = file("build/default")
+    file.whenMerged { cp ->
+        cp.entries.forEach { cpe ->
+            if (cpe instanceof org.gradle.plugins.ide.eclipse.model.SourceFolder) {
+                cpe.output = cpe.output.replace "bin/", "build/classes/java/"
+            }
+            if (cpe instanceof org.gradle.plugins.ide.eclipse.model.Output) {
+                cpe.path = cpe.path.replace "bin/", "build/"
+            }
+        }
+    }
+}
+
+spotless {
+    java {
+        target("**/*.java")
+        googleJavaFormat().aosp()
+        formatAnnotations()
+    }
+
+    format "misc", {
+        target("*.md", "*.tex", ".gitignore", "Makefile")
+        indentWithSpaces(2)
+        trimTrailingWhitespace()
+        // endWithNewline() // Don't want to end empty files with a newline
+    }
+
+    groovyGradle {
+        target("**/*.gradle")
+        greclipse()  // which formatter Spotless should use to format .gradle files.
+        indentWithSpaces(4)
+        trimTrailingWhitespace()
+        // endWithNewline() // Don't want to end empty files with a newline
+    }
+}
+
