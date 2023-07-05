@@ -13,8 +13,13 @@ public class OpscTest extends CheckerFrameworkPerDirectoryTest {
 
     public OpscTest(List<File> testFiles) {
         // set checker options for db connection
-        super(testFiles, OpsChecker.class, "opsc",
-                "-AdbUrl=" + DB_URL, "-AdbUser=" + DB_USER, "-AdbPassword=" + DB_PASSWORD);
+        super(
+                testFiles,
+                OpsChecker.class,
+                "opsc",
+                "-AdbUrl=" + DB_URL,
+                "-AdbUser=" + DB_USER,
+                "-AdbPassword=" + DB_PASSWORD);
     }
 
     @Parameters

@@ -1,5 +1,10 @@
 package io.github.eisop.opsc.db;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.util.Properties;
+import javax.sql.DataSource;
 import org.apache.calcite.adapter.jdbc.JdbcSchema;
 import org.apache.calcite.avatica.util.Quoting;
 import org.apache.calcite.jdbc.CalciteConnection;
@@ -13,12 +18,6 @@ import org.apache.calcite.sql.parser.SqlParser;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.tools.*;
 
-import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.util.Properties;
-
 public class SchemaInfo {
 
     private static final String SUB_SCHEMA_NAME = "DB_SCHEMA";
@@ -27,7 +26,8 @@ public class SchemaInfo {
 
     CalciteConnection calciteConnection;
 
-    SqlParser.Config parserConfig = SqlParser.config().withCaseSensitive(false).withQuoting(Quoting.DOUBLE_QUOTE);
+    SqlParser.Config parserConfig =
+            SqlParser.config().withCaseSensitive(false).withQuoting(Quoting.DOUBLE_QUOTE);
 
     public SchemaInfo(String databaseUrl, String username, String password) throws SQLException {
         Connection conn = DriverManager.getConnection("jdbc:calcite:", new Properties());
@@ -39,10 +39,11 @@ public class SchemaInfo {
     }
 
     public String[] getResultTypeOf(String stmt) {
-        FrameworkConfig frameworkConfig = Frameworks.newConfigBuilder()
-                .parserConfig(parserConfig)
-                .defaultSchema(rootSchema.getSubSchema(SUB_SCHEMA_NAME))
-                .build();
+        FrameworkConfig frameworkConfig =
+                Frameworks.newConfigBuilder()
+                        .parserConfig(parserConfig)
+                        .defaultSchema(rootSchema.getSubSchema(SUB_SCHEMA_NAME))
+                        .build();
         try (Planner planner = Frameworks.getPlanner(frameworkConfig)) {
             SqlNode parsed = planner.parse(stmt);
             SqlNode validated = planner.validate(parsed);
@@ -70,23 +71,25 @@ public class SchemaInfo {
             return nullableAnno + "Object";
         }
 
-        return nullableAnno + switch (sqlTypeName.getFamily()) {
-            case CHARACTER -> {
-                int maxLength = relType.getPrecision();
-                String maxLengthAnno =
-                        maxLength == RelDataType.PRECISION_NOT_SPECIFIED ? "" : "@MaxLength(" + maxLength + ") ";
-                yield maxLengthAnno + "String";
-            }
-            case DATE -> "Date";
-            case TIME -> "Time";
-            case TIMESTAMP -> "Timestamp";
-            case BOOLEAN -> "Boolean";
-            case NUMERIC -> switch (relType.getSqlTypeName()) {
-                case INTEGER, TINYINT, SMALLINT, BIGINT -> "Integer";
-                default -> "Double";
-            };
-            default -> "Object";
-        };
+        return nullableAnno
+                + switch (sqlTypeName.getFamily()) {
+                    case CHARACTER -> {
+                        int maxLength = relType.getPrecision();
+                        String maxLengthAnno =
+                                maxLength == RelDataType.PRECISION_NOT_SPECIFIED
+                                        ? ""
+                                        : "@MaxLength(" + maxLength + ") ";
+                        yield maxLengthAnno + "String";
+                    }
+                    case DATE -> "Date";
+                    case TIME -> "Time";
+                    case TIMESTAMP -> "Timestamp";
+                    case BOOLEAN -> "Boolean";
+                    case NUMERIC -> switch (relType.getSqlTypeName()) {
+                        case INTEGER, TINYINT, SMALLINT, BIGINT -> "Integer";
+                        default -> "Double";
+                    };
+                    default -> "Object";
+                };
     }
-
 }

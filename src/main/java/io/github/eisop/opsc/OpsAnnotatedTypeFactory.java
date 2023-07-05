@@ -11,11 +11,9 @@ import java.lang.annotation.Annotation;
 import java.sql.SQLException;
 import java.util.*;
 import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
-
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.framework.flow.CFAbstractAnalysis;
@@ -44,12 +42,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             AnnotationBuilder.fromClass(elements, SqlBottom.class);
 
     protected final ExecutableElement sqlInElement =
-            TreeUtils.getMethod(
-                    "io.github.eisop.opsc.qual.Sql", "in", 0, processingEnv);
+            TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "in", 0, processingEnv);
 
     protected final ExecutableElement sqlOutElement =
-            TreeUtils.getMethod(
-                    "io.github.eisop.opsc.qual.Sql", "out", 0, processingEnv);
+            TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "out", 0, processingEnv);
 
     private final ExecutableElement connectionPrepareStatement =
             TreeUtils.getMethod("java.sql.Connection", "prepareStatement", 1, processingEnv);
@@ -66,14 +62,16 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
     private void initSchemaInfo(BaseTypeChecker checker) {
         if (checker.getOption("dbUrl") == null) {
-            checker.message(Diagnostic.Kind.WARNING, "no db url specified"); // reportWarning better?
+            checker.message(
+                    Diagnostic.Kind.WARNING, "no db url specified"); // reportWarning better?
             schemaInfo = null;
         } else {
             try {
-                schemaInfo = new SchemaInfo(
-                        checker.getOption("dbUrl"), checker.getOption("dbUser"),
-                        checker.getOption("dbPassword")
-                );
+                schemaInfo =
+                        new SchemaInfo(
+                                checker.getOption("dbUrl"),
+                                checker.getOption("dbUser"),
+                                checker.getOption("dbPassword"));
             } catch (SQLException e) {
                 checker.message(Diagnostic.Kind.WARNING, "could not get schema from db");
                 schemaInfo = null;
@@ -93,9 +91,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         return new OpsTransfer((CFAnalysis) analysis);
     }
 
-    /**
-     * Returns a new SQL annotation with the given output type.
-     */
+    /** Returns a new SQL annotation with the given output type. */
     AnnotationMirror createSQLAnnotation(String[] out) {
         AnnotationBuilder builder = new AnnotationBuilder(processingEnv, Sql.class);
         builder.setValue("out", out);
@@ -176,9 +172,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             super(atypeFactory);
         }
 
-        /**
-         * Add annotation for Strings in prepareStatement() calls.
-         */
+        /** Add annotation for Strings in prepareStatement() calls. */
         @Override
         public Void visitMethodInvocation(MethodInvocationTree tree, AnnotatedTypeMirror type) {
             // todo other overloaded methods
@@ -189,7 +183,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         String stmt = (String) ((LiteralTree) arg).getValue();
                         String[] out = getOutType(stmt);
                         if (out == null) {
-                            checker.reportWarning(tree, "could not get result type of prepared statement");
+                            checker.reportWarning(
+                                    tree, "could not get result type of prepared statement");
                         } else {
                             type.replaceAnnotation(createSQLAnnotation(out));
                         }
@@ -199,8 +194,6 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
             return super.visitMethodInvocation(tree, type);
         }
-
-
 
         private String[] getOutType(String stmt) {
             return schemaInfo.getResultTypeOf(stmt);
