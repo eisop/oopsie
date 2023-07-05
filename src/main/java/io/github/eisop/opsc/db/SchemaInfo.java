@@ -1,5 +1,6 @@
 package io.github.eisop.opsc.db;
 
+import com.google.common.collect.ImmutableList;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -38,7 +39,7 @@ public class SchemaInfo {
         rootSchema.add(SUB_SCHEMA_NAME, subSchema);
     }
 
-    public String[] getResultTypeOf(String stmt) {
+    public ImmutableList<String> getResultTypeOf(String stmt) {
         FrameworkConfig frameworkConfig =
                 Frameworks.newConfigBuilder()
                         .parserConfig(parserConfig)
@@ -55,12 +56,10 @@ public class SchemaInfo {
         }
     }
 
-    private String[] getJavaTypes(RelDataType relType) {
-        String[] annotations = new String[relType.getFieldCount()];
-        for (int i = 0; i < relType.getFieldCount(); i++) {
-            annotations[i] = getJavaType(relType.getFieldList().get(i).getType());
-        }
-        return annotations;
+    private ImmutableList<String> getJavaTypes(RelDataType relType) {
+        return relType.getFieldList().stream()
+                .map(field -> getJavaType(field.getType()))
+                .collect(ImmutableList.toImmutableList());
     }
 
     private String getJavaType(RelDataType relType) {

@@ -17,8 +17,8 @@ class Tiny {
                         "SELECT InvoiceId, Total, BillingCountry FROM Invoice WHERE InvoiceDate > ?");
 
         @Sql(out = {"@NonNull Integer", "@NonNull Double", "@Nullable Integer"})
-        // :: error: (assignment.type.incompatible)
         PreparedStatement ps2 =
+                // :: error: (assignment.type.incompatible)
                 conn.prepareStatement(
                         "SELECT InvoiceId, Total, BillingCountry FROM Invoice WHERE InvoiceDate > ?");
 
@@ -29,8 +29,8 @@ class Tiny {
                     "@Nullable @MaxLength(40) String",
                     "@NonNull Integer"
                 })
-        // :: error: (assignment.type.incompatible)
         PreparedStatement ps3 =
+                // :: error: (assignment.type.incompatible)
                 conn.prepareStatement(
                         "SELECT InvoiceId, Total, BillingCountry FROM Invoice WHERE InvoiceDate > ?");
     }

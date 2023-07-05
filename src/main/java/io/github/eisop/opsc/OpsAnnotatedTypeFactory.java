@@ -196,7 +196,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         }
 
         private String[] getOutType(String stmt) {
-            return schemaInfo.getResultTypeOf(stmt);
+            return schemaInfo.getResultTypeOf(stmt).toArray(new String[0]);
         }
     }
 }
