@@ -18,6 +18,7 @@ import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.util.Elements;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.framework.flow.CFAbstractAnalysis;
@@ -31,7 +32,11 @@ import org.checkerframework.framework.type.QualifierHierarchy;
 import org.checkerframework.framework.type.treeannotator.ListTreeAnnotator;
 import org.checkerframework.framework.type.treeannotator.TreeAnnotator;
 import org.checkerframework.framework.util.QualifierKind;
-import org.checkerframework.javacutil.*;
+import org.checkerframework.javacutil.AnnotationBuilder;
+import org.checkerframework.javacutil.AnnotationUtils;
+import org.checkerframework.javacutil.TreeUtils;
+import org.checkerframework.javacutil.TypeSystemError;
+import org.checkerframework.javacutil.UserError;
 
 public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
@@ -50,6 +55,9 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
     private final ExecutableElement connectionPrepareStatement =
             TreeUtils.getMethod("java.sql.Connection", "prepareStatement", 1, processingEnv);
+
+    private final ExecutableElement executeQuery =
+            TreeUtils.getMethod("java.sql.PreparedStatement", "executeQuery", 0, processingEnv);
 
     private SchemaInfo schemaInfo;
 
@@ -147,8 +155,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     return false;
                 }
 
-                if (Arrays.asList(sup).contains("@NotNull")
-                        && !Arrays.asList(sub).contains("@NotNull")) {
+                if (Arrays.asList(sup).contains("@NonNull")
+                        && !Arrays.asList(sub).contains("@NonNull")) {
                     return false;
                 }
 
@@ -248,8 +256,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         String stmt = (String) ((LiteralTree) arg).getValue();
 
                         // get result type and placeholder type of prepared statement
-                        String[] in = getInType(stmt);
-                        String[] out = getOutType(stmt);
+                        List<String> in = getInType(stmt);
+                        List<String> out = getOutType(stmt);
                         if (out == null) {
                             checker.reportWarning(
                                     tree, "could not get result type of prepared statement");
@@ -262,29 +270,46 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         type.replaceAnnotation(createSQLAnnotation(in, out));
                     }
                 }
+            } else if (TreeUtils.isMethodInvocation(tree, executeQuery, processingEnv)) {
+                // get type annotation from PreparedStatement
+                AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
+                if (receiverType.hasAnnotation(Sql.class)) {
+                    AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
+                    List<String> out =
+                            AnnotationUtils.getElementValueArray(
+                                    sqlAnnotation,
+                                    sqlOutElement,
+                                    String.class,
+                                    Collections.emptyList());
+                    type.replaceAnnotation(createSQLAnnotation(null, out));
+                } else {
+                    checker.reportWarning(
+                            tree, "could not get result type annotation from PreparedStatement");
+                }
             }
             return super.visitMethodInvocation(tree, type);
         }
 
         /** Returns a new SQL annotation with the given output type. */
-        private AnnotationMirror createSQLAnnotation(String[] in, String[] out) {
+        private AnnotationMirror createSQLAnnotation(
+                @Nullable List<String> in, @Nullable List<String> out) {
             AnnotationBuilder builder = new AnnotationBuilder(processingEnv, Sql.class);
             if (in != null) builder.setValue("in", in);
             if (out != null) builder.setValue("out", out);
             return builder.build();
         }
 
-        private String[] getOutType(String stmt) {
+        private @Nullable List<String> getOutType(String stmt) {
             try {
-                return schemaInfo.getResultTypeOf(stmt).toArray(new String[0]);
+                return schemaInfo.getResultTypeOf(stmt);
             } catch (OpsDatabaseException e) {
                 return null;
             }
         }
 
-        private String[] getInType(String stmt) {
+        private @Nullable List<String> getInType(String stmt) {
             try {
-                return schemaInfo.getPlaceholderTypesOf(stmt).toArray(new String[0]);
+                return schemaInfo.getPlaceholderTypesOf(stmt);
             } catch (OpsDatabaseException e) {
                 return null;
             }

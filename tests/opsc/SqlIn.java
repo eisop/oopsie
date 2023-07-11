@@ -19,7 +19,7 @@ public class SqlIn {
     void inAnnotation() throws SQLException {
         // this should work
         @Sql(
-                in = {"Double"},
+                in = {"Double"}, // todo test with @NonNull
                 out = {"@NonNull Integer", "@NonNull Double", "@Nullable @MaxLength(40) String"})
         PreparedStatement ps1 =
                 conn.prepareStatement(
@@ -41,7 +41,7 @@ public class SqlIn {
                 conn.prepareStatement(
                         "SELECT InvoiceId, Total, BillingCountry FROM Invoice WHERE Total > ?");
         // this should work
-        ps.setDouble(1, 244);
+        ps.setDouble(1, 244.331);
     }
 
     void setParamOutOfBounds() throws SQLException {
@@ -49,7 +49,7 @@ public class SqlIn {
                 conn.prepareStatement(
                         "SELECT InvoiceId, Total, BillingCountry FROM Invoice WHERE Total > ?");
         // :: error: (parameter.index.outOfBounds)
-        ps.setDouble(2, 244);
+        ps.setDouble(2, 244.331);
     }
 
     void setParamWrongType() throws SQLException {
