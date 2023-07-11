@@ -8,6 +8,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Properties;
 import javax.sql.DataSource;
 import org.apache.calcite.adapter.jdbc.JdbcSchema;
@@ -117,7 +118,7 @@ public class SchemaInfo {
     private String getJavaTypeWithAnnotations(RelDataType relType) {
         String type = getJavaType(relType);
         String anno = relType.isNullable() ? "@Nullable " : "@NonNull ";
-        if ("String".equals(type)) {
+        if (Objects.equals(type, "String")) {
             int maxLength = relType.getPrecision();
             if (maxLength != RelDataType.PRECISION_NOT_SPECIFIED) {
                 anno += "@MaxLength(" + maxLength + ") ";

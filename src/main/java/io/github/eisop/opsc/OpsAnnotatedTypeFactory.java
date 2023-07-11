@@ -67,9 +67,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
     private void initSchemaInfo(BaseTypeChecker checker) {
         if (checker.getOption("dbUrl") == null) {
-            checker.message(
-                    Diagnostic.Kind.WARNING, "no db url specified"); // reportWarning better?
-            schemaInfo = null;
+            throw new UserError("Database URL not specified");
         } else {
             try {
                 schemaInfo =
@@ -78,9 +76,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                                 checker.getOption("dbUser"),
                                 checker.getOption("dbPassword"));
             } catch (SQLException e) {
-                checker.message(Diagnostic.Kind.WARNING, "could not get schema from db");
-                schemaInfo = null;
-                e.printStackTrace();
+                throw new UserError("Could not get schema from database");
             }
         }
     }
