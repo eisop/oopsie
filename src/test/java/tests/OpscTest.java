@@ -7,9 +7,9 @@ import org.junit.runners.Parameterized.Parameters;
 /** Run the OPSC tests. */
 public class OpscTest extends CheckerFrameworkPerDirectoryTest {
 
-    private static final String DB_URL = "jdbc:sqlite:tests/db/Chinook.db";
-    private static final String DB_USER = null;
-    private static final String DB_PASSWORD = null;
+    private static final String DB_URL = "jdbc:postgresql://localhost:5432/chinook";
+    private static final String DB_USER = "postgres";
+    private static final String DB_PASSWORD = "postgres";
 
     public OpscTest(List<File> testFiles) {
         // set checker options for db connection

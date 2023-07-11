@@ -18,7 +18,6 @@ import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.util.Elements;
-import javax.tools.Diagnostic;
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.framework.flow.CFAbstractAnalysis;
@@ -32,10 +31,7 @@ import org.checkerframework.framework.type.QualifierHierarchy;
 import org.checkerframework.framework.type.treeannotator.ListTreeAnnotator;
 import org.checkerframework.framework.type.treeannotator.TreeAnnotator;
 import org.checkerframework.framework.util.QualifierKind;
-import org.checkerframework.javacutil.AnnotationBuilder;
-import org.checkerframework.javacutil.AnnotationUtils;
-import org.checkerframework.javacutil.TreeUtils;
-import org.checkerframework.javacutil.TypeSystemError;
+import org.checkerframework.javacutil.*;
 
 public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
@@ -267,7 +263,6 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     }
                 }
             }
-
             return super.visitMethodInvocation(tree, type);
         }
 
