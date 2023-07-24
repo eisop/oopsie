@@ -21,6 +21,9 @@ import javax.lang.model.util.Elements;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import org.checkerframework.common.basetype.BaseTypeChecker;
+import org.checkerframework.common.value.ValueAnnotatedTypeFactory;
+import org.checkerframework.common.value.ValueChecker;
+import org.checkerframework.common.value.qual.StringVal;
 import org.checkerframework.framework.flow.CFAbstractAnalysis;
 import org.checkerframework.framework.flow.CFAnalysis;
 import org.checkerframework.framework.flow.CFStore;
@@ -52,6 +55,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
     protected final ExecutableElement sqlOutElement =
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "out", 0, processingEnv);
+
+    private final ExecutableElement stringValValueELement =
+            TreeUtils.getMethod(
+                    "org.checkerframework.common.value.qual.StringVal", "value", 0, processingEnv);
 
     private final ExecutableElement connectionPrepareStatement =
             TreeUtils.getMethod("java.sql.Connection", "prepareStatement", 1, processingEnv);
@@ -252,9 +259,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             if (TreeUtils.isMethodInvocation(tree, connectionPrepareStatement, processingEnv)) {
                 ExpressionTree arg = tree.getArguments().get(0);
                 if (!type.hasAnnotationRelaxed(SQL)) {
-                    if (arg.getKind() == ExpressionTree.Kind.STRING_LITERAL) {
-                        String stmt = (String) ((LiteralTree) arg).getValue();
-
+                    String stmt = retrieveStringValue(arg);
+                    if (stmt != null) {
                         // get result type and placeholder type of prepared statement
                         List<String> in = getInType(stmt);
                         List<String> out = getOutType(stmt);
@@ -268,6 +274,9 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         }
 
                         type.replaceAnnotation(createSQLAnnotation(in, out));
+                    } else {
+                        checker.reportWarning(
+                                tree, "could not determine SQL string value of prepared statement");
                     }
                 }
             } else if (TreeUtils.isMethodInvocation(tree, executeQuery, processingEnv)) {
@@ -288,6 +297,39 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 }
             }
             return super.visitMethodInvocation(tree, type);
+        }
+
+        private @Nullable String retrieveStringValue(ExpressionTree stringExpression) {
+            if (stringExpression.getKind() == ExpressionTree.Kind.STRING_LITERAL) {
+                return (String) ((LiteralTree) stringExpression).getValue();
+            }
+
+            AnnotationMirror stringValAnnoMirror = getStringValAnnoMirror(stringExpression);
+            if (stringValAnnoMirror != null) {
+                List<String> values =
+                        AnnotationUtils.getElementValueArray(
+                                stringValAnnoMirror,
+                                stringValValueELement,
+                                String.class,
+                                Collections.emptyList());
+                if (values.size() == 1) {
+                    return values.get(0);
+                } else {
+                    System.out.println("huh");
+                }
+            }
+
+            return null;
+        }
+
+        private AnnotationMirror getStringValAnnoMirror(final ExpressionTree valueExp) {
+            ValueAnnotatedTypeFactory valueAnnotatedTypeFactory =
+                    getTypeFactoryOfSubchecker(ValueChecker.class);
+            if (valueAnnotatedTypeFactory == null) {
+                throw new TypeSystemError("Missing subchecker ValueChecker");
+            }
+            AnnotatedTypeMirror valueType = valueAnnotatedTypeFactory.getAnnotatedType(valueExp);
+            return valueType.getAnnotation(StringVal.class);
         }
 
         /** Returns a new SQL annotation with the given output type. */
