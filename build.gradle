@@ -31,6 +31,9 @@ dependencies {
     compileOnly("io.github.eisop:checker:${versions.checkerFramework}")
 
     implementation("org.apache.calcite:calcite-core:1.35.0")
+
+    errorprone("com.google.errorprone:error_prone_core:2.21.0")
+
     implementation("com.google.guava:guava:32.1.2-jre")
 
     testImplementation("junit:junit:4.13.2")
