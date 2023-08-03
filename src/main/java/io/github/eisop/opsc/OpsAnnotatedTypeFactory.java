@@ -18,9 +18,12 @@ import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.util.Elements;
-import javax.tools.Diagnostic;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import org.checkerframework.common.basetype.BaseTypeChecker;
+import org.checkerframework.common.value.ValueAnnotatedTypeFactory;
+import org.checkerframework.common.value.ValueChecker;
+import org.checkerframework.common.value.qual.StringVal;
 import org.checkerframework.framework.flow.CFAbstractAnalysis;
 import org.checkerframework.framework.flow.CFAnalysis;
 import org.checkerframework.framework.flow.CFStore;
@@ -36,6 +39,7 @@ import org.checkerframework.javacutil.AnnotationBuilder;
 import org.checkerframework.javacutil.AnnotationUtils;
 import org.checkerframework.javacutil.TreeUtils;
 import org.checkerframework.javacutil.TypeSystemError;
+import org.checkerframework.javacutil.UserError;
 
 public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
@@ -52,8 +56,15 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     protected final ExecutableElement sqlOutElement =
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "out", 0, processingEnv);
 
+    private final ExecutableElement stringValValueELement =
+            TreeUtils.getMethod(
+                    "org.checkerframework.common.value.qual.StringVal", "value", 0, processingEnv);
+
     private final ExecutableElement connectionPrepareStatement =
             TreeUtils.getMethod("java.sql.Connection", "prepareStatement", 1, processingEnv);
+
+    private final ExecutableElement executeQuery =
+            TreeUtils.getMethod("java.sql.PreparedStatement", "executeQuery", 0, processingEnv);
 
     private SchemaInfo schemaInfo;
 
@@ -151,8 +162,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     return false;
                 }
 
-                if (Arrays.asList(sup).contains("@NotNull")
-                        && !Arrays.asList(sub).contains("@NotNull")) {
+                if (Arrays.asList(sup).contains("@NonNull")
+                        && !Arrays.asList(sub).contains("@NonNull")) {
                     return false;
                 }
 
@@ -248,12 +259,11 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             if (TreeUtils.isMethodInvocation(tree, connectionPrepareStatement, processingEnv)) {
                 ExpressionTree arg = tree.getArguments().get(0);
                 if (!type.hasAnnotationRelaxed(SQL)) {
-                    if (arg.getKind() == ExpressionTree.Kind.STRING_LITERAL) {
-                        String stmt = (String) ((LiteralTree) arg).getValue();
-
+                    String stmt = retrieveStringValue(arg);
+                    if (stmt != null) {
                         // get result type and placeholder type of prepared statement
-                        String[] in = getInType(stmt);
-                        String[] out = getOutType(stmt);
+                        List<String> in = getInType(stmt);
+                        List<String> out = getOutType(stmt);
                         if (out == null) {
                             checker.reportWarning(
                                     tree, "could not get result type of prepared statement");
@@ -264,32 +274,90 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         }
 
                         type.replaceAnnotation(createSQLAnnotation(in, out));
+                    } else {
+                        checker.reportWarning(
+                                tree, "could not determine SQL string value of prepared statement");
                     }
                 }
+            } else if (TreeUtils.isMethodInvocation(tree, executeQuery, processingEnv)) {
+                // get type annotation from PreparedStatement
+                AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
+                if (receiverType.hasAnnotation(Sql.class)) {
+                    AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
+                    List<String> out =
+                            AnnotationUtils.getElementValueArray(
+                                    sqlAnnotation,
+                                    sqlOutElement,
+                                    String.class,
+                                    Collections.emptyList());
+                    type.replaceAnnotation(createSQLAnnotation(null, out));
+                } else {
+                    checker.reportWarning(
+                            tree, "could not get result type annotation from PreparedStatement");
+                }
             }
-
             return super.visitMethodInvocation(tree, type);
         }
 
+        private @Nullable String retrieveStringValue(ExpressionTree stringExpression) {
+            if (stringExpression.getKind() == ExpressionTree.Kind.STRING_LITERAL) {
+                return (String) ((LiteralTree) stringExpression).getValue();
+            }
+
+            AnnotationMirror stringValAnnoMirror = getStringValAnnoMirror(stringExpression);
+            if (stringValAnnoMirror != null) {
+                List<String> values =
+                        AnnotationUtils.getElementValueArray(
+                                stringValAnnoMirror,
+                                stringValValueELement,
+                                String.class,
+                                Collections.emptyList());
+                if (values.size() == 1) {
+                    return values.get(0);
+                } else if (values.size() > 1) {
+                    checker.reportWarning(
+                            stringExpression,
+                            "statement.multiple.string.values",
+                            values.toString());
+                    return values.get(0);
+                } else {
+                    return null;
+                }
+            }
+
+            return null;
+        }
+
+        private AnnotationMirror getStringValAnnoMirror(final ExpressionTree valueExp) {
+            ValueAnnotatedTypeFactory valueAnnotatedTypeFactory =
+                    getTypeFactoryOfSubchecker(ValueChecker.class);
+            if (valueAnnotatedTypeFactory == null) {
+                throw new TypeSystemError("Missing subchecker ValueChecker");
+            }
+            AnnotatedTypeMirror valueType = valueAnnotatedTypeFactory.getAnnotatedType(valueExp);
+            return valueType.getAnnotation(StringVal.class);
+        }
+
         /** Returns a new SQL annotation with the given output type. */
-        private AnnotationMirror createSQLAnnotation(String[] in, String[] out) {
+        private AnnotationMirror createSQLAnnotation(
+                @Nullable List<String> in, @Nullable List<String> out) {
             AnnotationBuilder builder = new AnnotationBuilder(processingEnv, Sql.class);
             if (in != null) builder.setValue("in", in);
             if (out != null) builder.setValue("out", out);
             return builder.build();
         }
 
-        private String[] getOutType(String stmt) {
+        private @Nullable List<String> getOutType(String stmt) {
             try {
-                return schemaInfo.getResultTypeOf(stmt).toArray(new String[0]);
+                return schemaInfo.getResultTypeOf(stmt);
             } catch (OpsDatabaseException e) {
                 return null;
             }
         }
 
-        private String[] getInType(String stmt) {
+        private @Nullable List<String> getInType(String stmt) {
             try {
-                return schemaInfo.getPlaceholderTypesOf(stmt).toArray(new String[0]);
+                return schemaInfo.getPlaceholderTypesOf(stmt);
             } catch (OpsDatabaseException e) {
                 return null;
             }

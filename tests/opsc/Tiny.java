@@ -11,7 +11,9 @@ class Tiny {
                         "jdbc:postgresql://localhost:5432/chinook", "postgres", "postgres");
 
         // this should work
-        @Sql(out = {"@NonNull Integer", "@NonNull Double", "@Nullable @MaxLength(40) String"})
+        @Sql(
+                in = {"Timestamp"},
+                out = {"@NonNull Integer", "@NonNull Double", "@Nullable @MaxLength(40) String"})
         PreparedStatement ps1 =
                 conn.prepareStatement(
                         "SELECT InvoiceId, Total, BillingCountry FROM Invoice WHERE InvoiceDate > ?");
