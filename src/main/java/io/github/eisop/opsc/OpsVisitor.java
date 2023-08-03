@@ -78,7 +78,6 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
 
     @Override
     public Void visitMethodInvocation(MethodInvocationTree tree, Void p) {
-        ProcessingEnvironment processingEnv = checker.getProcessingEnvironment();
         for (ExecutableElement method : preparedStatementSetMethodTypes.keySet()) {
             if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
                 checkSetParameter(tree, method);
@@ -146,8 +145,8 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
     }
 
     private boolean javaTypesMatch(String type, String other) {
-        List<String> split = Splitter.on(' ').splitToList(other);
-        List<String> otherSplit = Splitter.on(' ').splitToList(type);
+        List<String> split = Splitter.on(' ').splitToList(type);
+        List<String> otherSplit = Splitter.on(' ').splitToList(other);
         return split.get(split.size() - 1).equals(otherSplit.get(otherSplit.size() - 1));
     }
 }

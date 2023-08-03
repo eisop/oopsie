@@ -64,16 +64,19 @@ public class StringConstValues {
         PreparedStatement ps1 = conn.prepareStatement(sql);
     }
 
-    //    void stringfromLocalVariableConcatenated2() throws SQLException {
-    //        String sql = "SELECT InvoiceId, Total, BillingCountry ";
-    //        sql += "FROM Invoice WHERE InvoiceDate > ?";
-    //
-    //        @Sql(
-    //                in = {"Timestamp"},
-    //                out = {"@NonNull Integer", "@NonNull Double", "@Nullable @MaxLength(40)
-    // String"})
-    //        PreparedStatement ps1 = conn.prepareStatement(sql);
-    //    }
+    void stringfromLocalVariableConcatenated2() throws SQLException {
+        String sql = "SELECT InvoiceId, Total, BillingCountry ";
+        sql += "FROM Invoice WHERE InvoiceDate > ?"; // ConstValueChecker treats `sql` as
+        // potentially null in concatenation
+
+        @Sql(
+                in = {"Timestamp"},
+                out = {"@NonNull Integer", "@NonNull Double", "@Nullable @MaxLength(40) String"})
+        // False positive as ConstValueChecker is unable to track the value of `sql` in
+        // concatenation
+        // :: warning: (statement.multiple.string.values)
+        PreparedStatement ps1 = conn.prepareStatement(sql);
+    }
 
     void stringFromTextBlock() throws SQLException {
         String sql =

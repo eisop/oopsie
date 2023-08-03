@@ -314,8 +314,14 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                                 Collections.emptyList());
                 if (values.size() == 1) {
                     return values.get(0);
+                } else if (values.size() > 1) {
+                    checker.reportWarning(
+                            stringExpression,
+                            "statement.multiple.string.values",
+                            values.toString());
+                    return values.get(0);
                 } else {
-                    System.out.println("huh");
+                    return null;
                 }
             }
 
