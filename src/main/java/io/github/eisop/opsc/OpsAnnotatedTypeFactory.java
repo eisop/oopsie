@@ -3,13 +3,13 @@ package io.github.eisop.opsc;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
+import io.github.eisop.opsc.db.JDBCSchemaInfo;
 import io.github.eisop.opsc.db.SchemaInfo;
 import io.github.eisop.opsc.exception.OpsDatabaseException;
 import io.github.eisop.opsc.qual.Sql;
 import io.github.eisop.opsc.qual.SqlBottom;
 import io.github.eisop.opsc.qual.SqlUnknown;
 import java.lang.annotation.Annotation;
-import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -80,15 +80,11 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         if (checker.getOption("dbUrl") == null) {
             throw new UserError("Database URL not specified");
         } else {
-            try {
-                schemaInfo =
-                        new SchemaInfo(
-                                checker.getOption("dbUrl"),
-                                checker.getOption("dbUser"),
-                                checker.getOption("dbPassword"));
-            } catch (SQLException e) {
-                throw new UserError("Could not get schema from database");
-            }
+            schemaInfo =
+                    new JDBCSchemaInfo(
+                            checker.getOption("dbUrl"),
+                            checker.getOption("dbUser"),
+                            checker.getOption("dbPassword"));
         }
     }
 
@@ -180,7 +176,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                                                             s.split("\\(", 2)[1]
                                                                     .split("\\)", 2)[0]))
                                     .findFirst()
-                                    .get();
+                                    .orElseThrow(
+                                            () ->
+                                                    new TypeSystemError(
+                                                            "Invalid @MaxLength annotation"));
                     int subMax =
                             Arrays.stream(sub)
                                     .filter(s -> s.startsWith("@MaxLength("))
@@ -190,7 +189,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                                                             s.split("\\(", 2)[1]
                                                                     .split("\\)", 2)[0]))
                                     .findFirst()
-                                    .get();
+                                    .orElseThrow(
+                                            () ->
+                                                    new TypeSystemError(
+                                                            "Invalid @MaxLength annotation"));
                     if (subMax > superMax) {
                         return false;
                     }
