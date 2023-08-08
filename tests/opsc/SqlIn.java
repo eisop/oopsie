@@ -57,7 +57,7 @@ public class SqlIn {
         PreparedStatement ps =
                 conn.prepareStatement(
                         "SELECT InvoiceId, Total, BillingCountry FROM Invoice WHERE Total > ?");
-        // :: error: (parameter.index.outOfBounds)
+        // :: error: (parameter.index.out.of.bounds)
         ps.setDouble(2, 244.331);
     }
 
