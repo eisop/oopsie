@@ -28,6 +28,8 @@ public class JDBCSchemaInfo implements SchemaInfo {
 
     @Override
     public ImmutableList<String> getResultTypeOf(String stmt) throws OpsDatabaseException {
+        // Explicitly load the PostgreSQL driver, so it can be used by the checker when compiling
+        // the programme under test
         try {
             Class.forName("org.postgresql.Driver");
         } catch (ClassNotFoundException e) {
@@ -49,6 +51,8 @@ public class JDBCSchemaInfo implements SchemaInfo {
 
     @Override
     public ImmutableList<String> getPlaceholderTypesOf(String stmt) throws OpsDatabaseException {
+        // Explicitly load the PostgreSQL driver, so it can be used by the checker when compiling
+        // the programme under test
         try {
             Class.forName("org.postgresql.Driver");
         } catch (ClassNotFoundException e) {

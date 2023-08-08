@@ -46,6 +46,15 @@ public class CalciteSchemaInfo implements SchemaInfo {
     public CalciteSchemaInfo(
             String databaseUrl, @Nullable String username, @Nullable String password)
             throws SQLException {
+        // Explicitly load the Calcite and Postgres JDBC drivers, so it can be used by the checker
+        // when compiling
+        // the programme under test
+        try {
+            Class.forName("org.apache.calcite.jdbc.Driver");
+            Class.forName("org.postgresql.Driver");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
         Connection conn = DriverManager.getConnection("jdbc:calcite:", new Properties());
         CalciteConnection calciteConnection = conn.unwrap(CalciteConnection.class);
         DataSource dataSource = JdbcSchema.dataSource(databaseUrl, null, username, password);
