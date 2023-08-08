@@ -111,10 +111,15 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                         AnnotationUtils.getElementValueArray(
                                 sqlAnnotation, sqlInElement, String.class, Collections.emptyList());
                 if (index >= in.size()) {
-                    checker.reportError(tree, "parameter.index.outOfBounds");
+                    checker.reportError(
+                            tree, "parameter.index.out.of.bounds", index + 1, in.size());
                 } else if (!javaTypesMatch(
                         in.get(index), preparedStatementSetMethodTypes.get(method))) {
-                    checker.reportError(tree, "parameter.type.incompatible");
+                    checker.reportError(
+                            tree,
+                            "parameter.type.incompatible",
+                            in.get(index),
+                            preparedStatementSetMethodTypes.get(method));
                 }
             }
         }
@@ -136,9 +141,13 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                                 String.class,
                                 Collections.emptyList());
                 if (index >= out.size()) {
-                    checker.reportError(tree, "column.index.outOfBounds");
+                    checker.reportError(tree, "column.index.out.of.bounds", index + 1, out.size());
                 } else if (!javaTypesMatch(out.get(index), resultSetGetMethodTypes.get(method))) {
-                    checker.reportError(tree, "column.type.incompatible");
+                    checker.reportError(
+                            tree,
+                            "column.type.incompatible",
+                            out.get(index),
+                            resultSetGetMethodTypes.get(method));
                 }
             }
         }
