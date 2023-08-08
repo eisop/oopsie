@@ -1,6 +1,7 @@
 package opsc;
 
 import io.github.eisop.opsc.qual.Sql;
+import java.math.BigDecimal;
 import java.sql.*;
 
 public class SqlOut {
@@ -18,15 +19,15 @@ public class SqlOut {
                 conn.prepareStatement(
                         "SELECT InvoiceId, Total, BillingCountry FROM Invoice WHERE Total > ?");
 
-        ps.setDouble(1, 244.331);
+        ps.setBigDecimal(1, BigDecimal.valueOf(244.331));
 
-        @Sql(out = {"@NonNull Integer", "@NonNull Double", "@Nullable @MaxLength(40) String"})
+        @Sql(out = {"@NonNull Integer", "@NonNull BigDecimal", "@Nullable @MaxLength(40) String"})
         // this should work
         ResultSet rs = ps.executeQuery();
 
         // this should work
         rs.getInt(1);
-        rs.getDouble(2);
+        rs.getBigDecimal(2);
         rs.getString(3);
     }
 
@@ -35,9 +36,9 @@ public class SqlOut {
                 conn.prepareStatement(
                         "SELECT InvoiceId, Total, BillingCountry FROM Invoice WHERE Total > ?");
 
-        ps.setDouble(1, 244.331);
+        ps.setBigDecimal(1, BigDecimal.valueOf(244.331));
 
-        @Sql(out = {"@NonNull Integer", "@NonNull Double", "@Nullable @MaxLength(40) Integer"})
+        @Sql(out = {"@NonNull Integer", "@NonNull BigDecimal", "@Nullable @MaxLength(40) Integer"})
         // :: error: (assignment.type.incompatible)
         ResultSet rs = ps.executeQuery();
     }
@@ -47,9 +48,9 @@ public class SqlOut {
                 conn.prepareStatement(
                         "SELECT InvoiceId, Total, BillingCountry FROM Invoice WHERE Total > ?");
 
-        ps.setDouble(1, 244.331);
+        ps.setBigDecimal(1, BigDecimal.valueOf(244.331));
 
-        @Sql(out = {"@NonNull Integer", "@NonNull Double", "@Nullable @MaxLength(40) String"})
+        @Sql(out = {"@NonNull Integer", "@NonNull BigDecimal", "@Nullable @MaxLength(40) String"})
         ResultSet rs = ps.executeQuery();
 
         // :: error: (column.type.incompatible)

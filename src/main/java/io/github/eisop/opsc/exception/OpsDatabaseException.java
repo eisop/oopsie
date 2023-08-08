@@ -13,4 +13,8 @@ public class OpsDatabaseException extends Exception {
     public OpsDatabaseException(String message, Throwable cause) {
         super(message, cause);
     }
+
+    public OpsDatabaseException(Throwable cause) {
+        super(cause);
+    }
 }

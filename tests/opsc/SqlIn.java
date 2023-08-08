@@ -1,6 +1,7 @@
 package opsc;
 
 import io.github.eisop.opsc.qual.Sql;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -19,8 +20,12 @@ public class SqlIn {
     void inAnnotation() throws SQLException {
         // this should work
         @Sql(
-                in = {"Double"}, // todo test with @NonNull
-                out = {"@NonNull Integer", "@NonNull Double", "@Nullable @MaxLength(40) String"})
+                in = {"@NonNull BigDecimal"},
+                out = {
+                    "@NonNull Integer",
+                    "@NonNull BigDecimal",
+                    "@Nullable @MaxLength(40) String"
+                })
         PreparedStatement ps1 =
                 conn.prepareStatement(
                         "SELECT InvoiceId, Total, BillingCountry FROM Invoice WHERE Total > ?");
@@ -29,7 +34,11 @@ public class SqlIn {
     void wrongAnnotation() throws SQLException {
         @Sql(
                 in = {"String"},
-                out = {"@NonNull Integer", "@NonNull Double", "@Nullable @MaxLength(40) String"})
+                out = {
+                    "@NonNull Integer",
+                    "@NonNull BigDecimal",
+                    "@Nullable @MaxLength(40) String"
+                })
         PreparedStatement ps1 =
                 // :: error: (assignment.type.incompatible)
                 conn.prepareStatement(
@@ -41,14 +50,14 @@ public class SqlIn {
                 conn.prepareStatement(
                         "SELECT InvoiceId, Total, BillingCountry FROM Invoice WHERE Total > ?");
         // this should work
-        ps.setDouble(1, 244.331);
+        ps.setBigDecimal(1, BigDecimal.valueOf(244.331));
     }
 
     void setParamOutOfBounds() throws SQLException {
         PreparedStatement ps =
                 conn.prepareStatement(
                         "SELECT InvoiceId, Total, BillingCountry FROM Invoice WHERE Total > ?");
-        // :: error: (parameter.index.outOfBounds)
+        // :: error: (parameter.index.out.of.bounds)
         ps.setDouble(2, 244.331);
     }
 

@@ -3,13 +3,13 @@ package io.github.eisop.opsc;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
+import io.github.eisop.opsc.db.JDBCSchemaInfo;
 import io.github.eisop.opsc.db.SchemaInfo;
 import io.github.eisop.opsc.exception.OpsDatabaseException;
 import io.github.eisop.opsc.qual.Sql;
 import io.github.eisop.opsc.qual.SqlBottom;
 import io.github.eisop.opsc.qual.SqlUnknown;
 import java.lang.annotation.Annotation;
-import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -80,15 +80,11 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         if (checker.getOption("dbUrl") == null) {
             throw new UserError("Database URL not specified");
         } else {
-            try {
-                schemaInfo =
-                        new SchemaInfo(
-                                checker.getOption("dbUrl"),
-                                checker.getOption("dbUser"),
-                                checker.getOption("dbPassword"));
-            } catch (SQLException e) {
-                throw new UserError("Could not get schema from database");
-            }
+            schemaInfo =
+                    new JDBCSchemaInfo(
+                            checker.getOption("dbUrl"),
+                            checker.getOption("dbUser"),
+                            checker.getOption("dbPassword"));
         }
     }
 
@@ -153,6 +149,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             }
 
             for (int i = 0; i < subOut.size(); i++) {
+                // Split annotation strings at spaces to get individual @-annotations and the type
                 String[] sub = subOut.get(i).split(" ");
                 String[] sup = superOut.get(i).split(" ");
                 String subType = sub[sub.length - 1];
@@ -171,26 +168,41 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     if (Arrays.stream(sub).noneMatch(s -> s.startsWith("@MaxLength("))) {
                         return false;
                     }
+                    // Compare the values of the @MaxLength annotations
                     int superMax =
                             Arrays.stream(sup)
+                                    // find @MaxLength(...) annotation
                                     .filter(s -> s.startsWith("@MaxLength("))
                                     .map(
                                             s ->
                                                     Integer.parseInt(
+                                                            // find the value inside the parentheses
+                                                            // of the @MaxLength(...) annotation
                                                             s.split("\\(", 2)[1]
                                                                     .split("\\)", 2)[0]))
                                     .findFirst()
-                                    .get();
+                                    .orElseThrow(
+                                            () ->
+                                                    new TypeSystemError(
+                                                            "Invalid @MaxLength annotation: %s",
+                                                            (Object) sup));
                     int subMax =
                             Arrays.stream(sub)
+                                    // find @MaxLength(...) annotation
                                     .filter(s -> s.startsWith("@MaxLength("))
                                     .map(
                                             s ->
                                                     Integer.parseInt(
+                                                            // find the value inside the parentheses
+                                                            // of the @MaxLength(...) annotation
                                                             s.split("\\(", 2)[1]
                                                                     .split("\\)", 2)[0]))
                                     .findFirst()
-                                    .get();
+                                    .orElseThrow(
+                                            () ->
+                                                    new TypeSystemError(
+                                                            "Invalid @MaxLength annotation: %s",
+                                                            (Object) sub));
                     if (subMax > superMax) {
                         return false;
                     }
@@ -262,15 +274,21 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     String stmt = retrieveStringValue(arg);
                     if (stmt != null) {
                         // get result type and placeholder type of prepared statement
-                        List<String> in = getInType(stmt);
-                        List<String> out = getOutType(stmt);
-                        if (out == null) {
-                            checker.reportWarning(
-                                    tree, "could not get result type of prepared statement");
+                        List<String> in;
+                        try {
+                            in = getInType(stmt);
+                        } catch (OpsDatabaseException e) {
+                            throw new TypeSystemError(
+                                    "Could not retrieve in type of prepared statement: %s",
+                                    e.getMessage());
                         }
-                        if (in == null) {
-                            checker.reportWarning(
-                                    tree, "could not get placeholder type of prepared statement");
+                        List<String> out;
+                        try {
+                            out = getOutType(stmt);
+                        } catch (OpsDatabaseException e) {
+                            throw new TypeSystemError(
+                                    "Could not retrieve out type of prepared statement: %s",
+                                    e.getMessage());
                         }
 
                         type.replaceAnnotation(createSQLAnnotation(in, out));
@@ -347,20 +365,12 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             return builder.build();
         }
 
-        private @Nullable List<String> getOutType(String stmt) {
-            try {
-                return schemaInfo.getResultTypeOf(stmt);
-            } catch (OpsDatabaseException e) {
-                return null;
-            }
+        private @Nullable List<String> getOutType(String stmt) throws OpsDatabaseException {
+            return schemaInfo.getResultTypeOf(stmt);
         }
 
-        private @Nullable List<String> getInType(String stmt) {
-            try {
-                return schemaInfo.getPlaceholderTypesOf(stmt);
-            } catch (OpsDatabaseException e) {
-                return null;
-            }
+        private @Nullable List<String> getInType(String stmt) throws OpsDatabaseException {
+            return schemaInfo.getPlaceholderTypesOf(stmt);
         }
     }
 }
