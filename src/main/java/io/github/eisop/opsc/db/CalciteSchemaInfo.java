@@ -40,8 +40,6 @@ public class CalciteSchemaInfo implements SchemaInfo {
 
     private final SchemaPlus rootSchema;
 
-    CalciteConnection calciteConnection;
-
     SqlParser.Config parserConfig =
             SqlParser.config().withCaseSensitive(false).withQuoting(Quoting.DOUBLE_QUOTE);
 
@@ -49,7 +47,7 @@ public class CalciteSchemaInfo implements SchemaInfo {
             String databaseUrl, @Nullable String username, @Nullable String password)
             throws SQLException {
         Connection conn = DriverManager.getConnection("jdbc:calcite:", new Properties());
-        calciteConnection = conn.unwrap(CalciteConnection.class);
+        CalciteConnection calciteConnection = conn.unwrap(CalciteConnection.class);
         DataSource dataSource = JdbcSchema.dataSource(databaseUrl, null, username, password);
         rootSchema = calciteConnection.getRootSchema();
         Schema subSchema = JdbcSchema.create(rootSchema, SUB_SCHEMA_NAME, dataSource, null, null);
@@ -58,7 +56,7 @@ public class CalciteSchemaInfo implements SchemaInfo {
 
     @Override
     public ImmutableList<String> getResultTypeOf(String stmt) throws OpsDatabaseException {
-        return getJavaTypes(parseSql(stmt).getRowType());
+        return getJavaTypesWithAnnotations(parseSql(stmt).getRowType());
     }
 
     @Override
@@ -112,7 +110,7 @@ public class CalciteSchemaInfo implements SchemaInfo {
         return tree;
     }
 
-    private ImmutableList<String> getJavaTypes(RelDataType relType) {
+    private ImmutableList<String> getJavaTypesWithAnnotations(RelDataType relType) {
         return relType.getFieldList().stream()
                 .map(field -> getJavaTypeWithAnnotations(field.getType()))
                 .collect(ImmutableList.toImmutableList());
@@ -142,7 +140,7 @@ public class CalciteSchemaInfo implements SchemaInfo {
             case TIME -> "Time";
             case TIMESTAMP -> "Timestamp";
             case BOOLEAN -> "Boolean";
-            case NUMERIC -> switch (relType.getSqlTypeName()) {
+            case NUMERIC -> switch (sqlTypeName) {
                 case INTEGER, TINYINT, SMALLINT, BIGINT -> "Integer";
                 default -> "Double";
             };

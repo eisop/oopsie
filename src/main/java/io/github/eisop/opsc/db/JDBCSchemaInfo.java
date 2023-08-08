@@ -28,6 +28,12 @@ public class JDBCSchemaInfo implements SchemaInfo {
 
     @Override
     public ImmutableList<String> getResultTypeOf(String stmt) throws OpsDatabaseException {
+        try {
+            Class.forName("org.postgresql.Driver");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+
         try (Connection conn = DriverManager.getConnection(databaseUrl, username, password)) {
             PreparedStatement ps = conn.prepareStatement(stmt);
             ResultSetMetaData md = ps.getMetaData();
@@ -43,6 +49,12 @@ public class JDBCSchemaInfo implements SchemaInfo {
 
     @Override
     public ImmutableList<String> getPlaceholderTypesOf(String stmt) throws OpsDatabaseException {
+        try {
+            Class.forName("org.postgresql.Driver");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+
         try (Connection conn = DriverManager.getConnection(databaseUrl, username, password)) {
             PreparedStatement ps = conn.prepareStatement(stmt);
             ParameterMetaData md = ps.getParameterMetaData();

@@ -149,6 +149,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             }
 
             for (int i = 0; i < subOut.size(); i++) {
+                // Split annotation strings at spaces to get individual @-annotations and the type
                 String[] sub = subOut.get(i).split(" ");
                 String[] sup = superOut.get(i).split(" ");
                 String subType = sub[sub.length - 1];
@@ -167,32 +168,41 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     if (Arrays.stream(sub).noneMatch(s -> s.startsWith("@MaxLength("))) {
                         return false;
                     }
+                    // Compare the values of the @MaxLength annotations
                     int superMax =
                             Arrays.stream(sup)
+                                    // find @MaxLength(...) annotation
                                     .filter(s -> s.startsWith("@MaxLength("))
                                     .map(
                                             s ->
                                                     Integer.parseInt(
+                                                            // find the value inside the parentheses
+                                                            // of the @MaxLength(...) annotation
                                                             s.split("\\(", 2)[1]
                                                                     .split("\\)", 2)[0]))
                                     .findFirst()
                                     .orElseThrow(
                                             () ->
                                                     new TypeSystemError(
-                                                            "Invalid @MaxLength annotation"));
+                                                            "Invalid @MaxLength annotation: %s",
+                                                            (Object) sup));
                     int subMax =
                             Arrays.stream(sub)
+                                    // find @MaxLength(...) annotation
                                     .filter(s -> s.startsWith("@MaxLength("))
                                     .map(
                                             s ->
                                                     Integer.parseInt(
+                                                            // find the value inside the parentheses
+                                                            // of the @MaxLength(...) annotation
                                                             s.split("\\(", 2)[1]
                                                                     .split("\\)", 2)[0]))
                                     .findFirst()
                                     .orElseThrow(
                                             () ->
                                                     new TypeSystemError(
-                                                            "Invalid @MaxLength annotation"));
+                                                            "Invalid @MaxLength annotation: %s",
+                                                            (Object) sub));
                     if (subMax > superMax) {
                         return false;
                     }
