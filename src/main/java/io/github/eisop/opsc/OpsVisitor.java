@@ -45,6 +45,13 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                             "Double"),
                     Map.entry(
                             TreeUtils.getMethod(
+                                    "java.sql.PreparedStatement",
+                                    "setBigDecimal",
+                                    2,
+                                    processingEnv),
+                            "BigDecimal"),
+                    Map.entry(
+                            TreeUtils.getMethod(
                                     "java.sql.PreparedStatement", "setBoolean", 2, processingEnv),
                             "Boolean"));
 
@@ -62,6 +69,10 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                             TreeUtils.getMethod(
                                     "java.sql.ResultSet", "getDouble", processingEnv, "int"),
                             "Double"),
+                    Map.entry(
+                            TreeUtils.getMethod(
+                                    "java.sql.ResultSet", "getBigDecimal", processingEnv, "int"),
+                            "BigDecimal"),
                     Map.entry(
                             TreeUtils.getMethod(
                                     "java.sql.ResultSet", "getBoolean", processingEnv, "int"),

@@ -113,8 +113,7 @@ public class CalciteSchemaInfo implements SchemaInfo {
             SqlNode validated = planner.validate(parsed);
             tree = planner.rel(validated).rel;
         } catch (ValidationException | SqlParseException | RelConversionException e) {
-            throw new OpsDatabaseException(
-                    "Could not extract the result type of the SQL statement:\n" + stmt, e);
+            throw new OpsDatabaseException(e);
         }
         return tree;
     }

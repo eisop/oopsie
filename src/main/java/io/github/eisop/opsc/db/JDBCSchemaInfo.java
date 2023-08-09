@@ -39,6 +39,9 @@ public class JDBCSchemaInfo implements SchemaInfo {
         try (Connection conn = DriverManager.getConnection(databaseUrl, username, password)) {
             PreparedStatement ps = conn.prepareStatement(stmt);
             ResultSetMetaData md = ps.getMetaData();
+            if (md == null) {
+                return ImmutableList.of();
+            }
             ImmutableList.Builder<String> builder = ImmutableList.builder();
             for (int i = 1; i <= md.getColumnCount(); i++) {
                 builder.add(getJavaTypeWithAnnotations(i, md));
@@ -62,6 +65,9 @@ public class JDBCSchemaInfo implements SchemaInfo {
         try (Connection conn = DriverManager.getConnection(databaseUrl, username, password)) {
             PreparedStatement ps = conn.prepareStatement(stmt);
             ParameterMetaData md = ps.getParameterMetaData();
+            if (md == null) {
+                return ImmutableList.of();
+            }
             ImmutableList.Builder<String> builder = ImmutableList.builder();
             for (int i = 1; i <= md.getParameterCount(); i++) {
                 builder.add(getJavaTypeWithAnnotations(i, md));

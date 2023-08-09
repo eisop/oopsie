@@ -56,4 +56,24 @@ public class SqlOut {
         // :: error: (column.type.incompatible)
         rs.getInt(3);
     }
+
+    void noParameters() throws SQLException {
+        // This should work
+        PreparedStatement ps =
+                conn.prepareStatement("SELECT InvoiceId, Total, BillingCountry FROM Invoice");
+
+        @Sql(out = {"@NonNull Integer", "@NonNull BigDecimal", "@Nullable @MaxLength(40) String"})
+        ResultSet rs = ps.executeQuery();
+    }
+
+    void noParametersButSet() throws SQLException {
+        PreparedStatement ps =
+                conn.prepareStatement("SELECT InvoiceId, Total, BillingCountry FROM Invoice");
+
+        @Sql(out = {"@NonNull Integer", "@NonNull BigDecimal", "@Nullable @MaxLength(40) String"})
+        ResultSet rs = ps.executeQuery();
+
+        // :: error: (parameter.index.out.of.bounds)
+        ps.setBigDecimal(1, BigDecimal.valueOf(244.331));
+    }
 }

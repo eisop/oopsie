@@ -22,16 +22,16 @@ public interface SchemaInfo {
     ImmutableList<String> getResultTypeOf(String stmt) throws OpsDatabaseException;
 
     /**
-     * Gets the type of each placeholder (`?`) in the given PreparedStatement string.
+     * Gets the type of each parameter (`?`) in the given PreparedStatement string.
      *
      * <p>The String can contain space-separated annotations like {@code @Nullable} or
      * {@code @MaxLength(100)}, followed by the name of the Java class corresponding to the
-     * placeholder type.
+     * parameter type.
      *
      * <p>For example, {@code @Nullable @MaxLength(100) String}.
      *
      * @param stmt the PreparedStatement string
-     * @return the type of each placeholder
+     * @return the type of each parameter
      * @throws OpsDatabaseException if there is a problem with the database schema or connection
      */
     ImmutableList<String> getPlaceholderTypesOf(String stmt) throws OpsDatabaseException;

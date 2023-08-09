@@ -279,16 +279,16 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                             in = getInType(stmt);
                         } catch (OpsDatabaseException e) {
                             throw new TypeSystemError(
-                                    "Could not retrieve in type of prepared statement: %s",
-                                    e.getMessage());
+                                    "Could not retrieve in type of prepared statement.\nReason: %s\nStatement: %s",
+                                    e.getMessage(), stmt);
                         }
                         List<String> out;
                         try {
                             out = getOutType(stmt);
                         } catch (OpsDatabaseException e) {
                             throw new TypeSystemError(
-                                    "Could not retrieve out type of prepared statement: %s",
-                                    e.getMessage());
+                                    "Could not retrieve out type of prepared statement.\nReason: %s\nStatement: %s",
+                                    e.getMessage(), stmt);
                         }
 
                         type.replaceAnnotation(createSQLAnnotation(in, out));
@@ -366,11 +366,19 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         }
 
         private @Nullable List<String> getOutType(String stmt) throws OpsDatabaseException {
-            return schemaInfo.getResultTypeOf(stmt);
+            List<String> rt = schemaInfo.getResultTypeOf(stmt);
+            if (rt == null || rt.isEmpty()) {
+                return null;
+            }
+            return rt;
         }
 
         private @Nullable List<String> getInType(String stmt) throws OpsDatabaseException {
-            return schemaInfo.getPlaceholderTypesOf(stmt);
+            List<String> pt = schemaInfo.getPlaceholderTypesOf(stmt);
+            if (pt == null || pt.isEmpty()) {
+                return null;
+            }
+            return pt;
         }
     }
 }
