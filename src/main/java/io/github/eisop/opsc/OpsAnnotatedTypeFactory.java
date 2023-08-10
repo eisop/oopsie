@@ -10,6 +10,7 @@ import io.github.eisop.opsc.qual.Sql;
 import io.github.eisop.opsc.qual.SqlBottom;
 import io.github.eisop.opsc.qual.SqlUnknown;
 import java.lang.annotation.Annotation;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -214,13 +215,42 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 QualifierKind qualifierKind2,
                 QualifierKind lubKind) {
             if (qualifierKind1 == SQL_KIND && qualifierKind2 == SQL_KIND) {
-                // TODO: actually look at values.
                 if (a1 == a2) {
                     return a1;
+                } else if (isSubtypeWithElements(a1, qualifierKind1, a2, qualifierKind2)) {
+                    return a2;
+                } else if (isSubtypeWithElements(a2, qualifierKind2, a1, qualifierKind1)) {
+                    return a1;
                 } else {
-                    return SQLUNKNOWN;
+                    // two SQL types need at least the same in columns to be subtypes
+                    List<String> in1 =
+                            AnnotationUtils.getElementValueArray(
+                                    a1, sqlInElement, String.class, Collections.emptyList());
+                    List<String> in2 =
+                            AnnotationUtils.getElementValueArray(
+                                    a2, sqlInElement, String.class, Collections.emptyList());
+
+                    if (!in1.equals(in2)) {
+                        return SQLUNKNOWN;
+                    }
+
+                    // if the first n out columns are the same, the lub has the first n out columns
+                    List<String> inLub = new ArrayList<>();
+                    for (int i = 0; i < in1.size(); i++) {
+                        if (!in1.get(i).equals(in2.get(i))) {
+                            inLub = in1.subList(0, i);
+                            break;
+                        }
+                    }
+
+                    return createSQLAnnotation(inLub, Collections.emptyList());
                 }
+            } else if (qualifierKind1 == SQL_KIND && qualifierKind2 == SQLBOTTOM_KIND) {
+                return a1;
+            } else if (qualifierKind1 == SQLBOTTOM_KIND && qualifierKind2 == SQL_KIND) {
+                return a2;
             }
+
             throw new TypeSystemError("Unexpected qualifiers: %s %s", a1, a2);
         }
 
@@ -348,15 +378,6 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             return valueType.getAnnotation(StringVal.class);
         }
 
-        /** Returns a new SQL annotation with the given output type. */
-        private AnnotationMirror createSQLAnnotation(
-                @Nullable List<String> in, @Nullable List<String> out) {
-            AnnotationBuilder builder = new AnnotationBuilder(processingEnv, Sql.class);
-            if (in != null) builder.setValue("in", in);
-            if (out != null) builder.setValue("out", out);
-            return builder.build();
-        }
-
         private @Nullable List<String> getOutType(String stmt) throws OpsDatabaseException {
             List<String> rt = schemaInfo.getResultTypeOf(stmt);
             if (rt == null || rt.isEmpty()) {
@@ -373,4 +394,14 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             return pt;
         }
     }
+
+    /** Returns a new SQL annotation with the given in and out types. */
+    private AnnotationMirror createSQLAnnotation(
+            @Nullable List<String> in, @Nullable List<String> out) {
+        AnnotationBuilder builder = new AnnotationBuilder(processingEnv, Sql.class);
+        if (in != null) builder.setValue("in", in);
+        if (out != null) builder.setValue("out", out);
+        return builder.build();
+    }
+
 }
