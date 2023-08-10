@@ -63,7 +63,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     private final ExecutableElement connectionPrepareStatement =
             TreeUtils.getMethod("java.sql.Connection", "prepareStatement", 1, processingEnv);
 
-    private final ExecutableElement executeQuery =
+    private final ExecutableElement preparedStatementExecuteQuery =
             TreeUtils.getMethod("java.sql.PreparedStatement", "executeQuery", 0, processingEnv);
 
     private SchemaInfo schemaInfo;
@@ -106,11 +106,13 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
     private final class OpsQualifierHierarchy extends MostlyNoElementQualifierHierarchy {
         private final QualifierKind SQL_KIND;
+        private final QualifierKind SQLBOTTOM_KIND;
 
         private OpsQualifierHierarchy(
                 Collection<Class<? extends Annotation>> qualifierClasses, Elements elements) {
             super(qualifierClasses, elements);
             SQL_KIND = getQualifierKind(SQL);
+            SQLBOTTOM_KIND = getQualifierKind(SQLBOTTOM);
         }
 
         @Override
@@ -139,15 +141,16 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         }
 
         private boolean outIsSubtype(List<String> subOut, List<String> superOut) {
-            // Compare lengths: Supertype can have more columns than subtype as it does not have to
+            // Compare lengths: Supertype may have fewer columns than subtype as it does not have to
             // deal with all columns of the subtype
             if (subOut.size() < superOut.size()) {
                 return false;
             }
             if (subOut.size() > superOut.size()) {
-                return outIsSubtype(subOut, subOut.subList(0, superOut.size()));
+                return outIsSubtype(subOut.subList(0, superOut.size()), superOut);
             }
 
+            // Compare individual columns
             for (int i = 0; i < subOut.size(); i++) {
                 // Split annotation strings at spaces to get individual @-annotations and the type
                 String[] sub = subOut.get(i).split(" ");
@@ -168,47 +171,33 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     if (Arrays.stream(sub).noneMatch(s -> s.startsWith("@MaxLength("))) {
                         return false;
                     }
-                    // Compare the values of the @MaxLength annotations
-                    int superMax =
-                            Arrays.stream(sup)
-                                    // find @MaxLength(...) annotation
-                                    .filter(s -> s.startsWith("@MaxLength("))
-                                    .map(
-                                            s ->
-                                                    Integer.parseInt(
-                                                            // find the value inside the parentheses
-                                                            // of the @MaxLength(...) annotation
-                                                            s.split("\\(", 2)[1]
-                                                                    .split("\\)", 2)[0]))
-                                    .findFirst()
-                                    .orElseThrow(
-                                            () ->
-                                                    new TypeSystemError(
-                                                            "Invalid @MaxLength annotation: %s",
-                                                            (Object) sup));
-                    int subMax =
-                            Arrays.stream(sub)
-                                    // find @MaxLength(...) annotation
-                                    .filter(s -> s.startsWith("@MaxLength("))
-                                    .map(
-                                            s ->
-                                                    Integer.parseInt(
-                                                            // find the value inside the parentheses
-                                                            // of the @MaxLength(...) annotation
-                                                            s.split("\\(", 2)[1]
-                                                                    .split("\\)", 2)[0]))
-                                    .findFirst()
-                                    .orElseThrow(
-                                            () ->
-                                                    new TypeSystemError(
-                                                            "Invalid @MaxLength annotation: %s",
-                                                            (Object) sub));
+                    int superMax = getMaxLengthValue(sup);
+                    int subMax = getMaxLengthValue(sub);
                     if (subMax > superMax) {
                         return false;
                     }
                 }
             }
             return true;
+        }
+
+        private static Integer getMaxLengthValue(String[] annotations) {
+            return Arrays.stream(annotations)
+                    // find @MaxLength(...) annotation
+                    .filter(s -> s.startsWith("@MaxLength("))
+                    .map(
+                            s ->
+                                    Integer.parseInt(
+                                            // find the value inside the parentheses
+                                            // of the @MaxLength(...) annotation
+                                            s.split("\\(", 2)[1]
+                                                    .split("\\)", 2)[0]))
+                    .findFirst()
+                    .orElseThrow(
+                            () ->
+                                    new TypeSystemError(
+                                            "Invalid @MaxLength annotation: %s",
+                                            (Object) annotations));
         }
 
         private boolean inIsSubtype(List<String> subIn, List<String> superIn) {
@@ -264,7 +253,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             super(atypeFactory);
         }
 
-        /** Add annotation for Strings in prepareStatement() calls. */
+        /**
+         * Add annotation for Strings in prepareStatement() calls and transfer annotation from PreparedStatement to
+         * ResultSet in executeQuery() calls.
+         */
         @Override
         public Void visitMethodInvocation(MethodInvocationTree tree, AnnotatedTypeMirror type) {
             // todo other overloaded methods
@@ -297,8 +289,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                                 tree, "could not determine SQL string value of prepared statement");
                     }
                 }
-            } else if (TreeUtils.isMethodInvocation(tree, executeQuery, processingEnv)) {
-                // get type annotation from PreparedStatement
+            } else if (TreeUtils.isMethodInvocation(tree, preparedStatementExecuteQuery, processingEnv)) {
+                // get type annotation from PreparedStatement and transfer it to the result set
                 AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
                 if (receiverType.hasAnnotation(Sql.class)) {
                     AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
