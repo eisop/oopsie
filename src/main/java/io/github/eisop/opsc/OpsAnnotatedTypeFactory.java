@@ -222,7 +222,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 } else if (isSubtypeWithElements(a2, qualifierKind2, a1, qualifierKind1)) {
                     return a1;
                 } else {
-                    // two SQL types need at least the same in columns to be subtypes
+                    // an SQL upper bound needs at least the same in columns as a1 and a2,
+                    // so a1 and a2 need to have equal in columns
                     List<String> in1 =
                             AnnotationUtils.getElementValueArray(
                                     a1, sqlInElement, String.class, Collections.emptyList());
@@ -236,14 +237,16 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
                     // if the first n out columns are the same, the lub has the first n out columns
                     List<String> inLub = new ArrayList<>();
+                    // the lub has the common first out columns of a1 and a2
+                    List<String> outLub = new ArrayList<>();
                     for (int i = 0; i < in1.size(); i++) {
                         if (!in1.get(i).equals(in2.get(i))) {
-                            inLub = in1.subList(0, i);
+                            outLub = in1.subList(0, i);
                             break;
                         }
                     }
 
-                    return createSQLAnnotation(inLub, Collections.emptyList());
+                    return createSQLAnnotation(in1, outLub);
                 }
             } else if (qualifierKind1 == SQL_KIND && qualifierKind2 == SQLBOTTOM_KIND) {
                 return a1;
