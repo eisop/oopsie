@@ -191,8 +191,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                                     Integer.parseInt(
                                             // find the value inside the parentheses
                                             // of the @MaxLength(...) annotation
-                                            s.split("\\(", 2)[1]
-                                                    .split("\\)", 2)[0]))
+                                            s.split("\\(", 2)[1].split("\\)", 2)[0]))
                     .findFirst()
                     .orElseThrow(
                             () ->
@@ -235,8 +234,6 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         return SQLUNKNOWN;
                     }
 
-                    // if the first n out columns are the same, the lub has the first n out columns
-                    List<String> inLub = new ArrayList<>();
                     // the lub has the common first out columns of a1 and a2
                     List<String> outLub = new ArrayList<>();
                     for (int i = 0; i < in1.size(); i++) {
@@ -265,13 +262,20 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 QualifierKind qualifierKind2,
                 QualifierKind glbKind) {
             if (qualifierKind1 == SQL_KIND && qualifierKind2 == SQL_KIND) {
-                // TODO: actually look at values.
                 if (a1 == a2) {
                     return a1;
+                } else if (isSubtypeWithElements(a1, qualifierKind1, a2, qualifierKind2)) {
+                    return a1;
+                } else if (isSubtypeWithElements(a2, qualifierKind1, a1, qualifierKind2)) {
+                    return a2;
                 } else {
                     return SQLBOTTOM;
                 }
+            } else if ((qualifierKind1 == SQLBOTTOM_KIND && qualifierKind2 == SQL_KIND)
+                    || (qualifierKind1 == SQL_KIND && qualifierKind2 == SQLBOTTOM_KIND)) {
+                return SQLBOTTOM;
             }
+
             throw new TypeSystemError("Unexpected qualifiers: %s %s", a1, a2);
         }
     }
@@ -287,8 +291,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         }
 
         /**
-         * Add annotation for Strings in prepareStatement() calls and transfer annotation from PreparedStatement to
-         * ResultSet in executeQuery() calls.
+         * Add annotation for Strings in prepareStatement() calls and transfer annotation from
+         * PreparedStatement to ResultSet in executeQuery() calls.
          */
         @Override
         public Void visitMethodInvocation(MethodInvocationTree tree, AnnotatedTypeMirror type) {
@@ -322,7 +326,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                                 tree, "could not determine SQL string value of prepared statement");
                     }
                 }
-            } else if (TreeUtils.isMethodInvocation(tree, preparedStatementExecuteQuery, processingEnv)) {
+            } else if (TreeUtils.isMethodInvocation(
+                    tree, preparedStatementExecuteQuery, processingEnv)) {
                 // get type annotation from PreparedStatement and transfer it to the result set
                 AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
                 if (receiverType.hasAnnotation(Sql.class)) {
@@ -406,5 +411,4 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         if (out != null) builder.setValue("out", out);
         return builder.build();
     }
-
 }
