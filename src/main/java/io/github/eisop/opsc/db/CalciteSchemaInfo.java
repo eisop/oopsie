@@ -17,6 +17,7 @@ import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelVisitor;
 import org.apache.calcite.rel.core.Filter;
+import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexNode;
@@ -89,6 +90,20 @@ public class CalciteSchemaInfo implements SchemaInfo {
                                                     return dynamicParam;
                                                 }
                                             });
+                        } else if (node instanceof LogicalProject project) {
+                            project.getProjects()
+                                    .forEach(
+                                            p ->
+                                                    p.accept(
+                                                            new RexShuttle() {
+                                                                @Override
+                                                                public RexNode visitDynamicParam(
+                                                                        RexDynamicParam
+                                                                                dynamicParam) {
+                                                                    params.add(dynamicParam);
+                                                                    return dynamicParam;
+                                                                }
+                                                            }));
                         }
                         node.childrenAccept(this);
                     }
@@ -150,6 +165,7 @@ public class CalciteSchemaInfo implements SchemaInfo {
             case BOOLEAN -> "Boolean";
             case NUMERIC -> switch (sqlTypeName) {
                 case INTEGER, TINYINT, SMALLINT, BIGINT -> "Integer";
+                case DECIMAL -> "BigDecimal";
                 default -> "Double";
             };
             default -> "Object";
