@@ -39,7 +39,6 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("io.github.eisop:checker:${versions.checkerFramework}")
     testImplementation("io.github.eisop:framework-test:${versions.checkerFramework}")
-    testImplementation("org.xerial:sqlite-jdbc:3.42.0.0")
     testImplementation("org.postgresql:postgresql:42.6.0")
 }
 
