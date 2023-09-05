@@ -123,18 +123,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 AnnotationMirror superAnno,
                 QualifierKind superKind) {
             if (subKind == SQL_KIND && superKind == SQL_KIND) {
-                List<String> subIn =
-                        AnnotationUtils.getElementValueArray(
-                                subAnno, sqlInElement, String.class, Collections.emptyList());
-                List<String> subOut =
-                        AnnotationUtils.getElementValueArray(
-                                subAnno, sqlOutElement, String.class, Collections.emptyList());
-                List<String> superIn =
-                        AnnotationUtils.getElementValueArray(
-                                superAnno, sqlInElement, String.class, Collections.emptyList());
-                List<String> superOut =
-                        AnnotationUtils.getElementValueArray(
-                                superAnno, sqlOutElement, String.class, Collections.emptyList());
+                List<String> subIn = getInElement(subAnno);
+                List<String> subOut = getOutElement(subAnno);
+                List<String> superIn = getInElement(superAnno);
+                List<String> superOut = getOutElement(superAnno);
 
                 return outIsSubtype(subOut, superOut) && inIsSubtype(subIn, superIn);
             }
@@ -223,22 +215,21 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 } else {
                     // an SQL upper bound needs at least the same in columns as a1 and a2,
                     // so a1 and a2 need to have equal in columns
-                    List<String> in1 =
-                            AnnotationUtils.getElementValueArray(
-                                    a1, sqlInElement, String.class, Collections.emptyList());
-                    List<String> in2 =
-                            AnnotationUtils.getElementValueArray(
-                                    a2, sqlInElement, String.class, Collections.emptyList());
+                    List<String> in1 = getInElement(a1);
+                    List<String> in2 = getInElement(a2);
+                    List<String> out1 = getOutElement(a1);
+                    List<String> out2 = getOutElement(a2);
 
                     if (!in1.equals(in2)) {
                         return SQLUNKNOWN;
                     }
 
                     // the lub has the common first out columns of a1 and a2
+                    int lubOutSize = Math.min(out1.size(), out2.size());
                     List<String> outLub = new ArrayList<>();
-                    for (int i = 0; i < in1.size(); i++) {
-                        if (!in1.get(i).equals(in2.get(i))) {
-                            outLub = in1.subList(0, i);
+                    for (int i = 0; i < lubOutSize; i++) {
+                        if (!out1.get(i).equals(out2.get(i))) {
+                            outLub = out1.subList(0, i);
                             break;
                         }
                     }
@@ -252,6 +243,16 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             }
 
             throw new TypeSystemError("Unexpected qualifiers: %s %s", a1, a2);
+        }
+
+        private List<String> getInElement(AnnotationMirror a1) {
+            return AnnotationUtils.getElementValueArray(
+                    a1, sqlInElement, String.class, Collections.emptyList());
+        }
+
+        private List<String> getOutElement(AnnotationMirror a1) {
+            return AnnotationUtils.getElementValueArray(
+                    a1, sqlOutElement, String.class, Collections.emptyList());
         }
 
         @Override
