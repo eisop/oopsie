@@ -12,10 +12,16 @@ This requires that you built the EISOP Framework in `../checker-framework/`.
 
 ## Developer notes
 
-Assemble and test with `./gradlew test`.
+* Prepare the test database by setting up a PostgreSQL database with the schema from the files in the ddl directory.
+Currently, dir/invoice.sql is the only file that is required.
 
-Apply formatting with `./gradlew spotlessApply`.
+* Change the database URL and credential constants in test/java/tests/OpscTest.java to match your database.
+  (These constants will be moved out of the test class in the future.)
 
-Run `./gradlew publishToMavenLocal` to publish to your local Maven repository.
+* Assemble and test with `./gradlew test`.
 
-TODO: document how to use a Maven(Local) release.
+* Apply formatting with `./gradlew spotlessApply`.
+
+* Run `./gradlew publishToMavenLocal` to publish to your local Maven repository.
+
+* TODO: document how to use a Maven(Local) release.
