@@ -19,11 +19,23 @@ public class JDBCSchemaInfo implements SchemaInfo {
     private final @Nullable String username;
     private final @Nullable String password;
 
-    public JDBCSchemaInfo(
-            String databaseUrl, @Nullable String username, @Nullable String password) {
+    public JDBCSchemaInfo(String databaseUrl, @Nullable String username, @Nullable String password)
+            throws OpsDatabaseException {
         this.databaseUrl = databaseUrl;
         this.username = username;
         this.password = password;
+
+        try {
+            testConnection();
+        } catch (SQLException e) {
+            throw new OpsDatabaseException(e);
+        }
+    }
+
+    private void testConnection() throws SQLException {
+        try (Connection conn = DriverManager.getConnection(databaseUrl, username, password)) {
+            conn.createStatement();
+        }
     }
 
     @Override

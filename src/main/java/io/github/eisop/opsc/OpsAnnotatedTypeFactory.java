@@ -80,11 +80,15 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         if (checker.getOption("dbUrl") == null) {
             throw new UserError("Database URL not specified");
         } else {
-            schemaInfo =
-                    new JDBCSchemaInfo(
-                            checker.getOption("dbUrl"),
-                            checker.getOption("dbUser"),
-                            checker.getOption("dbPassword"));
+            try {
+                schemaInfo =
+                        new JDBCSchemaInfo(
+                                checker.getOption("dbUrl"),
+                                checker.getOption("dbUser"),
+                                checker.getOption("dbPassword"));
+            } catch (OpsDatabaseException e) {
+                throw new UserError("Could not connect to database: %s", e.getMessage());
+            }
         }
     }
 
