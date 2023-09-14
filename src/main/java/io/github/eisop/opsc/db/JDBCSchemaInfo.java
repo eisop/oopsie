@@ -12,6 +12,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.checkerframework.javacutil.TypeSystemError;
 
 public class JDBCSchemaInfo implements SchemaInfo {
 
@@ -24,6 +25,14 @@ public class JDBCSchemaInfo implements SchemaInfo {
         this.databaseUrl = databaseUrl;
         this.username = username;
         this.password = password;
+
+        // Explicitly load the PostgreSQL driver, so it can be used by the checker when compiling
+        // the programme under test
+        try {
+            Class.forName("org.postgresql.Driver");
+        } catch (ClassNotFoundException e) {
+            throw new TypeSystemError(e.getMessage());
+        }
 
         try {
             testConnection();
@@ -40,14 +49,6 @@ public class JDBCSchemaInfo implements SchemaInfo {
 
     @Override
     public ImmutableList<String> getResultTypeOf(String stmt) throws OpsDatabaseException {
-        // Explicitly load the PostgreSQL driver, so it can be used by the checker when compiling
-        // the programme under test
-        try {
-            Class.forName("org.postgresql.Driver");
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
-
         try (Connection conn = DriverManager.getConnection(databaseUrl, username, password)) {
             PreparedStatement ps = conn.prepareStatement(stmt);
             ResultSetMetaData md = ps.getMetaData();

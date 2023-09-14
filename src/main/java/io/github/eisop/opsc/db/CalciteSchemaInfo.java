@@ -34,6 +34,7 @@ import org.apache.calcite.tools.Planner;
 import org.apache.calcite.tools.RelConversionException;
 import org.apache.calcite.tools.ValidationException;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.checkerframework.javacutil.TypeSystemError;
 
 public class CalciteSchemaInfo implements SchemaInfo {
 
@@ -54,7 +55,7 @@ public class CalciteSchemaInfo implements SchemaInfo {
             Class.forName("org.apache.calcite.jdbc.Driver");
             Class.forName("org.postgresql.Driver");
         } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
+            throw new TypeSystemError(e.getMessage());
         }
 
         try {

@@ -31,6 +31,7 @@ dependencies {
     compileOnly("io.github.eisop:checker:${versions.checkerFramework}")
 
     implementation("org.apache.calcite:calcite-core:1.35.0")
+    implementation("org.postgresql:postgresql:42.6.0")
 
     errorprone("com.google.errorprone:error_prone_core:2.21.1")
 
@@ -39,7 +40,6 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("io.github.eisop:checker:${versions.checkerFramework}")
     testImplementation("io.github.eisop:framework-test:${versions.checkerFramework}")
-    testImplementation("org.postgresql:postgresql:42.6.0")
 }
 
 sourceSets {
