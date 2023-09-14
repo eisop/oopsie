@@ -68,4 +68,12 @@ public class SqlIn {
         // :: error: (parameter.type.incompatible)
         ps.setString(1, "244");
     }
+
+        void constantValue() throws SQLException {
+            // :: warning: (determine.in.type.failed.first.try)
+            // :: warning: (determine.out.type.failed.first.try)
+            PreparedStatement ps = conn.prepareStatement("SELECT ?");
+
+            ps.setString(1, "A constant");
+        }
 }

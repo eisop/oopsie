@@ -3,6 +3,7 @@ package io.github.eisop.opsc;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
+import io.github.eisop.opsc.db.CalciteSchemaInfo;
 import io.github.eisop.opsc.db.JDBCSchemaInfo;
 import io.github.eisop.opsc.db.SchemaInfo;
 import io.github.eisop.opsc.exception.OpsDatabaseException;
@@ -19,6 +20,7 @@ import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.util.Elements;
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import org.checkerframework.common.basetype.BaseTypeChecker;
@@ -67,7 +69,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     private final ExecutableElement preparedStatementExecuteQuery =
             TreeUtils.getMethod("java.sql.PreparedStatement", "executeQuery", 0, processingEnv);
 
-    private SchemaInfo schemaInfo;
+    private SchemaInfo calciteSchemaInfo;
+
+    // Used as fallback
+    private SchemaInfo jdbcSchemaInfo;
 
     public OpsAnnotatedTypeFactory(BaseTypeChecker checker) {
         super(checker);
@@ -82,7 +87,12 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             throw new UserError("Database URL not specified");
         } else {
             try {
-                schemaInfo =
+                calciteSchemaInfo =
+                        new CalciteSchemaInfo(
+                                checker.getOption("dbUrl"),
+                                checker.getOption("dbUser"),
+                                checker.getOption("dbPassword"));
+                jdbcSchemaInfo =
                         new JDBCSchemaInfo(
                                 checker.getOption("dbUrl"),
                                 checker.getOption("dbUser"),
@@ -190,7 +200,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             return true;
         }
 
-        private static Integer getMaxLengthValue(String[] annotations) {
+        private Integer getMaxLengthValue(String[] annotations) {
             return Arrays.stream(annotations)
                     // find @MaxLength(...) annotation
                     .filter(s -> s.startsWith("@MaxLength("))
@@ -250,7 +260,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         }
                     }
 
-                    return createSQLAnnotation(in1, outLub);
+                    return createSqlAnnotation(in1, outLub);
                 }
             } else if (qualifierKind1 == SQL_KIND && qualifierKind2 == SQLBOTTOM_KIND) {
                 return a1;
@@ -319,25 +329,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 if (!type.hasAnnotationRelaxed(SQL)) {
                     String stmt = retrieveStringValue(arg);
                     if (stmt != null) {
-                        // get result type and placeholder type of prepared statement
-                        List<String> in;
-                        try {
-                            in = getInType(stmt);
-                        } catch (OpsDatabaseException e) {
-                            throw new TypeSystemError(
-                                    "Could not retrieve in type of prepared statement.\nReason: %s\nStatement: %s",
-                                    e.getMessage(), stmt);
-                        }
-                        List<String> out;
-                        try {
-                            out = getOutType(stmt);
-                        } catch (OpsDatabaseException e) {
-                            throw new TypeSystemError(
-                                    "Could not retrieve out type of prepared statement.\nReason: %s\nStatement: %s",
-                                    e.getMessage(), stmt);
-                        }
-
-                        type.replaceAnnotation(createSQLAnnotation(in, out));
+                        type.replaceAnnotation(buildSqlAnnotation(stmt, tree));
                     } else {
                         checker.reportWarning(
                                 tree, "could not determine SQL string value of prepared statement");
@@ -355,13 +347,59 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                                     sqlOutElement,
                                     String.class,
                                     Collections.emptyList());
-                    type.replaceAnnotation(createSQLAnnotation(null, out));
+                    type.replaceAnnotation(createSqlAnnotation(null, out));
                 } else {
                     checker.reportWarning(
                             tree, "could not get result type annotation from PreparedStatement");
                 }
             }
             return super.visitMethodInvocation(tree, type);
+        }
+
+        /**
+         * Determines result and placeholder types of the SQL statement and builds a
+         * corresponding @Sql annotation.
+         *
+         * <p>Hack: Because Calcite doesn't support statements like 'SELECT ?', use JDBCSchemaInfo
+         * as a fallback if
+         */
+        private @NonNull AnnotationMirror buildSqlAnnotation(
+                @NonNull String stmt, MethodInvocationTree tree) {
+            // get placeholder types of prepared statement
+            List<String> in;
+            try {
+                in = getInType(stmt, calciteSchemaInfo);
+            } catch (OpsDatabaseException calciteException) {
+                checker.reportWarning(tree, "determine.in.type.failed.first.try");
+
+                // Retry with fallback JDBCSchemaInfo
+                try {
+                    in = getInType(stmt, jdbcSchemaInfo);
+                } catch (OpsDatabaseException jdbcException) {
+                    throw new TypeSystemError(
+                            "Could not retrieve in type of prepared statement.\nReason: %s\nStatement: %s",
+                            jdbcException.getMessage(), stmt);
+                }
+            }
+
+            // get result type of prepared statement
+            List<String> out;
+            try {
+                out = getOutType(stmt, calciteSchemaInfo);
+            } catch (OpsDatabaseException calciteException) {
+                checker.reportWarning(tree, "determine.out.type.failed.first.try");
+
+                // Retry with fallback JDBCSchemaInfo
+                try {
+                    out = getOutType(stmt, jdbcSchemaInfo);
+                } catch (OpsDatabaseException jdbcException) {
+                    throw new TypeSystemError(
+                            "Could not retrieve out type of prepared statement.\nReason: %s\nStatement: %s",
+                            calciteException.getMessage(), stmt);
+                }
+            }
+
+            return createSqlAnnotation(in, out);
         }
 
         private @Nullable String retrieveStringValue(ExpressionTree stringExpression) {
@@ -403,7 +441,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             return valueType.getAnnotation(StringVal.class);
         }
 
-        private @Nullable List<String> getOutType(String stmt) throws OpsDatabaseException {
+        private @Nullable List<String> getOutType(String stmt, SchemaInfo schemaInfo)
+                throws OpsDatabaseException {
             List<String> rt = schemaInfo.getResultTypeOf(stmt);
             if (rt == null || rt.isEmpty()) {
                 return null;
@@ -411,7 +450,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             return rt;
         }
 
-        private @Nullable List<String> getInType(String stmt) throws OpsDatabaseException {
+        private @Nullable List<String> getInType(String stmt, SchemaInfo schemaInfo)
+                throws OpsDatabaseException {
             List<String> pt = schemaInfo.getPlaceholderTypesOf(stmt);
             if (pt == null || pt.isEmpty()) {
                 return null;
@@ -421,7 +461,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     }
 
     /** Returns a new SQL annotation with the given in and out types. */
-    private AnnotationMirror createSQLAnnotation(
+    private @NonNull AnnotationMirror createSqlAnnotation(
             @Nullable List<String> in, @Nullable List<String> out) {
         AnnotationBuilder builder = new AnnotationBuilder(processingEnv, Sql.class);
         if (in != null) builder.setValue("in", in);
