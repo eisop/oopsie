@@ -133,9 +133,21 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             throw new TypeSystemError("Unexpected qualifiers: %s %s", subAnno, superAnno);
         }
 
+        /**
+         * Returns true if the subtype's out columns are a subtype of the supertype's out columns.
+         * If the supertype has n out columns, the subtypes first n out columns must match,
+         * considering the type annotations. For example, {@code @Sql(out = {"@NonNull Integer",
+         * "String"})} is a subtype of {@code @Sql(out = {"@Nullable Integer"})}, but not of
+         * {@code @Sql(out = {"String"})}.
+         *
+         * @param subOut the subtype's out columns
+         * @param superOut the supertype's out columns
+         * @return true if the subtype's out columns are a subtype of the supertype's out columns
+         */
         private boolean outIsSubtype(List<String> subOut, List<String> superOut) {
-            // Compare lengths: Supertype may have fewer columns than subtype as it does not have to
-            // deal with all columns of the subtype
+            // Compare lengths: The supertype's out columns can be a prefix of the subtype's
+            // columns.
+            // In this case, the remaining columns of the subtype are ignored by the supertype.
             if (subOut.size() < superOut.size()) {
                 return false;
             }
