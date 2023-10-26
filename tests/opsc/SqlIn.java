@@ -69,11 +69,11 @@ public class SqlIn {
         ps.setString(1, "244");
     }
 
-        void constantValue() throws SQLException {
-            // :: warning: (determine.in.type.failed.first.try)
-            // :: warning: (determine.out.type.failed.first.try)
-            PreparedStatement ps = conn.prepareStatement("SELECT ?");
+    void constantValue() throws SQLException {
+        // :: warning: (determine.in.type.failed.first.try)
+        // :: warning: (determine.out.type.failed.first.try)
+        PreparedStatement ps = conn.prepareStatement("SELECT ?");
 
-            ps.setString(1, "A constant");
-        }
+        ps.setString(1, "A constant");
+    }
 }

@@ -49,8 +49,7 @@ public class CalciteSchemaInfo implements SchemaInfo {
             String databaseUrl, @Nullable String username, @Nullable String password)
             throws OpsDatabaseException {
         // Explicitly load the Calcite and Postgres JDBC drivers, so it can be used by the checker
-        // when compiling
-        // the programme under test
+        // when compiling the programme under test.
         try {
             Class.forName("org.apache.calcite.jdbc.Driver");
             Class.forName("org.postgresql.Driver");
@@ -83,7 +82,7 @@ public class CalciteSchemaInfo implements SchemaInfo {
      *
      * @throws SQLException if there is a problem with the database schema or connection
      */
-    void testJdbcConnection(
+    private static void testJdbcConnection(
             String databaseUrl, @Nullable String username, @Nullable String password)
             throws SQLException {
         try (Connection conn = DriverManager.getConnection(databaseUrl, username, password)) {

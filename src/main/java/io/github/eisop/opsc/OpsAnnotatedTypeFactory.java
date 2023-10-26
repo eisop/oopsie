@@ -74,6 +74,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     // Used as fallback
     private SchemaInfo jdbcSchemaInfo;
 
+    @SuppressWarnings("this-escape") // Call to postInit().
     public OpsAnnotatedTypeFactory(BaseTypeChecker checker) {
         super(checker);
 
@@ -125,7 +126,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
         private OpsQualifierHierarchy(
                 Collection<Class<? extends Annotation>> qualifierClasses, Elements elements) {
-            super(qualifierClasses, elements);
+            super(qualifierClasses, elements, OpsAnnotatedTypeFactory.this);
             SQL_KIND = getQualifierKind(SQL);
             SQLBOTTOM_KIND = getQualifierKind(SQLBOTTOM);
         }
