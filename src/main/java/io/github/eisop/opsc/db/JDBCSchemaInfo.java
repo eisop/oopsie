@@ -134,7 +134,7 @@ public class JDBCSchemaInfo implements SchemaInfo {
                 };
         if (Objects.equals(className, "String")) {
             if (precision != 0) {
-                anno += " @MaxLength(" + precision + ") ";
+                anno += "@MaxLength(" + precision + ") ";
             }
         }
         return anno + className;

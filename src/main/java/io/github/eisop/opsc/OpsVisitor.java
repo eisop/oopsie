@@ -129,8 +129,8 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                     checker.reportError(
                             tree,
                             "parameter.type.incompatible",
-                            in.get(index),
-                            preparedStatementSetMethodTypes.get(method));
+                            preparedStatementSetMethodTypes.get(method),
+                            in.get(index));
                 }
             }
         }
@@ -157,8 +157,8 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                     checker.reportError(
                             tree,
                             "column.type.incompatible",
-                            out.get(index),
-                            resultSetGetMethodTypes.get(method));
+                            resultSetGetMethodTypes.get(method),
+                            out.get(index));
                 }
             }
         }
