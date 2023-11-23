@@ -61,6 +61,14 @@ public class SqlIn {
         ps.setDouble(2, 244.331);
     }
 
+    void noParametersButSet() throws SQLException {
+        PreparedStatement ps =
+                conn.prepareStatement("SELECT InvoiceId, Total, BillingCountry FROM Invoice");
+
+        // :: error: (parameter.index.out.of.bounds)
+        ps.setBigDecimal(1, BigDecimal.valueOf(244.331));
+    }
+
     void setParamWrongType() throws SQLException {
         PreparedStatement ps =
                 conn.prepareStatement(

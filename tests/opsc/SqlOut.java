@@ -57,6 +57,17 @@ public class SqlOut {
         rs.getInt(3);
     }
 
+    void getOutOfBounds() throws SQLException {
+        PreparedStatement ps =
+                conn.prepareStatement("SELECT InvoiceId, Total, BillingCountry FROM Invoice");
+
+        @Sql(out = {"@NonNull Integer", "@NonNull BigDecimal", "@Nullable @MaxLength(40) String"})
+        ResultSet rs = ps.executeQuery();
+
+        // :: error: (column.index.out.of.bounds)
+        rs.getBigDecimal(9);
+    }
+
     void noParameters() throws SQLException {
         // This should work
         PreparedStatement ps =
@@ -64,16 +75,6 @@ public class SqlOut {
 
         @Sql(out = {"@NonNull Integer", "@NonNull BigDecimal", "@Nullable @MaxLength(40) String"})
         ResultSet rs = ps.executeQuery();
-    }
-
-    void noParametersButSet() throws SQLException {
-        PreparedStatement ps =
-                conn.prepareStatement("SELECT InvoiceId, Total, BillingCountry FROM Invoice");
-
-        @Sql(out = {"@NonNull Integer", "@NonNull BigDecimal", "@Nullable @MaxLength(40) String"})
-        ResultSet rs = ps.executeQuery();
-
-        // :: error: (parameter.index.out.of.bounds)
-        ps.setBigDecimal(1, BigDecimal.valueOf(244.331));
+        rs.getInt(1);
     }
 }
