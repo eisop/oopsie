@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ '*' ]
+    branches: [ "main", "renovate/*" ]
   pull_request:
     branches: [ "main" ]
 
@@ -46,5 +46,3 @@ jobs:
         run: ./gradlew test
       - name: Check formatting
         run: ./gradlew spotlessCheck
-      - name: Stop PostgreSQL Container
-        run: sudo docker stop opsc-postgres
