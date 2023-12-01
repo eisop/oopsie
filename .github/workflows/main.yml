@@ -10,7 +10,7 @@ jobs:
   build:
     strategy:
       matrix:
-        jdk: [ 17, 21 ]
+        jdk: [ 21 ]
     runs-on: ubuntu-latest
 
     services:
@@ -39,7 +39,7 @@ jobs:
           java-version: ${{matrix.jdk}}
           distribution: 'temurin'
       - name: Execute SQL Script
-        run: cat tests/Chinook_Postgresql_schema.sql | postgres opsc-postgres psql -d chinook
+        run: cat tests/Chinook_Postgresql_schema.sql | psql -d chinook
       - name: Build and test
         run: ./gradlew test
       - name: Check formatting
