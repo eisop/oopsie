@@ -2,33 +2,47 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ master ]
+    branches: [ "main" ]
 
 jobs:
   build:
     strategy:
       matrix:
-        jdk: [ 17, 21 ]
+        jdk: [ 21 ]
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: chinook
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+
     steps:
-    - name: Pull Request Checkout
-      uses: actions/checkout@v4
-      with:
-        ref: ${{github.event.pull_request.head.ref}}
-        repository: ${{github.event.pull_request.head.repo.full_name}}
-      if: github.head_ref != ''
-    - name: Push Checkout
-      uses: actions/checkout@v4
-      if: github.head_ref == ''
-    - name: Set up JDK
-      uses: actions/setup-java@v4
-      with:
-        java-version: ${{matrix.jdk}}
-        distribution: 'temurin'
-    - name: Build and test
-      run: ./gradlew test
-    - name: Check formatting
-      run: ./gradlew spotlessCheck
+      - name: Pull Request Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{github.event.pull_request.head.ref}}
+          repository: ${{github.event.pull_request.head.repo.full_name}}
+        if: github.head_ref != ''
+      - name: Push Checkout
+        uses: actions/checkout@v4
+        if: github.head_ref == ''
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{matrix.jdk}}
+          distribution: 'temurin'
+      - name: Execute SQL Script
+        run: cat tests/Chinook_Postgresql_schema.sql | psql -h localhost -U postgres -d chinook
+        env:
+          PGPASSWORD: postgres
+      - name: Build and test
+        run: ./gradlew test
+      - name: Check formatting
+        run: ./gradlew spotlessCheck
