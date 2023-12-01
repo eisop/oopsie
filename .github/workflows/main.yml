@@ -39,7 +39,9 @@ jobs:
           java-version: ${{matrix.jdk}}
           distribution: 'temurin'
       - name: Execute SQL Script
-        run: cat tests/Chinook_Postgresql_schema.sql | psql -d chinook
+        run: cat tests/Chinook_Postgresql_schema.sql | psql -h localhost -U postgres -d chinook
+        env:
+          PGPASSWORD: postgres
       - name: Build and test
         run: ./gradlew test
       - name: Check formatting
