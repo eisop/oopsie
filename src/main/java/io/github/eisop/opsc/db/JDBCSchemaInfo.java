@@ -4,6 +4,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.github.eisop.opsc.exception.OpsDatabaseException;
 import java.sql.Connection;
+import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.ParameterMetaData;
 import java.sql.PreparedStatement;
@@ -11,6 +12,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Objects;
+import java.util.ServiceLoader;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.checkerframework.javacutil.TypeSystemError;
 
@@ -26,10 +28,18 @@ public class JDBCSchemaInfo implements SchemaInfo {
         this.username = username;
         this.password = password;
 
+        // List loaded drivers
+        ServiceLoader<Driver> loadedDrivers = ServiceLoader.load(Driver.class);
+        for (Driver driver : loadedDrivers) {
+            System.out.println("Driver loaded: " + driver.getClass().getName());
+        }
+
         // Explicitly load the PostgreSQL driver, so it can be used by the checker when compiling
         // the programme under test
         try {
             Class.forName("org.postgresql.Driver");
+            // mysql
+            Class.forName("com.mysql.cj.jdbc.Driver");
         } catch (ClassNotFoundException e) {
             throw new TypeSystemError(e.getMessage());
         }
@@ -97,6 +107,7 @@ public class JDBCSchemaInfo implements SchemaInfo {
         try {
             return getJavaTypeWithAnnotations(
                     classNameFromFullyQualified(md.getColumnClassName(index)),
+                    // todo use md.getColumnLabel(index) to get the column name
                     md.isNullable(index),
                     md.getPrecision(index));
         } catch (SQLException e) {
@@ -122,16 +133,35 @@ public class JDBCSchemaInfo implements SchemaInfo {
     }
 
     private String getJavaTypeWithAnnotations(String className, int nullability, int precision) {
-        String anno =
-                switch (nullability) {
-                    case ParameterMetaData.parameterNoNulls -> "@NonNull ";
-                    case ParameterMetaData.parameterNullable -> "@Nullable ";
-                    case ParameterMetaData.parameterNullableUnknown -> "";
-                    default -> throw new IllegalArgumentException(
-                            "nullability must be one of ParameterMetaData.parameterNoNulls, "
-                                    + "ParameterMetaData.parameterNullable "
-                                    + "or ParameterMetaData.parameterNullableUnknown");
-                };
+        //        String anno =
+        //                switch (nullability) {
+        //                    case ParameterMetaData.parameterNoNulls -> "@NonNull ";
+        //                    case ParameterMetaData.parameterNullable -> "@Nullable ";
+        //                    case ParameterMetaData.parameterNullableUnknown -> "";
+        //                    default -> throw new IllegalArgumentException(
+        //                            "nullability must be one of
+        // ParameterMetaData.parameterNoNulls, "
+        //                                    + "ParameterMetaData.parameterNullable "
+        //                                    + "or ParameterMetaData.parameterNullableUnknown");
+        //                };
+        // java 8
+        String anno;
+        switch (nullability) {
+            case ParameterMetaData.parameterNoNulls:
+                anno = "@NonNull ";
+                break;
+            case ParameterMetaData.parameterNullable:
+                anno = "@Nullable ";
+                break;
+            case ParameterMetaData.parameterNullableUnknown:
+                anno = "";
+                break;
+            default:
+                throw new IllegalArgumentException(
+                        "nullability must be one of ParameterMetaData.parameterNoNulls, "
+                                + "ParameterMetaData.parameterNullable "
+                                + "or ParameterMetaData.parameterNullableUnknown");
+        }
         if (Objects.equals(className, "String")) {
             if (precision != 0) {
                 anno += "@MaxLength(" + precision + ") ";

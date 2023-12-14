@@ -32,6 +32,7 @@ dependencies {
 
     implementation("org.apache.calcite:calcite-core:1.36.0")
     implementation("org.postgresql:postgresql:42.7.1")
+    implementation("com.mysql:mysql-connector-j:8.2.0")
 
     errorprone("com.google.errorprone:error_prone_core:2.23.0")
 
@@ -62,26 +63,26 @@ sourceSets {
 }
 
 java {
-    sourceCompatibility = 17
+    sourceCompatibility = 8
 }
 
-tasks.withType(JavaCompile).all {
-    options.compilerArgs.addAll(["-Werror", "-Xlint:all"])
-    options.compilerArgs.addAll(
-            [
-                "api",
-                "code",
-                "comp",
-                "file",
-                "main",
-                "model",
-                "parser",
-                "processing",
-                "resources",
-                "tree",
-                "util",
-            ].collect { "--add-exports=jdk.compiler/com.sun.tools.javac.$it=ALL-UNNAMED" })
-}
+//tasks.withType(JavaCompile).all {
+//    options.compilerArgs.addAll(["-Werror", "-Xlint:all"])
+//    options.compilerArgs.addAll(
+//            [
+//                "api",
+//                "code",
+//                "comp",
+//                "file",
+//                "main",
+//                "model",
+//                "parser",
+//                "processing",
+//                "resources",
+//                "tree",
+//                "util",
+//            ].collect { "--add-exports=jdk.compiler/com.sun.tools.javac.$it=ALL-UNNAMED" })
+//}
 
 test {
     inputs.files("tests/opsc")

@@ -92,6 +92,9 @@ public class CalciteSchemaInfo implements SchemaInfo {
 
     @Override
     public ImmutableList<String> getResultTypeOf(String stmt) throws OpsDatabaseException {
+        //        System.out.println(parseSql(stmt).getRowType().getFieldNames());
+        //        System.out.println(parseSql(stmt).getRowType().getFieldList());
+        //        System.out.println(parseSql(stmt).getRowType().getFieldCount());
         return getJavaTypesWithAnnotations(parseSql(stmt).getRowType());
     }
 
@@ -103,9 +106,11 @@ public class CalciteSchemaInfo implements SchemaInfo {
                 new RelVisitor() {
                     @Override
                     public void visit(RelNode node, int ordinal, @Nullable RelNode parent) {
-                        if (node instanceof RexDynamicParam param) {
+                        if (node instanceof RexDynamicParam) {
+                            RexDynamicParam param = (RexDynamicParam) node;
                             params.add(param);
-                        } else if (node instanceof Filter filter) {
+                        } else if (node instanceof Filter) {
+                            Filter filter = (Filter) node;
                             filter.getCondition()
                                     .accept(
                                             new RexShuttle() {
@@ -116,7 +121,8 @@ public class CalciteSchemaInfo implements SchemaInfo {
                                                     return dynamicParam;
                                                 }
                                             });
-                        } else if (node instanceof LogicalProject project) {
+                        } else if (node instanceof LogicalProject) {
+                            LogicalProject project = (LogicalProject) node;
                             project.getProjects()
                                     .forEach(
                                             p ->
@@ -183,18 +189,57 @@ public class CalciteSchemaInfo implements SchemaInfo {
             throw new RuntimeException("Unknown SQL type: " + sqlTypeName);
         }
 
-        return switch (sqlTypeName.getFamily()) {
-            case CHARACTER -> "String";
-            case DATE -> "Date";
-            case TIME -> "Time";
-            case TIMESTAMP -> "Timestamp";
-            case BOOLEAN -> "Boolean";
-            case NUMERIC -> switch (sqlTypeName) {
-                case INTEGER, TINYINT, SMALLINT, BIGINT -> "Integer";
-                case DECIMAL -> "BigDecimal";
-                default -> "Double";
-            };
-            default -> "Object";
-        };
+        //        return switch (sqlTypeName.getFamily()) {
+        //            case CHARACTER -> "String";
+        //            case DATE -> "Date";
+        //            case TIME -> "Time";
+        //            case TIMESTAMP -> "Timestamp";
+        //            case BOOLEAN -> "Boolean";
+        //            case NUMERIC -> switch (sqlTypeName) {
+        //                case INTEGER, TINYINT, SMALLINT, BIGINT -> "Integer";
+        //                case DECIMAL -> "BigDecimal";
+        //                default -> "Double";
+        //            };
+        //            default -> "Object";
+        //        };
+        // java8
+        String type;
+        switch (sqlTypeName.getFamily()) {
+            case CHARACTER:
+                type = "String";
+                break;
+            case DATE:
+                type = "Date";
+                break;
+            case TIME:
+                type = "Time";
+                break;
+            case TIMESTAMP:
+                type = "Timestamp";
+                break;
+            case BOOLEAN:
+                type = "Boolean";
+                break;
+            case NUMERIC:
+                switch (sqlTypeName) {
+                    case INTEGER:
+                    case TINYINT:
+                    case SMALLINT:
+                    case BIGINT:
+                        type = "Integer";
+                        break;
+                    case DECIMAL:
+                        type = "BigDecimal";
+                        break;
+                    default:
+                        type = "Double";
+                        break;
+                }
+                break;
+            default:
+                type = "Object";
+                break;
+        }
+        return type;
     }
 }
