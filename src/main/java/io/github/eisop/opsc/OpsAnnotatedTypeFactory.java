@@ -46,6 +46,7 @@ import org.checkerframework.javacutil.UserError;
 
 public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
+    private int preparedStatementCount = 0;
     protected final AnnotationMirror SQL = AnnotationBuilder.fromClass(elements, Sql.class);
 
     protected final AnnotationMirror SQLUNKNOWN =
@@ -118,6 +119,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     @Override
     protected QualifierHierarchy createQualifierHierarchy() {
         return new OpsQualifierHierarchy(this.getSupportedTypeQualifiers(), elements);
+    }
+
+    protected int getPreparedStatementCount() {
+        return preparedStatementCount;
     }
 
     private final class OpsQualifierHierarchy extends MostlyNoElementQualifierHierarchy {
@@ -328,6 +333,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             if (TreeUtils.isMethodInvocation(tree, connectionPrepareStatement, processingEnv)) {
                 ExpressionTree arg = tree.getArguments().get(0);
                 if (!type.hasAnnotationRelaxed(SQL)) {
+                    preparedStatementCount++;
                     String stmt = retrieveStringValue(arg);
                     if (stmt != null) {
                         type.replaceAnnotation(buildSqlAnnotation(stmt, tree));

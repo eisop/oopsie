@@ -15,6 +15,14 @@ public class OpsChecker extends BaseTypeChecker {
     }
 
     @Override
+    public void typeProcessingOver() {
+        int preparedStatementCount = ((OpsAnnotatedTypeFactory) getTypeFactory()).getPreparedStatementCount();
+        reportWarning(null, "number.of.prepared.statements", preparedStatementCount);
+
+        super.typeProcessingOver();
+    }
+
+    @Override
     protected Set<Class<? extends BaseTypeChecker>> getImmediateSubcheckerClasses() {
         Set<Class<? extends BaseTypeChecker>> checkers = super.getImmediateSubcheckerClasses();
         checkers.add(ValueChecker.class);
