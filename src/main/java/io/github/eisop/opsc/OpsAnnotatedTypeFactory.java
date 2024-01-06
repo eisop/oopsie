@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
@@ -336,7 +337,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     preparedStatementCount++;
                     String stmt = retrieveStringValue(arg);
                     if (stmt != null) {
-                        type.replaceAnnotation(buildSqlAnnotation(stmt, tree));
+                        AnnotationMirror sqlAnnotation = buildSqlAnnotation(stmt, tree);
+                        if (sqlAnnotation != null) {
+                            type.replaceAnnotation(sqlAnnotation);
+                        }
                     } else {
                         checker.reportWarning(
                                 tree, "could not determine SQL string value of prepared statement");
@@ -355,9 +359,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                                     String.class,
                                     Collections.emptyList());
                     type.replaceAnnotation(createSqlAnnotation(null, out));
-                } else {
-                    checker.reportWarning(
-                            tree, "could not get result type annotation from PreparedStatement");
+//                } else {
+//                    checker.reportWarning(
+//                            tree, "could not get result type annotation from PreparedStatement");
+//                }
                 }
             }
             return super.visitMethodInvocation(tree, type);
@@ -370,7 +375,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
          * <p>Hack: Because Calcite doesn't support statements like 'SELECT ?', use JDBCSchemaInfo
          * as a fallback if
          */
-        private @NonNull AnnotationMirror buildSqlAnnotation(
+        private @Nullable AnnotationMirror buildSqlAnnotation(
                 @NonNull String stmt, MethodInvocationTree tree) {
             // get placeholder types of prepared statement
             List<String> in;
@@ -382,9 +387,12 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     in = getInType(stmt, jdbcSchemaInfo);
                     checker.reportWarning(tree, "determine.in.type.failed.first.try");
                 } catch (OpsDatabaseException jdbcException) {
-                    throw new TypeSystemError(
-                            "Could not retrieve in type of prepared statement.\nReason: %s\nStatement: %s",
+//                    throw new TypeSystemError(
+//                            "Could not retrieve in type of prepared statement.\n\tReason: %s\n\tStatement: %s",
+//                            jdbcException.getMessage(), stmt);
+                    checker.reportError(tree, "determine.in.type.failed.second.try",
                             jdbcException.getMessage(), stmt);
+                    return null;
                 }
             }
 
@@ -398,9 +406,12 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     out = getOutType(stmt, jdbcSchemaInfo);
                     checker.reportWarning(tree, "determine.out.type.failed.first.try");
                 } catch (OpsDatabaseException jdbcException) {
-                    throw new TypeSystemError(
-                            "Could not retrieve out type of prepared statement.\nReason: %s\nStatement: %s",
+//                    throw new TypeSystemError(
+//                            "Could not retrieve out type of prepared statement.\n\tReason: %s\n\tStatement: %s",
+//                            calciteException.getMessage(), stmt);
+                    checker.reportError(tree, "determine.out.type.failed.second.try",
                             calciteException.getMessage(), stmt);
+                    return null;
                 }
             }
 
@@ -427,7 +438,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                             stringExpression,
                             "statement.multiple.string.values",
                             values.toString());
-                    return values.get(0);
+                    // try with longest in this case
+                    return values.stream()
+                            .max(Comparator.comparingInt(String::length))
+                            .orElse(null);
                 } else {
                     return null;
                 }

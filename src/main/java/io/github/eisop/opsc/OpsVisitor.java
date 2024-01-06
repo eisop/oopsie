@@ -7,6 +7,7 @@ import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
 import io.github.eisop.opsc.qual.Sql;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -29,54 +30,106 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
     private final ExecutableElement sqlOutElement =
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "out", 0, processingEnv);
 
+//    private final Map<ExecutableElement, String> preparedStatementSetMethodTypes =
+//            Map.ofEntries(
+//                    Map.entry(
+//                            TreeUtils.getMethod(
+//                                    "java.sql.PreparedStatement", "setString", 2, processingEnv),
+//                            "String"),
+//                    Map.entry(
+//                            TreeUtils.getMethod(
+//                                    "java.sql.PreparedStatement", "setInt", 2, processingEnv),
+//                            "Integer"),
+//                    Map.entry(
+//                            TreeUtils.getMethod(
+//                                    "java.sql.PreparedStatement", "setDouble", 2, processingEnv),
+//                            "Double"),
+//                    Map.entry(
+//                            TreeUtils.getMethod(
+//                                    "java.sql.PreparedStatement",
+//                                    "setBigDecimal",
+//                                    2,
+//                                    processingEnv),
+//                            "BigDecimal"),
+//                    Map.entry(
+//                            TreeUtils.getMethod(
+//                                    "java.sql.PreparedStatement", "setBoolean", 2, processingEnv),
+//                            "Boolean"));
+//
+    // Java 8 does not support Map.ofEntries and Map.entry
     private final Map<ExecutableElement, String> preparedStatementSetMethodTypes =
-            Map.ofEntries(
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.PreparedStatement", "setString", 2, processingEnv),
-                            "String"),
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.PreparedStatement", "setInt", 2, processingEnv),
-                            "Integer"),
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.PreparedStatement", "setDouble", 2, processingEnv),
-                            "Double"),
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.PreparedStatement",
-                                    "setBigDecimal",
-                                    2,
-                                    processingEnv),
-                            "BigDecimal"),
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.PreparedStatement", "setBoolean", 2, processingEnv),
-                            "Boolean"));
+        new HashMap<ExecutableElement, String>() {{
+            put(
+                TreeUtils.getMethod(
+                    "java.sql.PreparedStatement", "setString", 2, processingEnv),
+                "String");
+            put(
+                TreeUtils.getMethod(
+                    "java.sql.PreparedStatement", "setInt", 2, processingEnv),
+                "Integer");
+            put(
+                TreeUtils.getMethod(
+                    "java.sql.PreparedStatement", "setDouble", 2, processingEnv),
+                "Double");
+            put(
+                TreeUtils.getMethod(
+                    "java.sql.PreparedStatement",
+                    "setBigDecimal",
+                    2,
+                    processingEnv),
+                "BigDecimal");
+            put(
+                TreeUtils.getMethod(
+                    "java.sql.PreparedStatement", "setBoolean", 2, processingEnv),
+                "Boolean");
+        }};
 
+//    private final Map<ExecutableElement, String> resultSetGetMethodTypes =
+//            Map.ofEntries(
+//                    Map.entry(
+//                            TreeUtils.getMethod(
+//                                    "java.sql.ResultSet", "getString", processingEnv, "int"),
+//                            "String"),
+//                    Map.entry(
+//                            TreeUtils.getMethod(
+//                                    "java.sql.ResultSet", "getInt", processingEnv, "int"),
+//                            "Integer"),
+//                    Map.entry(
+//                            TreeUtils.getMethod(
+//                                    "java.sql.ResultSet", "getDouble", processingEnv, "int"),
+//                            "Double"),
+//                    Map.entry(
+//                            TreeUtils.getMethod(
+//                                    "java.sql.ResultSet", "getBigDecimal", processingEnv, "int"),
+//                            "BigDecimal"),
+//                    Map.entry(
+//                            TreeUtils.getMethod(
+//                                    "java.sql.ResultSet", "getBoolean", processingEnv, "int"),
+//                            "Boolean"));
+    // Java 8 does not support Map.ofEntries and Map.entry
     private final Map<ExecutableElement, String> resultSetGetMethodTypes =
-            Map.ofEntries(
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.ResultSet", "getString", processingEnv, "int"),
-                            "String"),
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.ResultSet", "getInt", processingEnv, "int"),
-                            "Integer"),
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.ResultSet", "getDouble", processingEnv, "int"),
-                            "Double"),
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.ResultSet", "getBigDecimal", processingEnv, "int"),
-                            "BigDecimal"),
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.ResultSet", "getBoolean", processingEnv, "int"),
-                            "Boolean"));
+        new HashMap<ExecutableElement, String>() {{
+            put(
+                TreeUtils.getMethod(
+                    "java.sql.ResultSet", "getString", processingEnv, "int"),
+                "String");
+            put(
+                TreeUtils.getMethod(
+                    "java.sql.ResultSet", "getInt", processingEnv, "int"),
+                "Integer");
+            put(
+                TreeUtils.getMethod(
+                    "java.sql.ResultSet", "getDouble", processingEnv, "int"),
+                "Double");
+            put(
+                TreeUtils.getMethod(
+                    "java.sql.ResultSet", "getBigDecimal", processingEnv, "int"),
+                "BigDecimal");
+            put(
+                TreeUtils.getMethod(
+                    "java.sql.ResultSet", "getBoolean", processingEnv, "int"),
+                "Boolean");
+        }};
 
     public OpsVisitor(BaseTypeChecker checker) {
         super(checker);

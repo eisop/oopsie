@@ -60,6 +60,7 @@ public class CalciteSchemaInfo implements SchemaInfo {
 
         try {
             testJdbcConnection(databaseUrl, username, password);
+            System.out.println("[CalciteSchemaInfo] JDBC connection to " + databaseUrl + " OK");
         } catch (SQLException e) {
             throw new OpsDatabaseException(e);
         }
