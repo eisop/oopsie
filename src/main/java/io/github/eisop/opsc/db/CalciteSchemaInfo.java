@@ -53,6 +53,7 @@ public class CalciteSchemaInfo implements SchemaInfo {
         try {
             Class.forName("org.apache.calcite.jdbc.Driver");
             Class.forName("org.postgresql.Driver");
+            Class.forName("com.mysql.cj.jdbc.Driver");
         } catch (ClassNotFoundException e) {
             throw new TypeSystemError(e.getMessage());
         }
