@@ -17,8 +17,7 @@ public class OpsChecker extends BaseTypeChecker {
     @Override
     public void typeProcessingOver() {
         int preparedStatementCount = ((OpsAnnotatedTypeFactory) getTypeFactory()).getPreparedStatementCount();
-        reportWarning(null, "number.of.prepared.statements", preparedStatementCount);
-
+        System.out.println("Number of PreparedStatements found: " + preparedStatementCount);
         super.typeProcessingOver();
     }
 
