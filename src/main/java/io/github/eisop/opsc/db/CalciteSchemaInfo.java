@@ -92,11 +92,13 @@ public class CalciteSchemaInfo implements SchemaInfo {
 
     @Override
     public ImmutableList<String> getResultTypeOf(String stmt) throws OpsDatabaseException {
+        stmt = trimStatement(stmt);
         return getJavaTypesWithAnnotations(parseSql(stmt).getRowType());
     }
 
     @Override
     public ImmutableList<String> getPlaceholderTypesOf(String stmt) throws OpsDatabaseException {
+        stmt = trimStatement(stmt);
         RelNode tree = parseSql(stmt);
         List<RexDynamicParam> params = new ArrayList<>();
         tree.childrenAccept(
@@ -139,6 +141,12 @@ public class CalciteSchemaInfo implements SchemaInfo {
                 .sorted(Comparator.comparingInt(RexDynamicParam::getIndex))
                 .map(param -> getJavaType(param.getType()))
                 .collect(ImmutableList.toImmutableList());
+    }
+
+    private static String trimStatement(String stmt) {
+        // remove trailing semicolon (and any whitespace)
+        stmt = stmt.stripTrailing().replaceAll(";$", "");
+        return stmt;
     }
 
     private RelNode parseSql(String stmt) throws OpsDatabaseException {
