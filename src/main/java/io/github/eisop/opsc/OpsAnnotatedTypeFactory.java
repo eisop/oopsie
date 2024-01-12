@@ -83,6 +83,26 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         this.postInit();
     }
 
+    static String getType(String annotationString) {
+        // todo improve: e.g. with class for OPSC type
+        String[] tokens = annotationString.split(" ", -1);
+        if (tokens.length >= 2 && !tokens[tokens.length - 2].startsWith("@")) {
+            return tokens[tokens.length - 2];
+        } else {
+            return tokens[tokens.length - 1];
+        }
+    }
+
+    static @Nullable String getName(String annotationString) {
+        // todo improve: e.g. with class for OPSC type
+        String[] tokens = annotationString.split(" ", -1);
+        if (tokens.length >= 2 && !tokens[tokens.length - 2].startsWith("@")) {
+            return tokens[tokens.length - 1];
+        } else {
+            return null;
+        }
+    }
+
     private void initSchemaInfo(BaseTypeChecker checker) {
         if (checker.getOption("dbUrl") == null) {
             throw new UserError("Database URL not specified");
@@ -172,13 +192,23 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
             // Compare individual columns
             for (int i = 0; i < subOut.size(); i++) {
-                // Split annotation strings at spaces to get individual @-annotations and the type
+                // Split annotation strings at spaces to get individual @-annotations, the type and
+                // the optional column name
                 String[] sub = subOut.get(i).split(" ");
                 String[] sup = superOut.get(i).split(" ");
-                String subType = sub[sub.length - 1];
-                String supType = sup[sup.length - 1];
 
+                String subType = getType(subOut.get(i));
+                String supType = getType(superOut.get(i));
+                String subName = getName(subOut.get(i));
+                String supName = getName(superOut.get(i));
+
+                // Check if the types are equal
                 if (!subType.equals(supType)) {
+                    return false;
+                }
+
+                // Check if the column names are equal (if specified in the supertype)
+                if (supName != null && !supName.equals(subName)) {
                     return false;
                 }
 
@@ -252,12 +282,18 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     }
 
                     // the lub has the common first out columns of a1 and a2
-                    int lubOutSize = Math.min(out1.size(), out2.size());
+                    // if only the column names don't match, the lub has no name for this column
+                    int maxLubOutSize = Math.min(out1.size(), out2.size());
                     List<String> outLub = new ArrayList<>();
-                    for (int i = 0; i < lubOutSize; i++) {
-                        if (!out1.get(i).equals(out2.get(i))) {
-                            outLub = out1.subList(0, i);
-                            break;
+                    for (int i = 0; i < maxLubOutSize; i++) {
+                        if (out1.get(i).equals(out2.get(i))) {
+                            outLub.add(out1.get(i));
+                        } else {
+                            if (stripColumnName(out1.get(i)).equals(stripColumnName(out2.get(i)))) {
+                                outLub.add(stripColumnName(out1.get(i)));
+                            } else {
+                                break;
+                            }
                         }
                     }
 
@@ -270,6 +306,14 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             }
 
             throw new TypeSystemError("Unexpected qualifiers: %s %s", a1, a2);
+        }
+
+        private String stripColumnName(String annotationString) {
+            if (getName(annotationString) != null) {
+                return annotationString.substring(0, annotationString.lastIndexOf(" "));
+            } else {
+                return annotationString;
+            }
         }
 
         private List<String> getInElement(AnnotationMirror a1) {
