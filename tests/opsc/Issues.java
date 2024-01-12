@@ -1,4 +1,3 @@
-import java.math.BigDecimal;
 import java.sql.*;
 
 class Issues {
@@ -14,5 +13,4 @@ class Issues {
     void semicolon() throws SQLException {
         PreparedStatement ps = conn.prepareStatement("SELECT * FROM Invoice WHERE Total > ?;");
     }
-
 }
