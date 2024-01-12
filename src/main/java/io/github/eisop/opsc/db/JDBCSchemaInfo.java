@@ -28,12 +28,6 @@ public class JDBCSchemaInfo implements SchemaInfo {
         this.username = username;
         this.password = password;
 
-        // List loaded drivers
-        ServiceLoader<Driver> loadedDrivers = ServiceLoader.load(Driver.class);
-        for (Driver driver : loadedDrivers) {
-            System.out.println("Driver loaded: " + driver.getClass().getName());
-        }
-
         // Explicitly load the PostgreSQL driver, so it can be used by the checker when compiling
         // the programme under test
         try {
