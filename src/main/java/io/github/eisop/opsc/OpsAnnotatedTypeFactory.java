@@ -12,7 +12,6 @@ import io.github.eisop.opsc.qual.SqlBottom;
 import io.github.eisop.opsc.qual.SqlUnknown;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -192,37 +191,32 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
             // Compare individual columns
             for (int i = 0; i < subOut.size(); i++) {
-                // Split annotation strings at spaces to get individual @-annotations, the type and
-                // the optional column name
-                String[] sub = subOut.get(i).split(" ");
-                String[] sup = superOut.get(i).split(" ");
-
-                String subType = getType(subOut.get(i));
-                String supType = getType(superOut.get(i));
-                String subName = getName(subOut.get(i));
-                String supName = getName(superOut.get(i));
+                OpscType sub = OpscType.fromAnnotationString(subOut.get(i));
+                OpscType sup = OpscType.fromAnnotationString(superOut.get(i));
 
                 // Check if the types are equal
-                if (!subType.equals(supType)) {
+                if (!sub.dataTypeMatches(sup, true)) {
                     return false;
                 }
 
                 // Check if the column names are equal (if specified in the supertype)
-                if (supName != null && !supName.equals(subName)) {
+                if (sup.columnName() != null
+                        && !sup.columnName().equalsIgnoreCase(sub.columnName())) {
                     return false;
                 }
 
-                if (Arrays.asList(sup).contains("@NonNull")
-                        && !Arrays.asList(sub).contains("@NonNull")) {
+                if (sup.columnAnnotations().contains("@NonNull")
+                        && !sub.columnAnnotations().contains("@NonNull")) {
                     return false;
                 }
 
-                if (Arrays.stream(sup).anyMatch(s -> s.startsWith("@MaxLength("))) {
-                    if (Arrays.stream(sub).noneMatch(s -> s.startsWith("@MaxLength("))) {
+                if (sup.columnAnnotations().stream().anyMatch(s -> s.startsWith("@MaxLength("))) {
+                    if (sub.columnAnnotations().stream()
+                            .noneMatch(s -> s.startsWith("@MaxLength("))) {
                         return false;
                     }
-                    int superMax = getMaxLengthValue(sup);
-                    int subMax = getMaxLengthValue(sub);
+                    int superMax = getMaxLengthValue(sup.columnAnnotations());
+                    int subMax = getMaxLengthValue(sub.columnAnnotations());
                     if (subMax > superMax) {
                         return false;
                     }
@@ -231,8 +225,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             return true;
         }
 
-        private Integer getMaxLengthValue(String[] annotations) {
-            return Arrays.stream(annotations)
+        private Integer getMaxLengthValue(List<String> columnAnnotations) {
+            return columnAnnotations.stream()
                     // find @MaxLength(...) annotation
                     .filter(s -> s.startsWith("@MaxLength("))
                     .map(
@@ -246,7 +240,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                             () ->
                                     new TypeSystemError(
                                             "Invalid @MaxLength annotation: %s",
-                                            (Object) annotations));
+                                            (Object) columnAnnotations));
         }
 
         private boolean inIsSubtype(List<String> subIn, List<String> superIn) {
@@ -286,11 +280,13 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     int maxLubOutSize = Math.min(out1.size(), out2.size());
                     List<String> outLub = new ArrayList<>();
                     for (int i = 0; i < maxLubOutSize; i++) {
-                        if (out1.get(i).equals(out2.get(i))) {
+                        OpscType out1Type = OpscType.fromAnnotationString(out1.get(i));
+                        OpscType out2Type = OpscType.fromAnnotationString(out2.get(i));
+                        if (out1Type.equals(out2Type)) {
                             outLub.add(out1.get(i));
                         } else {
-                            if (stripColumnName(out1.get(i)).equals(stripColumnName(out2.get(i)))) {
-                                outLub.add(stripColumnName(out1.get(i)));
+                            if (out1Type.equalsIgnoringName(out2Type, true)) {
+                                outLub.add(out1.get(i));
                             } else {
                                 break;
                             }
@@ -306,14 +302,6 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             }
 
             throw new TypeSystemError("Unexpected qualifiers: %s %s", a1, a2);
-        }
-
-        private String stripColumnName(String annotationString) {
-            if (getName(annotationString) != null) {
-                return annotationString.substring(0, annotationString.lastIndexOf(" "));
-            } else {
-                return annotationString;
-            }
         }
 
         private List<String> getInElement(AnnotationMirror a1) {
