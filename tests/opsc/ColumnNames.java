@@ -22,8 +22,22 @@ class ColumnNames {
         ResultSet rs = ps.executeQuery();
 
         // :: error: (column.type.incompatible)
-        int billingPostalCode = rs.getInt("BillingPostalCode");
+        int billingPostalCode = rs.getInt("BillingPostalCode"); // actually varchar
     }
 
-    // todo test with JDBCSchemaInfo (maybe "SELECT ?; SELECT * FROM Invoice"?)
+    void namedColumnsWithoutCalcite(Connection conn) throws SQLException {
+        // force fallback JDBCSchemaInfo, with "SELECT ?" which is not supported by Calcite
+
+        // sadly this doesn't work because the Postgres driver doesn't provide the column names
+        // :: warning: (determine.in.type.failed.first.try)
+        // :: warning: (determine.out.type.failed.first.try)
+        PreparedStatement ps = conn.prepareStatement("SELECT ?; SELECT * FROM Invoice");
+        ResultSet rs = ps.executeQuery();
+
+        // :: error: (column.name.not.found)
+        int invoiceId = rs.getInt("InvoiceId"); // this should work
+
+        // :: error: (column.name.not.found)
+        int billingPostalCode = rs.getInt("BillingPostalCode"); // actually varchar
+    }
 }
