@@ -198,11 +198,12 @@ public class CalciteSchemaInfo implements SchemaInfo {
             case TIME -> "Time";
             case TIMESTAMP -> "Timestamp";
             case BOOLEAN -> "Boolean";
-            case NUMERIC -> switch (sqlTypeName) {
-                case INTEGER, TINYINT, SMALLINT, BIGINT -> "Integer";
-                case DECIMAL -> "BigDecimal";
-                default -> "Double";
-            };
+            case NUMERIC ->
+                    switch (sqlTypeName) {
+                        case INTEGER, TINYINT, SMALLINT, BIGINT -> "Integer";
+                        case DECIMAL -> "BigDecimal";
+                        default -> "Double";
+                    };
             default -> "Object";
         };
     }
