@@ -127,10 +127,11 @@ public class JDBCSchemaInfo implements SchemaInfo {
                     case ParameterMetaData.parameterNoNulls -> "@NonNull ";
                     case ParameterMetaData.parameterNullable -> "@Nullable ";
                     case ParameterMetaData.parameterNullableUnknown -> "";
-                    default -> throw new IllegalArgumentException(
-                            "nullability must be one of ParameterMetaData.parameterNoNulls, "
-                                    + "ParameterMetaData.parameterNullable "
-                                    + "or ParameterMetaData.parameterNullableUnknown");
+                    default ->
+                            throw new IllegalArgumentException(
+                                    "nullability must be one of ParameterMetaData.parameterNoNulls, "
+                                            + "ParameterMetaData.parameterNullable "
+                                            + "or ParameterMetaData.parameterNullableUnknown");
                 };
         if (Objects.equals(className, "String")) {
             if (precision != 0) {
