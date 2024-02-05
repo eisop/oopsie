@@ -15,4 +15,10 @@ class Predicates {
         ps1.setTimestamp(1, new Timestamp(0));
     }
 
+    void keywordColumn() throws SQLException {
+        PreparedStatement ps1 = conn.prepareStatement(
+                        "SELECT DISTINCT demographic_no FROM log WHERE `dateTime` >= ? and action != 'read'");
+        ps1.setTimestamp(1, new Timestamp(0));
+    }
+
 }

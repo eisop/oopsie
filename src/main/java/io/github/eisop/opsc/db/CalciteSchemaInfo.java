@@ -45,7 +45,7 @@ public class CalciteSchemaInfo implements SchemaInfo {
 
     SqlParser.Config parserConfig = SqlParser.config()
             .withCaseSensitive(false)
-            .withQuoting(Quoting.DOUBLE_QUOTE)
+            .withQuoting(Quoting.BACK_TICK) // MySQL-style quoting
             .withConformance(SqlConformanceEnum.BABEL);
 
     public CalciteSchemaInfo(
