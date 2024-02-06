@@ -3,13 +3,27 @@ package io.github.eisop.opsc;
 import com.google.common.base.Splitter;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-public record OpscType(
-        @NonNull String columnDataType,
-        @NonNull List<String> columnAnnotations,
-        @Nullable String columnName) {
+public final class OpscType {
+    @NonNull
+    private final String columnDataType;
+    @NonNull
+    private final List<String> columnAnnotations;
+    @Nullable
+    private final String columnName;
+
+    public OpscType(
+            @NonNull String columnDataType,
+            @NonNull List<String> columnAnnotations,
+            @Nullable String columnName) {
+        this.columnDataType = columnDataType;
+        this.columnAnnotations = columnAnnotations;
+        this.columnName = columnName;
+    }
 
     public static OpscType fromAnnotationString(String annotationString) {
         String columnDataType;
@@ -49,9 +63,10 @@ public record OpscType(
 
     @Override
     public boolean equals(Object obj) {
-        if (!(obj instanceof OpscType other)) {
+        if (!(obj instanceof OpscType)) {
             return false;
         }
+        OpscType other = (OpscType) obj;
         if (this == obj) {
             return true;
         }
@@ -61,14 +76,14 @@ public record OpscType(
         }
 
         return dataTypeMatches(other, true)
-                && columnAnnotations.equals(other.columnAnnotations)
-                && other.columnName != null
-                && columnName.equalsIgnoreCase(other.columnName);
+               && columnAnnotations.equals(other.columnAnnotations)
+               && other.columnName != null
+               && columnName.equalsIgnoreCase(other.columnName);
     }
 
     public boolean equalsIgnoringName(OpscType other, boolean ignoreCase) {
         return dataTypeMatches(other, ignoreCase)
-                && columnAnnotations.equals(other.columnAnnotations);
+               && columnAnnotations.equals(other.columnAnnotations);
     }
 
     @Override
@@ -83,4 +98,25 @@ public record OpscType(
         }
         return annotationString;
     }
+
+    @NonNull
+    public String columnDataType() {
+        return columnDataType;
+    }
+
+    @NonNull
+    public List<String> columnAnnotations() {
+        return columnAnnotations;
+    }
+
+    @Nullable
+    public String columnName() {
+        return columnName;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(columnDataType, columnAnnotations, columnName);
+    }
+
 }
