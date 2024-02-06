@@ -78,10 +78,11 @@ public class SqlIn {
     }
 
     void constantValue() throws SQLException {
-        // :: warning: (determine.in.type.failed.first.try)
-        // :: warning: (determine.out.type.failed.first.try)
-        PreparedStatement ps = conn.prepareStatement("SELECT ?");
-
-        ps.setString(1, "A constant");
+        // Only works with Postgres
+//        // :: warning: (determine.in.type.failed.first.try)
+//        // :: warning: (determine.out.type.failed.first.try)
+//        PreparedStatement ps = conn.prepareStatement("SELECT ?");
+//
+//        ps.setString(1, "A constant");
     }
 }
