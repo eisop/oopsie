@@ -1,10 +1,7 @@
 package opsc;
 
 import io.github.eisop.opsc.qual.Sql;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
+import java.sql.*;
 
 public class StringConstValues {
 
@@ -98,7 +95,6 @@ public class StringConstValues {
                 })
         // False positive as ConstValueChecker is unable to track the value of `sql` in
         // concatenation
-        // :: warning: (statement.multiple.string.values)
         PreparedStatement ps1 = conn.prepareStatement(sql);
     }
 
@@ -136,4 +132,17 @@ public class StringConstValues {
                 // :: error: (assignment.type.incompatible)
                 conn.prepareStatement(sql);
     }
+
+    void ternary(Integer programId, int roleId, Timestamp startDate, Timestamp endDate)
+            throws SQLException {
+        // From oscar
+        String sql = "select count(distinct demographic_no) from casemgmt_note where reporter_caisi_role=? and observation_date>=? and observation_date<?"+(programId==null?"":" and program_no=?");
+        // :: warning: (statement.multiple.string.values)
+        PreparedStatement ps = conn.prepareStatement(sql);
+        ps.setString(1, String.valueOf(roleId));
+        ps.setTimestamp(2, new Timestamp(startDate.getTime()));
+        ps.setTimestamp(3, new Timestamp(endDate.getTime()));
+        if (programId!=null) ps.setInt(4, programId);
+    }
+
 }

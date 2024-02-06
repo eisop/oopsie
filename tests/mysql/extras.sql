@@ -4,3 +4,37 @@ CREATE TABLE log (
     action TEXT,
     demographic_no INTEGER
 );
+
+CREATE TABLE `casemgmt_note` (
+                                 `note_id` int(10) NOT NULL AUTO_INCREMENT,
+    `update_date` datetime NOT NULL DEFAULT '2000-01-01 00:00:00',
+    `observation_date` datetime NOT NULL DEFAULT '2000-01-01 00:00:00',
+    `demographic_no` int(10) NOT NULL DEFAULT '0',
+    `provider_no` varchar(20) NOT NULL DEFAULT '',
+    `note` mediumtext NOT NULL,
+    `signed` tinyint(1) NOT NULL DEFAULT '0',
+    `include_issue_innote` tinyint(1) NOT NULL DEFAULT '0',
+    `signing_provider_no` varchar(20) NOT NULL DEFAULT '',
+    `encounter_type` varchar(100) NOT NULL DEFAULT '',
+    `billing_code` varchar(100) NOT NULL DEFAULT '',
+    `program_no` varchar(20) NOT NULL DEFAULT '',
+    `reporter_caisi_role` varchar(20) NOT NULL DEFAULT '',
+    `reporter_program_team` varchar(20) NOT NULL DEFAULT '',
+    `history` mediumtext NOT NULL,
+    `password` varchar(255) DEFAULT NULL,
+    `locked` char(1) DEFAULT NULL,
+    `archived` tinyint(1) DEFAULT '0',
+    `position` int(10) DEFAULT '0',
+    `uuid` char(36) DEFAULT NULL,
+    `appointmentNo` int(10) DEFAULT NULL,
+    `hourOfEncounterTime` int(11) DEFAULT NULL,
+    `minuteOfEncounterTime` int(11) DEFAULT NULL,
+    `hourOfEncTransportationTime` int(11) DEFAULT NULL,
+    `minuteOfEncTransportationTime` int(11) DEFAULT NULL,
+    PRIMARY KEY (`note_id`),
+    KEY `FKA8D537806CCA0FC` (`provider_no`),
+    KEY `demographic_no` (`demographic_no`),
+    KEY `uuid` (`uuid`),
+    KEY `program_no` (`program_no`),
+    KEY `observation_date` (`observation_date`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
