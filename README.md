@@ -3,7 +3,7 @@
 OPSC is a type-checker for Java using the [Checker Framework](https://checkerframework.org/).
 It check if JDBC PreparedStatements are used correctly by
 - Checking if the correct number of parameters (`?`s in the query) are set with the correct types
-- Checking if the result set columns are read into the correct Java types (by prohibiting the use of the `getInteger` on an integer column, for example)
+- Checking if the result set columns are read into the correct Java types (by prohibiting the use of the `getString` on an integer column, for example)
 - The checker considers further details of the type such as nullability or VARCHAR length (WIP)
 
 As a pluggable type checker for Java, OPSC performs the checks during compile time and can prevent many SQLExceptions
