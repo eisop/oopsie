@@ -194,20 +194,6 @@ public class CalciteSchemaInfo implements SchemaInfo {
             throw new RuntimeException("Unknown SQL type: " + sqlTypeName);
         }
 
-        //        return switch (sqlTypeName.getFamily()) {
-        //            case CHARACTER -> "String";
-        //            case DATE -> "Date";
-        //            case TIME -> "Time";
-        //            case TIMESTAMP -> "Timestamp";
-        //            case BOOLEAN -> "Boolean";
-        //            case NUMERIC -> switch (sqlTypeName) {
-        //                case INTEGER, TINYINT, SMALLINT, BIGINT -> "Integer";
-        //                case DECIMAL -> "BigDecimal";
-        //                default -> "Double";
-        //            };
-        //            default -> "Object";
-        //        };
-        // java8
         String type;
         switch (sqlTypeName.getFamily()) {
             case CHARACTER:

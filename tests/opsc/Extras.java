@@ -21,4 +21,10 @@ class Predicates {
         ps1.setTimestamp(1, new Timestamp(0));
     }
 
+    void textType() throws SQLException {
+        // from oscar
+        PreparedStatement ps = conn.prepareStatement("SELECT * FROM log WHERE action = ?");
+        ps.setString(1, "jangrova");
+    }
+
 }

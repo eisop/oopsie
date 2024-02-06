@@ -82,6 +82,10 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                 TreeUtils.getMethod(
                     "java.sql.PreparedStatement", "setBoolean", 2, processingEnv),
                 "Boolean");
+            put(
+                TreeUtils.getMethod(
+                 "java.sql.PreparedStatement", "setObject", 2, processingEnv),
+                "Object");
         }};
 
 //    private final Map<ExecutableElement, String> resultSetGetMethodTypes =
@@ -129,6 +133,10 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                 TreeUtils.getMethod(
                     "java.sql.ResultSet", "getBoolean", processingEnv, "int"),
                 "Boolean");
+            put(
+                TreeUtils.getMethod(
+                    "java.sql.ResultSet", "getObject", processingEnv, "int"),
+                "Object");
         }};
 
     public OpsVisitor(BaseTypeChecker checker) {
@@ -177,8 +185,10 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                 if (index >= in.size()) {
                     checker.reportError(
                             tree, "parameter.index.out.of.bounds", index + 1, in.size());
-                } else if (!javaTypesMatch(
-                        in.get(index), preparedStatementSetMethodTypes.get(method))) {
+                } else if (!(
+                        javaTypesMatch(in.get(index), "Object")
+                        || javaTypesMatch(in.get(index), preparedStatementSetMethodTypes.get(method))
+                )) {
                     checker.reportError(
                             tree,
                             "parameter.type.incompatible",
@@ -206,7 +216,10 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                                 Collections.emptyList());
                 if (index >= out.size()) {
                     checker.reportError(tree, "column.index.out.of.bounds", index + 1, out.size());
-                } else if (!javaTypesMatch(out.get(index), resultSetGetMethodTypes.get(method))) {
+                } else if (!(
+                        resultSetGetMethodTypes.get(method).equals("Object")
+                        || javaTypesMatch(out.get(index), resultSetGetMethodTypes.get(method))
+                )) {
                     checker.reportError(
                             tree,
                             "column.type.incompatible",
