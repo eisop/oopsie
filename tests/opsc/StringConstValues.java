@@ -142,7 +142,7 @@ public class StringConstValues {
         ps.setString(1, String.valueOf(roleId));
         ps.setTimestamp(2, new Timestamp(startDate.getTime()));
         ps.setTimestamp(3, new Timestamp(endDate.getTime()));
-        if (programId!=null) ps.setInt(4, programId);
+        if (programId!=null) ps.setString(4, String.valueOf(programId));
     }
 
 }
