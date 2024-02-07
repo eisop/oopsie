@@ -22,6 +22,8 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
+import org.apache.calcite.rex.RexSubQuery;
+import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNode;
@@ -118,20 +120,28 @@ public class CalciteSchemaInfo implements SchemaInfo {
                                                     return dynamicParam;
                                                 }
                                             });
+                            // check for subqueries in the filter condition
+                            if (filter.getCondition() instanceof RexSubQuery subQuery) {
+                                subQuery.rel.childrenAccept(this);
+                            }
                         } else if (node instanceof LogicalProject project) {
-                            project.getProjects()
-                                    .forEach(
-                                            p ->
-                                                    p.accept(
-                                                            new RexShuttle() {
-                                                                @Override
-                                                                public RexNode visitDynamicParam(
-                                                                        RexDynamicParam
-                                                                                dynamicParam) {
-                                                                    params.add(dynamicParam);
-                                                                    return dynamicParam;
-                                                                }
-                                                            }));
+                            RexUtil.apply(
+                                    new RexShuttle() {
+                                        @Override
+                                        public RexNode visitDynamicParam(
+                                                RexDynamicParam dynamicParam) {
+                                            params.add(dynamicParam);
+                                            return dynamicParam;
+                                        }
+                                    },
+                                    project.getProjects().toArray(new RexNode[0]));
+
+                            // check for subqueries in the project expressions
+                            project.getProjects().stream()
+                                    .filter(RexSubQuery.class::isInstance)
+                                    .map(RexSubQuery.class::cast)
+                                    .map(subQuery -> subQuery.rel)
+                                    .forEach(rel -> rel.childrenAccept(this));
                         }
                         node.childrenAccept(this);
                     }
