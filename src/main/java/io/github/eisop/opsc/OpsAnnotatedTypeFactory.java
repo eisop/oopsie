@@ -417,7 +417,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 // Retry with fallback JDBCSchemaInfo
                 try {
                     in = getInType(stmt, jdbcSchemaInfo);
-                    checker.reportWarning(tree, "determine.in.type.failed.first.try");
+                    checker.reportWarning(tree, "determine.in.type.failed.first.try",
+                            calciteException.getMessage(), stmt);
                 } catch (OpsDatabaseException jdbcException) {
 //                    throw new TypeSystemError(
 //                            "Could not retrieve in type of prepared statement.\n\tReason: %s\n\tStatement: %s",
@@ -436,7 +437,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 // Retry with fallback JDBCSchemaInfo
                 try {
                     out = getOutType(stmt, jdbcSchemaInfo);
-                    checker.reportWarning(tree, "determine.out.type.failed.first.try");
+                    checker.reportWarning(tree, "determine.out.type.failed.first.try",
+                            calciteException.getMessage(), stmt);
                 } catch (OpsDatabaseException jdbcException) {
 //                    throw new TypeSystemError(
 //                            "Could not retrieve out type of prepared statement.\n\tReason: %s\n\tStatement: %s",
