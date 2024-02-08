@@ -19,6 +19,7 @@ import org.apache.calcite.rel.RelVisitor;
 import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
@@ -128,10 +129,14 @@ public class CalciteSchemaInfo implements SchemaInfo {
                                                     return dynamicParam;
                                                 }
                                             });
-                            // check for subqueries in the filter condition
+
+                            // check for RexCalls (includes subqueries) in the filter condition
                             if (filter.getCondition() instanceof RexSubQuery) {
                                 RexSubQuery subQuery = (RexSubQuery) filter.getCondition();
-                                subQuery.rel.childrenAccept(this);
+                                visitSubQuery(subQuery);
+                            } else if (filter.getCondition() instanceof RexCall) {
+                                RexCall call = (RexCall) filter.getCondition();
+                                handleRexCall(call);
                             }
                         } else if (node instanceof LogicalProject) {
                             LogicalProject project = (LogicalProject) node;
@@ -147,13 +152,41 @@ public class CalciteSchemaInfo implements SchemaInfo {
                                     project.getProjects().toArray(new RexNode[0]));
 
                             // check for subqueries in the project expressions
-                            project.getProjects().stream()
-                                    .filter(RexSubQuery.class::isInstance)
-                                    .map(RexSubQuery.class::cast)
-                                    .map(subQuery -> subQuery.rel)
-                                    .forEach(rel -> rel.childrenAccept(this));
+                            for (RexNode expr : project.getProjects()) {
+                                if (expr instanceof RexSubQuery) {
+                                    RexSubQuery subQuery = (RexSubQuery) expr;
+                                    visitSubQuery(subQuery);
+                                } else if (expr instanceof RexCall) {
+                                    RexCall call = (RexCall) expr;
+                                    handleRexCall(call);
+                                }
+                            }
+
+                        } else if (node instanceof RexSubQuery) {
+                            RexSubQuery subQuery = (RexSubQuery) node;
+                            subQuery.rel.childrenAccept(this);
+                        } else if (node instanceof RexCall) {
+                            RexCall call = (RexCall) node;
+                            handleRexCall(call);
                         }
                         node.childrenAccept(this);
+                    }
+
+                    // recursive method to find and visit subqueries
+                    private void handleRexCall(RexCall call) {
+                        for (RexNode operand : call.getOperands()) {
+                            if (operand instanceof RexSubQuery) {
+                                RexSubQuery subQuery = (RexSubQuery) operand;
+                                subQuery.rel.childrenAccept(this);
+                            } else if (operand instanceof RexCall) {
+                                RexCall subCall = (RexCall) operand;
+                                handleRexCall(subCall);
+                            }
+                        }
+                    }
+
+                    private void visitSubQuery(RexSubQuery subQuery) {
+                        subQuery.rel.childrenAccept(this);
                     }
                 });
 
