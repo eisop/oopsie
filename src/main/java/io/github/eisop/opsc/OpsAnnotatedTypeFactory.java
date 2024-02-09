@@ -64,8 +64,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             TreeUtils.getMethod(
                     "org.checkerframework.common.value.qual.StringVal", "value", 0, processingEnv);
 
-    private final ExecutableElement connectionPrepareStatement =
-            TreeUtils.getMethod("java.sql.Connection", "prepareStatement", 1, processingEnv);
+    private final List<ExecutableElement> connectionPrepareStatementMethods;
 
     private final ExecutableElement preparedStatementExecuteQuery =
             TreeUtils.getMethod("java.sql.PreparedStatement", "executeQuery", 0, processingEnv);
@@ -78,6 +77,16 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     @SuppressWarnings("this-escape") // Call to postInit().
     public OpsAnnotatedTypeFactory(BaseTypeChecker checker) {
         super(checker);
+
+        // prepareStatement methods are overloaded with 1, 2, 3, or 4 parameters
+        connectionPrepareStatementMethods =
+                TreeUtils.getMethods("java.sql.Connection", "prepareStatement", 1, processingEnv);
+        connectionPrepareStatementMethods.addAll(
+                TreeUtils.getMethods("java.sql.Connection", "prepareStatement", 2, processingEnv));
+        connectionPrepareStatementMethods.addAll(
+                TreeUtils.getMethods("java.sql.Connection", "prepareStatement", 3, processingEnv));
+        connectionPrepareStatementMethods.addAll(
+                TreeUtils.getMethods("java.sql.Connection", "prepareStatement", 4, processingEnv));
 
         initSchemaInfo(checker);
 
@@ -362,8 +371,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
          */
         @Override
         public Void visitMethodInvocation(MethodInvocationTree tree, AnnotatedTypeMirror type) {
-            // todo other overloaded methods
-            if (TreeUtils.isMethodInvocation(tree, connectionPrepareStatement, processingEnv)) {
+            if (isPreparedStatementMethodInvocation(tree)) {
                 ExpressionTree arg = tree.getArguments().get(0);
                 if (!type.hasAnnotationRelaxed(SQL)) {
                     preparedStatementCount++;
@@ -398,6 +406,11 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 }
             }
             return super.visitMethodInvocation(tree, type);
+        }
+
+        private boolean isPreparedStatementMethodInvocation(MethodInvocationTree tree) {
+            return connectionPrepareStatementMethods.stream()
+                    .anyMatch(m -> TreeUtils.isMethodInvocation(tree, m, processingEnv));
         }
 
         /**
