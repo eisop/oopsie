@@ -9,6 +9,13 @@ import org.checkerframework.common.value.ValueChecker;
 /** The main checker class for the Optional Prepared Statement Checker (OPSC). */
 @SupportedOptions({"dbUrl", "dbUser", "dbPassword"})
 public class OpsChecker extends BaseTypeChecker {
+
+    private final OpsStats stats = new OpsStats();
+
+    public OpsStats getStats() {
+        return stats;
+    }
+
     @Override
     protected BaseTypeVisitor<?> createSourceVisitor() {
         return new OpsVisitor(this);
@@ -20,5 +27,17 @@ public class OpsChecker extends BaseTypeChecker {
         checkers.add(ValueChecker.class);
 
         return checkers;
+    }
+
+    @Override
+    public void typeProcessingOver() {
+        System.out.println(
+                "Number of annotated prepared statements: "
+                        + stats.getNumAnnotatedPreparedStatements());
+        System.out.println(
+                "Number of unsupported prepared statements: "
+                        + stats.getNumUnsupportedPreparedStatements());
+
+        super.typeProcessingOver();
     }
 }

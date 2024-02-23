@@ -45,6 +45,8 @@ import org.checkerframework.javacutil.UserError;
 
 public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
+    private final OpsStats stats;
+
     protected final AnnotationMirror SQL = AnnotationBuilder.fromClass(elements, Sql.class);
 
     protected final AnnotationMirror SQLUNKNOWN =
@@ -75,6 +77,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     @SuppressWarnings("this-escape") // Call to postInit().
     public OpsAnnotatedTypeFactory(BaseTypeChecker checker) {
         super(checker);
+
+        this.stats = ((OpsChecker) checker).getStats();
 
         // prepareStatement methods are overloaded with 1, 2, 3, or 4 parameters
         connectionPrepareStatementMethods =
@@ -371,9 +375,11 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     String stmt = retrieveStringValue(arg);
                     if (stmt != null) {
                         type.replaceAnnotation(buildSqlAnnotation(stmt, tree));
+                        stats.recordAnnotatedPreparedStatement();
                     } else {
                         checker.reportWarning(
                                 tree, "could not determine SQL string value of prepared statement");
+                        stats.recordUnsupportedPreparedStatement();
                     }
                 }
             } else if (TreeUtils.isMethodInvocation(
@@ -454,6 +460,18 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             return createSqlAnnotation(in, out);
         }
 
+        /**
+         * Retrieves the string value from the given ExpressionTree.
+         *
+         * <p>If the ExpressionTree is a string literal, it directly returns the string value. If
+         * the ExpressionTree is annotated with @StringVal, it retrieves the string value from the
+         * annotation. If multiple string values are associated with the @StringVal annotation, it
+         * reports a warning and returns the first string value. If no string value can be
+         * retrieved, it returns null.
+         *
+         * @param stringExpression the ExpressionTree from which to retrieve the string value
+         * @return the retrieved string value, or null if no string value can be retrieved
+         */
         private @Nullable String retrieveStringValue(ExpressionTree stringExpression) {
             if (stringExpression.getKind() == ExpressionTree.Kind.STRING_LITERAL) {
                 return (String) ((LiteralTree) stringExpression).getValue();
