@@ -1,0 +1,11 @@
+services:
+  opsc-postgres:
+    image: postgres
+    container_name: opsc-postgres
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: chinook
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./Chinook_Postgresql_schema.sql:/docker-entrypoint-initdb.d/Chinook_Postgresql_schema.sql
