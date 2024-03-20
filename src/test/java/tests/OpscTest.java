@@ -19,7 +19,8 @@ public class OpscTest extends CheckerFrameworkPerDirectoryTest {
                 "opsc",
                 "-AdbUrl=" + DB_URL,
                 "-AdbUser=" + DB_USER,
-                "-AdbPassword=" + DB_PASSWORD);
+                "-AdbPassword=" + DB_PASSWORD,
+                "-AenableSqlStringHeuristic=true");
     }
 
     @Parameters

@@ -371,9 +371,6 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     String stmt = retrieveStringValue(arg);
                     if (stmt != null) {
                         type.replaceAnnotation(buildSqlAnnotation(stmt, tree));
-                    } else {
-                        checker.reportWarning(
-                                tree, "could not determine SQL string value of prepared statement");
                     }
                 }
             } else if (TreeUtils.isMethodInvocation(
@@ -460,26 +457,37 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             }
 
             AnnotationMirror stringValAnnoMirror = getStringValAnnoMirror(stringExpression);
-            if (stringValAnnoMirror != null) {
-                List<String> values =
-                        AnnotationUtils.getElementValueArray(
-                                stringValAnnoMirror,
-                                stringValValueELement,
-                                String.class,
-                                Collections.emptyList());
-                if (values.size() == 1) {
-                    return values.get(0);
-                } else if (values.size() > 1) {
-                    checker.reportWarning(
-                            stringExpression,
-                            "statement.multiple.string.values",
-                            values.toString());
-                    return values.get(0);
-                } else {
-                    return null;
-                }
+            if (stringValAnnoMirror == null) {
+                return null;
             }
 
+            List<String> values =
+                    AnnotationUtils.getElementValueArray(
+                            stringValAnnoMirror,
+                            stringValValueELement,
+                            String.class,
+                            Collections.emptyList());
+
+            if (values.isEmpty()) {
+                checker.reportWarning(
+                        stringExpression,
+                        "could not determine SQL string value of prepared statement");
+                return null;
+            }
+
+            if (values.size() == 1) {
+                return values.get(0);
+            }
+
+            if (checker.getBooleanOption("enableSqlStringHeuristic")) {
+                checker.reportWarning(
+                        stringExpression,
+                        "statement.multiple.string.values.continuing",
+                        values.toString());
+                return values.get(0);
+            }
+
+            checker.reportWarning(stringExpression, "statement.multiple.string.values");
             return null;
         }
 

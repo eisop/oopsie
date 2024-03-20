@@ -7,7 +7,7 @@ import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.common.value.ValueChecker;
 
 /** The main checker class for the Optional Prepared Statement Checker (OPSC). */
-@SupportedOptions({"dbUrl", "dbUser", "dbPassword"})
+@SupportedOptions({"dbUrl", "dbUser", "dbPassword", "enableSqlStringHeuristic"})
 public class OpsChecker extends BaseTypeChecker {
     @Override
     protected BaseTypeVisitor<?> createSourceVisitor() {
