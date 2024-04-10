@@ -11,9 +11,12 @@ import java.util.Map;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
+
+import io.github.eisop.opsc.qual.SqlCheckedPositive;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.framework.type.AnnotatedTypeMirror;
+import org.checkerframework.javacutil.AnnotationBuilder;
 import org.checkerframework.javacutil.AnnotationUtils;
 import org.checkerframework.javacutil.TreeUtils;
 import org.checkerframework.javacutil.TypeSystemError;
@@ -168,6 +171,7 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                 if (index >= in.size()) {
                     checker.reportError(
                             tree, "parameter.index.out.of.bounds", index + 1, in.size());
+                    ensureSqlCheckedPositive(tree, receiverType);
                 } else if (!javaTypesMatch(
                         in.get(index), preparedStatementSetMethodTypes.get(method))) {
                     checker.reportError(
@@ -175,6 +179,7 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                             "parameter.type.incompatible",
                             preparedStatementSetMethodTypes.get(method),
                             in.get(index));
+                    ensureSqlCheckedPositive(tree, receiverType);
                 }
             }
         }
@@ -182,6 +187,9 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
 
     private void checkGetResultByIndex(MethodInvocationTree tree, ExecutableElement method) {
         AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
+        if (receiverType == null) {
+            throw new TypeSystemError("Could not find receiver of method invocation");
+        }
 
         if (receiverType.hasAnnotation(Sql.class)) {
             AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
@@ -190,13 +198,16 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                 LiteralTree literal = (LiteralTree) indexTree;
                 int index = (int) literal.getValue() - 1; // ResultSet columns are 1-indexed
                 checkGetResult(
-                        tree, resultSetGetByIndexMethodTypes.get(method), sqlAnnotation, index);
+                        tree, resultSetGetByIndexMethodTypes.get(method), sqlAnnotation, index, receiverType);
             }
         }
     }
 
     private void checkGetResultByName(MethodInvocationTree tree, ExecutableElement method) {
         AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
+        if (receiverType == null) {
+            throw new TypeSystemError("Could not find receiver of method invocation");
+        }
 
         if (receiverType.hasAnnotation(Sql.class)) {
             AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
@@ -220,11 +231,14 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                                             tree,
                                             resultSetGetByNameMethodTypes.get(method),
                                             sqlAnnotation,
-                                            index);
+                                            index,
+                                            receiverType);
                                 },
-                                () ->
-                                        checker.reportError(
-                                                tree, "column.name.not.found", columnName));
+                                () -> {
+                                    checker.reportError(
+                                            tree, "column.name.not.found", columnName);
+                                    ensureSqlCheckedPositive(tree, receiverType);
+                                });
             }
         }
     }
@@ -233,14 +247,17 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
             MethodInvocationTree tree,
             String methodType,
             AnnotationMirror sqlAnnotation,
-            int index) {
+            int index,
+            AnnotatedTypeMirror type) {
         List<String> out =
                 AnnotationUtils.getElementValueArray(
                         sqlAnnotation, sqlOutElement, String.class, Collections.emptyList());
         if (index >= out.size()) {
             checker.reportError(tree, "column.index.out.of.bounds", index + 1, out.size());
+            ensureSqlCheckedPositive(tree, type);
         } else if (!javaTypesMatch(out.get(index), methodType)) {
             checker.reportError(tree, "column.type.incompatible", methodType, out.get(index));
+            ensureSqlCheckedPositive(tree, type);
         }
     }
 
@@ -252,4 +269,14 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
         return OpsAnnotatedTypeFactory.getName(ann) != null
                 && OpsAnnotatedTypeFactory.getName(ann).equalsIgnoreCase(other);
     }
+
+    private void ensureSqlCheckedPositive(ExpressionTree tree, AnnotatedTypeMirror type) {
+        if (!type.hasAnnotation(SqlCheckedPositive.class)) {
+            type.replaceAnnotation(AnnotationBuilder.fromClass(elements, SqlCheckedPositive.class));
+            if (checker.getBooleanOption("enableCheckedReportWarnings")) {
+                checker.reportWarning(tree, "sqlchecked.new.positive");
+            }
+        }
+    }
+
 }
