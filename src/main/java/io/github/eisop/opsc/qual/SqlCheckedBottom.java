@@ -1,0 +1,16 @@
+package io.github.eisop.opsc.qual;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import org.checkerframework.framework.qual.*;
+
+/** The bottom type for the SqlChecked type hierarchy. */
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.TYPE_USE, ElementType.TYPE_PARAMETER})
+@SubtypeOf({SqlCheckedPositive.class})
+@InvisibleQualifier
+@TargetLocations({TypeUseLocation.LOWER_BOUND, TypeUseLocation.UPPER_BOUND})
+@DefaultFor(value = {TypeUseLocation.LOWER_BOUND})
+public @interface SqlCheckedBottom {}
