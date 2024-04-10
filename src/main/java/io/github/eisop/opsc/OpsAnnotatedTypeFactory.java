@@ -9,6 +9,7 @@ import io.github.eisop.opsc.db.SchemaInfo;
 import io.github.eisop.opsc.exception.OpsDatabaseException;
 import io.github.eisop.opsc.qual.Sql;
 import io.github.eisop.opsc.qual.SqlBottom;
+import io.github.eisop.opsc.qual.SqlCheckedPositive;
 import io.github.eisop.opsc.qual.SqlUnknown;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
@@ -371,6 +372,9 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     String stmt = retrieveStringValue(arg);
                     if (stmt != null) {
                         type.replaceAnnotation(buildSqlAnnotation(stmt, tree));
+                        if (checker.getBooleanOption("enableCheckedReportWarnings")) {
+                            checker.reportWarning(tree, "sqlchecked.new.negative");
+                        }
                     }
                 }
             } else if (TreeUtils.isMethodInvocation(
@@ -386,6 +390,11 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                                     String.class,
                                     Collections.emptyList());
                     type.replaceAnnotation(createSqlAnnotation(null, out));
+
+                    // transfer @SqlCheckedPositive if present
+                    if (receiverType.hasAnnotation(SqlCheckedPositive.class)) {
+                        type.replaceAnnotation(AnnotationBuilder.fromClass(elements, SqlCheckedPositive.class));
+                    }
                 } else {
                     checker.reportWarning(
                             tree, "could not get result type annotation from PreparedStatement");
