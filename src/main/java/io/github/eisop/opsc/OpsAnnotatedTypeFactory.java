@@ -450,6 +450,11 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                             "determine.out.type.failed.first.try",
                             calciteException.getMessage(),
                             stmt);
+                    // todo temporary
+                    System.out.println();
+                    System.out.println(getSourceLocation(tree).compilationUnit().getSourceFile().getName());
+                    System.out.println(getSourceLocation(tree).start());
+                    System.out.println();
                 } catch (OpsDatabaseException jdbcException) {
                     throw new TypeSystemError(
                             "Could not retrieve out type of prepared statement.\nReason: %s\nStatement: %s",
@@ -536,5 +541,12 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         if (in != null) builder.setValue("in", in);
         if (out != null) builder.setValue("out", out);
         return builder.build();
+    }
+
+    private SourceLocation getSourceLocation(MethodInvocationTree tree) {
+        return new SourceLocation(
+                root,
+                trees.getSourcePositions().getStartPosition(root, tree)
+        );
     }
 }
