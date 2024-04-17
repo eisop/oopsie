@@ -531,5 +531,4 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         if (out != null) builder.setValue("out", out);
         return builder.build();
     }
-
 }
