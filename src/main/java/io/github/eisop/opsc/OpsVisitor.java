@@ -5,7 +5,6 @@ import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
 import io.github.eisop.opsc.qual.Sql;
-
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -195,11 +194,7 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                 LiteralTree literal = (LiteralTree) indexTree;
                 int index = (int) literal.getValue() - 1; // ResultSet columns are 1-indexed
                 checkGetResult(
-                        tree,
-                        resultSetGetByIndexMethodTypes.get(method),
-                        sqlAnnotation,
-                        index
-                );
+                        tree, resultSetGetByIndexMethodTypes.get(method), sqlAnnotation, index);
             }
         }
     }
@@ -232,10 +227,11 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                                             tree,
                                             resultSetGetByNameMethodTypes.get(method),
                                             sqlAnnotation,
-                                            index
-                                    );
+                                            index);
                                 },
-                                () -> checker.reportError(tree, "column.name.not.found", columnName));
+                                () ->
+                                        checker.reportError(
+                                                tree, "column.name.not.found", columnName));
             }
         }
     }
@@ -270,5 +266,4 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
         return OpsAnnotatedTypeFactory.getName(ann) != null
                 && OpsAnnotatedTypeFactory.getName(ann).equalsIgnoreCase(other);
     }
-
 }
