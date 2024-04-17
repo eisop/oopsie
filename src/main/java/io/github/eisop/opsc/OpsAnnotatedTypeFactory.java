@@ -9,7 +9,6 @@ import io.github.eisop.opsc.db.SchemaInfo;
 import io.github.eisop.opsc.exception.OpsDatabaseException;
 import io.github.eisop.opsc.qual.Sql;
 import io.github.eisop.opsc.qual.SqlBottom;
-import io.github.eisop.opsc.qual.SqlCheckedPositive;
 import io.github.eisop.opsc.qual.SqlUnknown;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
@@ -390,11 +389,6 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                                     String.class,
                                     Collections.emptyList());
                     type.replaceAnnotation(createSqlAnnotation(null, out));
-
-                    // transfer @SqlCheckedPositive if present
-                    if (receiverType.hasAnnotation(SqlCheckedPositive.class)) {
-                        type.replaceAnnotation(AnnotationBuilder.fromClass(elements, SqlCheckedPositive.class));
-                    }
                 } else {
                     checker.reportWarning(
                             tree, "could not get result type annotation from PreparedStatement");
@@ -450,11 +444,6 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                             "determine.out.type.failed.first.try",
                             calciteException.getMessage(),
                             stmt);
-                    // todo temporary
-                    System.out.println();
-                    System.out.println(getSourceLocation(tree).compilationUnit().getSourceFile().getName());
-                    System.out.println(getSourceLocation(tree).start());
-                    System.out.println();
                 } catch (OpsDatabaseException jdbcException) {
                     throw new TypeSystemError(
                             "Could not retrieve out type of prepared statement.\nReason: %s\nStatement: %s",
@@ -543,10 +532,4 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         return builder.build();
     }
 
-    private SourceLocation getSourceLocation(MethodInvocationTree tree) {
-        return new SourceLocation(
-                root,
-                trees.getSourcePositions().getStartPosition(root, tree)
-        );
-    }
 }
