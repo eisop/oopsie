@@ -7,8 +7,17 @@ import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.common.value.ValueChecker;
 
 /** The main checker class for the Optional Prepared Statement Checker (OPSC). */
-@SupportedOptions({"dbUrl", "dbUser", "dbPassword", "enableSqlStringHeuristic", "enableCheckedReportWarnings"})
+@SupportedOptions({
+    "dbUrl",
+    "dbUser",
+    "dbPassword",
+    "enableSqlStringHeuristic",
+    "enableCheckedReportWarnings"
+})
 public class OpsChecker extends BaseTypeChecker {
+
+    OpsLogger logger = new OpsLogger();
+
     @Override
     protected BaseTypeVisitor<?> createSourceVisitor() {
         return new OpsVisitor(this);
@@ -20,5 +29,9 @@ public class OpsChecker extends BaseTypeChecker {
         checkers.add(ValueChecker.class);
 
         return checkers;
+    }
+
+    protected OpsLogger getLogger() {
+        return logger;
     }
 }
