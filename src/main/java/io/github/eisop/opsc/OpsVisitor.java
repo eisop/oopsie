@@ -4,6 +4,7 @@ import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
+import io.github.eisop.opsc.log.OpsLogger;
 import io.github.eisop.opsc.qual.Sql;
 import java.util.Collections;
 import java.util.List;
@@ -169,6 +170,14 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                 if (index >= in.size()) {
                     checker.reportError(
                             tree, "parameter.index.out.of.bounds", index + 1, in.size());
+                    logger.errorRelatedToStatement( // todo statement pos
+                            root,
+                            trees.getSourcePositions().getStartPosition(root, tree),
+                            root,
+                            trees.getSourcePositions().getStartPosition(root, tree),
+                            "parameter.index.out.of.bounds",
+                            "index=" + index + ", size=" + in.size()
+                    );
                 } else if (!javaTypesMatch(
                         in.get(index), preparedStatementSetMethodTypes.get(method))) {
                     checker.reportError(

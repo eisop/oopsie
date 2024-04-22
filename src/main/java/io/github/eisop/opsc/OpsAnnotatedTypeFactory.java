@@ -7,6 +7,8 @@ import io.github.eisop.opsc.db.CalciteSchemaInfo;
 import io.github.eisop.opsc.db.JDBCSchemaInfo;
 import io.github.eisop.opsc.db.SchemaInfo;
 import io.github.eisop.opsc.exception.OpsDatabaseException;
+import io.github.eisop.opsc.log.OpsLogEntryKind;
+import io.github.eisop.opsc.log.OpsLogger;
 import io.github.eisop.opsc.qual.Sql;
 import io.github.eisop.opsc.qual.SqlBottom;
 import io.github.eisop.opsc.qual.SqlUnknown;
@@ -44,6 +46,8 @@ import org.checkerframework.javacutil.TypeSystemError;
 import org.checkerframework.javacutil.UserError;
 
 public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
+
+    private final OpsLogger logger = ((OpsChecker) checker).getLogger();
 
     protected final AnnotationMirror SQL = AnnotationBuilder.fromClass(elements, Sql.class);
 
@@ -371,9 +375,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     String stmt = retrieveStringValue(arg);
                     if (stmt != null) {
                         type.replaceAnnotation(buildSqlAnnotation(stmt, tree));
-                        if (checker.getBooleanOption("enableCheckedReportWarnings")) {
-                            checker.reportWarning(tree, "sqlchecked.new.negative");
-                        }
+                        logger.supportedPreparedStatement(
+                                root, trees.getSourcePositions().getStartPosition(root, tree));
                     }
                 }
             } else if (TreeUtils.isMethodInvocation(
@@ -392,6 +395,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 } else {
                     checker.reportWarning(
                             tree, "could not get result type annotation from PreparedStatement");
+                    logger.unsupportedPreparedStatement(
+                            root, trees.getSourcePositions().getStartPosition(root, tree));
                 }
             }
             return super.visitMethodInvocation(tree, type);
@@ -425,10 +430,17 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                             calciteException.getMessage(),
                             stmt);
                 } catch (OpsDatabaseException jdbcException) {
+                    logger.unsupportedPreparedStatement(
+                            root, trees.getSourcePositions().getStartPosition(root, tree), jdbcException.getMessage());
                     throw new TypeSystemError(
                             "Could not retrieve in type of prepared statement.\nReason: %s\nStatement: %s",
                             jdbcException.getMessage(), stmt);
                 }
+                logger.simpleEntry(
+                        OpsLogEntryKind.USING_FALLBACK,
+                        root,
+                        trees.getSourcePositions().getStartPosition(root, tree),
+                        null);
             }
 
             // get result type of prepared statement
@@ -445,10 +457,17 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                             calciteException.getMessage(),
                             stmt);
                 } catch (OpsDatabaseException jdbcException) {
+                    logger.unsupportedPreparedStatement(
+                            root, trees.getSourcePositions().getStartPosition(root, tree), jdbcException.getMessage());
                     throw new TypeSystemError(
                             "Could not retrieve out type of prepared statement.\nReason: %s\nStatement: %s",
                             calciteException.getMessage(), stmt);
                 }
+                logger.simpleEntry(
+                        OpsLogEntryKind.USING_FALLBACK,
+                        root,
+                        trees.getSourcePositions().getStartPosition(root, tree),
+                        null);
             }
 
             return createSqlAnnotation(in, out);
@@ -475,6 +494,9 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 checker.reportWarning(
                         stringExpression,
                         "could not determine SQL string value of prepared statement");
+                logger.unsupportedPreparedStatement(
+                        root, trees.getSourcePositions().getStartPosition(root, stringExpression),
+                        "could not determine SQL string value of prepared statement");
                 return null;
             }
 
@@ -487,10 +509,18 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         stringExpression,
                         "statement.multiple.string.values.continuing",
                         values.toString());
+                logger.simpleEntry(
+                        OpsLogEntryKind.USING_SQL_STRING_HEURISTIC,
+                        root,
+                        trees.getSourcePositions().getStartPosition(root, stringExpression),
+                        null);
                 return values.get(0);
             }
 
             checker.reportWarning(stringExpression, "statement.multiple.string.values");
+            logger.unsupportedPreparedStatement(
+                    root, trees.getSourcePositions().getStartPosition(root, stringExpression),
+                    "statement.multiple.string.values");
             return null;
         }
 
