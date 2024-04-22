@@ -1,5 +1,6 @@
 package io.github.eisop.opsc;
 
+import io.github.eisop.opsc.log.OpsLogger;
 import java.util.Set;
 import javax.annotation.processing.SupportedOptions;
 import org.checkerframework.common.basetype.BaseTypeChecker;
@@ -7,13 +8,7 @@ import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.common.value.ValueChecker;
 
 /** The main checker class for the Optional Prepared Statement Checker (OPSC). */
-@SupportedOptions({
-    "dbUrl",
-    "dbUser",
-    "dbPassword",
-    "enableSqlStringHeuristic",
-    "enableCheckedReportWarnings"
-})
+@SupportedOptions({"dbUrl", "dbUser", "dbPassword", "enableSqlStringHeuristic"})
 public class OpsChecker extends BaseTypeChecker {
 
     OpsLogger logger = new OpsLogger();
