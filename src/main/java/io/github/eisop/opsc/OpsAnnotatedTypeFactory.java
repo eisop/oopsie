@@ -493,7 +493,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             if (values.isEmpty()) {
                 checker.reportWarning(
                         stringExpression,
-                        "could not determine SQL string value of prepared statement");
+                        "statement.string.retrieval.failed");
                 logger.unsupportedPreparedStatement(
                         root, trees.getSourcePositions().getStartPosition(root, stringExpression),
                         "could not determine SQL string value of prepared statement");
