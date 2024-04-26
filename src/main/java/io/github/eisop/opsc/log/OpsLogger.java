@@ -1,24 +1,55 @@
 package io.github.eisop.opsc.log;
 
 import com.sun.source.tree.CompilationUnitTree;
+import java.io.Closeable;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
+import org.checkerframework.javacutil.TypeSystemError;
 
 /** TODO Write to csv */
-public class OpsLogger {
+public class OpsLogger implements Closeable {
+
+    private static final String[] COLUMNS = {
+        "kind",
+        "file",
+        "location",
+        "relatedStatementFile",
+        "relatedStatementLocation",
+        "key",
+        "details"
+    };
+
+    private final CSVPrinter csvPrinter;
+
+    public OpsLogger(Path path) throws IOException {
+        CSVFormat csvFormat = CSVFormat.DEFAULT.builder().setHeader(COLUMNS).build();
+        csvPrinter =
+                new CSVPrinter(Files.newBufferedWriter(path, StandardCharsets.UTF_8), csvFormat);
+    }
+
+    @Override
+    public void close() throws IOException {
+        csvPrinter.close();
+    }
 
     public void supportedPreparedStatement(CompilationUnitTree tree, long start) {
         supportedPreparedStatement(tree, start, null);
     }
 
-    public void supportedPreparedStatement(CompilationUnitTree tree, long start, String details) {
-        simpleEntry(OpsLogEntryKind.SUPPORTED_PREPARED_STATEMENT, tree, start, details);
+    public void supportedPreparedStatement(CompilationUnitTree tree, long start, String key) {
+        simpleEntry(OpsLogEntryKind.SUPPORTED_PREPARED_STATEMENT, tree, start, key);
     }
 
     public void unsupportedPreparedStatement(CompilationUnitTree tree, long start) {
         unsupportedPreparedStatement(tree, start, null);
     }
 
-    public void unsupportedPreparedStatement(CompilationUnitTree tree, long start, String details) {
-        simpleEntry(OpsLogEntryKind.UNSUPPORTED_PREPARED_STATEMENT, tree, start, details);
+    public void unsupportedPreparedStatement(CompilationUnitTree tree, long start, String key) {
+        simpleEntry(OpsLogEntryKind.UNSUPPORTED_PREPARED_STATEMENT, tree, start, key);
     }
 
     public void entryRelatedToStatement(
@@ -74,13 +105,18 @@ public class OpsLogger {
                 details);
     }
 
-    public void simpleEntry(OpsLogEntryKind kind, CompilationUnitTree tree, long start, String details) {
+    public void simpleEntry(
+            OpsLogEntryKind kind, CompilationUnitTree tree, long start, String key) {
         logEntry(
                 new OpsLogEntry(
-                        kind, tree.getSourceFile().getName(), start, null, null, null, details));
+                        kind, tree.getSourceFile().getName(), start, null, null, key, null));
     }
 
     private void logEntry(OpsLogEntry entry) {
-        System.out.println(entry.csv());
+        try {
+            csvPrinter.printRecord(entry.values());
+        } catch (IOException e) {
+            throw new TypeSystemError("Unable to write to log: %s", e.getMessage());
+        }
     }
 }

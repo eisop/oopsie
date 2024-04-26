@@ -1,5 +1,6 @@
 package io.github.eisop.opsc.log;
 
+import java.util.List;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -12,9 +13,8 @@ public record OpsLogEntry(
         @Nullable String key,
         @Nullable String details) {
 
-    public String csv() {
-        return String.join(
-                ",",
+    public List<String> values() {
+        return List.of(
                 kind.toString(),
                 file,
                 location.toString(),

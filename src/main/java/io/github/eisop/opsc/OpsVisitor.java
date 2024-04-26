@@ -176,8 +176,7 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                             root,
                             trees.getSourcePositions().getStartPosition(root, tree),
                             "parameter.index.out.of.bounds",
-                            "index=" + index + ", size=" + in.size()
-                    );
+                            "index=" + index + ", size=" + in.size());
                 } else if (!javaTypesMatch(
                         in.get(index), preparedStatementSetMethodTypes.get(method))) {
                     checker.reportError(

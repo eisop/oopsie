@@ -431,7 +431,9 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                             stmt);
                 } catch (OpsDatabaseException jdbcException) {
                     logger.unsupportedPreparedStatement(
-                            root, trees.getSourcePositions().getStartPosition(root, tree), jdbcException.getMessage());
+                            root,
+                            trees.getSourcePositions().getStartPosition(root, tree),
+                            "determine.in.type.failed.final");
                     throw new TypeSystemError(
                             "Could not retrieve in type of prepared statement.\nReason: %s\nStatement: %s",
                             jdbcException.getMessage(), stmt);
@@ -458,7 +460,9 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                             stmt);
                 } catch (OpsDatabaseException jdbcException) {
                     logger.unsupportedPreparedStatement(
-                            root, trees.getSourcePositions().getStartPosition(root, tree), jdbcException.getMessage());
+                            root,
+                            trees.getSourcePositions().getStartPosition(root, tree),
+                            "determine.out.type.failed.final");
                     throw new TypeSystemError(
                             "Could not retrieve out type of prepared statement.\nReason: %s\nStatement: %s",
                             calciteException.getMessage(), stmt);
@@ -491,12 +495,11 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                             Collections.emptyList());
 
             if (values.isEmpty()) {
-                checker.reportWarning(
-                        stringExpression,
-                        "statement.string.retrieval.failed");
+                checker.reportWarning(stringExpression, "statement.string.retrieval.failed");
                 logger.unsupportedPreparedStatement(
-                        root, trees.getSourcePositions().getStartPosition(root, stringExpression),
-                        "could not determine SQL string value of prepared statement");
+                        root,
+                        trees.getSourcePositions().getStartPosition(root, stringExpression),
+                        "statement.string.retrieval.failed");
                 return null;
             }
 
@@ -519,7 +522,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
             checker.reportWarning(stringExpression, "statement.multiple.string.values");
             logger.unsupportedPreparedStatement(
-                    root, trees.getSourcePositions().getStartPosition(root, stringExpression),
+                    root,
+                    trees.getSourcePositions().getStartPosition(root, stringExpression),
                     "statement.multiple.string.values");
             return null;
         }
