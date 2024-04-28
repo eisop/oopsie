@@ -124,6 +124,7 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
         return new OpsAnnotatedTypeFactory(checker);
     }
 
+    @SuppressWarnings("VoidUsed")
     @Override
     public Void visitMethodInvocation(MethodInvocationTree tree, Void p) {
         for (ExecutableElement method : preparedStatementSetMethodTypes.keySet()) {
