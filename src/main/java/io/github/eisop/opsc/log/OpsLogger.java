@@ -11,7 +11,6 @@ import org.apache.commons.csv.CSVPrinter;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.checkerframework.javacutil.TypeSystemError;
 
-/** TODO Write to csv */
 public class OpsLogger implements Closeable {
 
     private static final String[] COLUMNS = {
@@ -43,6 +42,25 @@ public class OpsLogger implements Closeable {
 
     public void supportedPreparedStatement(CompilationUnitTree tree, long start, String key) {
         simpleEntry(OpsLogEntryKind.SUPPORTED_PREPARED_STATEMENT, tree, start, key);
+    }
+
+    public void unsupportedPreparedStatement(
+            CompilationUnitTree tree, long start, String key, String details) {
+        String sourceFileName = null;
+        String location = null;
+        if (tree != null) {
+            sourceFileName = tree.getSourceFile().getName();
+            location = String.valueOf(start);
+        }
+        logEntry(
+                new OpsLogEntry(
+                        OpsLogEntryKind.UNSUPPORTED_PREPARED_STATEMENT,
+                        sourceFileName,
+                        location,
+                        null,
+                        null,
+                        key,
+                        details));
     }
 
     public void unsupportedPreparedStatement(CompilationUnitTree tree, long start) {

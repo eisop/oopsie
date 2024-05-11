@@ -47,27 +47,20 @@ import org.checkerframework.javacutil.UserError;
 
 public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
-    private final OpsLogger logger = ((OpsChecker) checker).getLogger();
-
     protected final AnnotationMirror SQL = AnnotationBuilder.fromClass(elements, Sql.class);
-
     protected final AnnotationMirror SQLUNKNOWN =
             AnnotationBuilder.fromClass(elements, SqlUnknown.class);
     protected final AnnotationMirror SQLBOTTOM =
             AnnotationBuilder.fromClass(elements, SqlBottom.class);
-
     protected final ExecutableElement sqlInElement =
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "in", 0, processingEnv);
-
     protected final ExecutableElement sqlOutElement =
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "out", 0, processingEnv);
-
     protected final ExecutableElement sqlFileElement =
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "file", 0, processingEnv);
-
     protected final ExecutableElement sqlLocationElement =
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "location", 0, processingEnv);
-
+    private final OpsLogger logger = ((OpsChecker) checker).getLogger();
     private final ExecutableElement stringValValueELement =
             TreeUtils.getMethod(
                     "org.checkerframework.common.value.qual.StringVal", "value", 0, processingEnv);
@@ -156,6 +149,25 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     @Override
     protected QualifierHierarchy createQualifierHierarchy() {
         return new OpsQualifierHierarchy(this.getSupportedTypeQualifiers(), elements);
+    }
+
+    @Override
+    protected TreeAnnotator createTreeAnnotator() {
+        return new ListTreeAnnotator(super.createTreeAnnotator(), new OpsTreeAnnotator(this));
+    }
+
+    /** Returns a new SQL annotation with the given in and out types. */
+    private @NonNull AnnotationMirror createSqlAnnotation(
+            @Nullable List<String> in,
+            @Nullable List<String> out,
+            @Nullable String file,
+            @Nullable String location) {
+        AnnotationBuilder builder = new AnnotationBuilder(processingEnv, Sql.class);
+        if (in != null) builder.setValue("in", in);
+        if (out != null) builder.setValue("out", out);
+        if (file != null) builder.setValue("file", file);
+        if (location != null) builder.setValue("location", location);
+        return builder.build();
     }
 
     private final class OpsQualifierHierarchy extends MostlyNoElementQualifierHierarchy {
@@ -359,11 +371,6 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         }
     }
 
-    @Override
-    protected TreeAnnotator createTreeAnnotator() {
-        return new ListTreeAnnotator(super.createTreeAnnotator(), new OpsTreeAnnotator(this));
-    }
-
     private class OpsTreeAnnotator extends TreeAnnotator {
         public OpsTreeAnnotator(BaseAnnotatedTypeFactory atypeFactory) {
             super(atypeFactory);
@@ -380,9 +387,12 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 if (!type.hasAnnotationRelaxed(SQL)) {
                     String stmt = retrieveStringValue(arg);
                     if (stmt != null) {
-                        type.replaceAnnotation(buildSqlAnnotation(stmt, tree));
-                        logger.supportedPreparedStatement(
-                                root, trees.getSourcePositions().getStartPosition(root, tree));
+                        AnnotationMirror annotation = buildSqlAnnotation(stmt, tree);
+                        if (annotation != null) {
+                            type.replaceAnnotation(buildSqlAnnotation(stmt, tree));
+                            logger.supportedPreparedStatement(
+                                    root, trees.getSourcePositions().getStartPosition(root, tree));
+                        }
                     }
                 }
             } else if (TreeUtils.isMethodInvocation(
@@ -425,8 +435,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
          *
          * <p>Hack: Because Calcite doesn't support statements like 'SELECT ?', use JDBCSchemaInfo
          * as a fallback if
+         *
+         * @return the @Sql annotation or null if the types could not be determined
          */
-        private @NonNull AnnotationMirror buildSqlAnnotation(
+        private @Nullable AnnotationMirror buildSqlAnnotation(
                 @NonNull String stmt, MethodInvocationTree tree) {
             // get placeholder types of prepared statement
             List<String> in;
@@ -442,13 +454,17 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                             calciteException.getMessage(),
                             stmt);
                 } catch (OpsDatabaseException jdbcException) {
+                    checker.reportError(
+                            tree,
+                            "determine.in.type.failed.final",
+                            jdbcException.getMessage(),
+                            stmt);
                     logger.unsupportedPreparedStatement(
                             root,
                             trees.getSourcePositions().getStartPosition(root, tree),
-                            "determine.in.type.failed.final");
-                    throw new TypeSystemError(
-                            "Could not retrieve in type of prepared statement.\nReason: %s\nStatement: %s",
-                            jdbcException.getMessage(), stmt);
+                            "determine.in.type.failed.final",
+                            jdbcException.getMessage());
+                    return null;
                 }
                 logger.simpleEntry(
                         OpsLogEntryKind.USING_FALLBACK,
@@ -471,13 +487,17 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                             calciteException.getMessage(),
                             stmt);
                 } catch (OpsDatabaseException jdbcException) {
+                    checker.reportError(
+                            tree,
+                            "determine.out.type.failed.final",
+                            jdbcException.getMessage(),
+                            stmt);
                     logger.unsupportedPreparedStatement(
                             root,
                             trees.getSourcePositions().getStartPosition(root, tree),
-                            "determine.out.type.failed.final");
-                    throw new TypeSystemError(
-                            "Could not retrieve out type of prepared statement.\nReason: %s\nStatement: %s",
-                            calciteException.getMessage(), stmt);
+                            "determine.out.type.failed.final",
+                            jdbcException.getMessage());
+                    return null;
                 }
                 logger.simpleEntry(
                         OpsLogEntryKind.USING_FALLBACK,
@@ -574,19 +594,5 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             }
             return pt;
         }
-    }
-
-    /** Returns a new SQL annotation with the given in and out types. */
-    private @NonNull AnnotationMirror createSqlAnnotation(
-            @Nullable List<String> in,
-            @Nullable List<String> out,
-            @Nullable String file,
-            @Nullable String location) {
-        AnnotationBuilder builder = new AnnotationBuilder(processingEnv, Sql.class);
-        if (in != null) builder.setValue("in", in);
-        if (out != null) builder.setValue("out", out);
-        if (file != null) builder.setValue("file", file);
-        if (location != null) builder.setValue("location", location);
-        return builder.build();
     }
 }
