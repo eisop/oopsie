@@ -44,8 +44,10 @@ public class OpsChecker extends BaseTypeChecker {
             logger = new OpsLogger(logPath);
         } catch (IOException e) {
             throw new UserError(
-                    "Could not create logger. Check the path provided with -AopsLogPath", e);
+                    "Could not create logger. Check the path provided with -AopsLogDir", e);
         }
+
+        System.out.println("Logging to " + logPath.toAbsolutePath());
 
         super.initChecker();
     }
@@ -53,6 +55,21 @@ public class OpsChecker extends BaseTypeChecker {
     @Override
     protected BaseTypeVisitor<?> createSourceVisitor() {
         return new OpsVisitor(this);
+    }
+
+    @Override
+    protected boolean shouldAddShutdownHook() {
+        return true;
+    }
+
+    @Override
+    protected void shutdownHook() {
+        try {
+            logger.close();
+        } catch (IOException e) {
+            throw new TypeSystemError("Could not close logger: ", e.getMessage());
+        }
+        super.shutdownHook();
     }
 
     @Override

@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.checkerframework.javacutil.TypeSystemError;
 
 /** TODO Write to csv */
@@ -56,16 +57,16 @@ public class OpsLogger implements Closeable {
             OpsLogEntryKind kind,
             CompilationUnitTree warningTree,
             long warningStart,
-            CompilationUnitTree statementTree,
-            long statementStart,
+            String statementFile,
+            String statementStart,
             String key,
             String details) {
         logEntry(
                 new OpsLogEntry(
                         kind,
                         warningTree.getSourceFile().getName(),
-                        warningStart,
-                        statementTree.getSourceFile().getName(),
+                        String.valueOf(warningStart),
+                        statementFile,
                         statementStart,
                         key,
                         details));
@@ -74,15 +75,15 @@ public class OpsLogger implements Closeable {
     public void warningRelatedToStatement(
             CompilationUnitTree warningTree,
             long warningStart,
-            CompilationUnitTree statementTree,
-            long statementStart,
+            String statementFile,
+            String statementStart,
             String key,
             String details) {
         entryRelatedToStatement(
                 OpsLogEntryKind.WARNING,
                 warningTree,
                 warningStart,
-                statementTree,
+                statementFile,
                 statementStart,
                 key,
                 details);
@@ -91,25 +92,29 @@ public class OpsLogger implements Closeable {
     public void errorRelatedToStatement(
             CompilationUnitTree errorTree,
             long errorStart,
-            CompilationUnitTree statementTree,
-            long statementStart,
+            String statementFile,
+            String statementStart,
             String key,
             String details) {
         entryRelatedToStatement(
                 OpsLogEntryKind.ERROR,
                 errorTree,
                 errorStart,
-                statementTree,
+                statementFile,
                 statementStart,
                 key,
                 details);
     }
 
     public void simpleEntry(
-            OpsLogEntryKind kind, CompilationUnitTree tree, long start, String key) {
-        logEntry(
-                new OpsLogEntry(
-                        kind, tree.getSourceFile().getName(), start, null, null, key, null));
+            OpsLogEntryKind kind, @Nullable CompilationUnitTree tree, long start, String key) {
+        String sourceFileName = null;
+        String location = null;
+        if (tree != null) {
+            sourceFileName = tree.getSourceFile().getName();
+            location = String.valueOf(start);
+        }
+        logEntry(new OpsLogEntry(kind, sourceFileName, location, null, null, key, null));
     }
 
     private void logEntry(OpsLogEntry entry) {

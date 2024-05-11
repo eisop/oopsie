@@ -62,6 +62,12 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     protected final ExecutableElement sqlOutElement =
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "out", 0, processingEnv);
 
+    protected final ExecutableElement sqlFileElement =
+            TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "file", 0, processingEnv);
+
+    protected final ExecutableElement sqlLocationElement =
+            TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "location", 0, processingEnv);
+
     private final ExecutableElement stringValValueELement =
             TreeUtils.getMethod(
                     "org.checkerframework.common.value.qual.StringVal", "value", 0, processingEnv);
@@ -306,7 +312,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         }
                     }
 
-                    return createSqlAnnotation(in1, outLub);
+                    return createSqlAnnotation(in1, outLub, null, null);
                 }
             } else if (qualifierKind1 == SQL_KIND && qualifierKind2 == SQLBOTTOM_KIND) {
                 return a1;
@@ -391,7 +397,13 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                                     sqlOutElement,
                                     String.class,
                                     Collections.emptyList());
-                    type.replaceAnnotation(createSqlAnnotation(null, out));
+                    String file =
+                            AnnotationUtils.getElementValue(
+                                    sqlAnnotation, sqlFileElement, String.class);
+                    String location =
+                            AnnotationUtils.getElementValue(
+                                    sqlAnnotation, sqlLocationElement, String.class);
+                    type.replaceAnnotation(createSqlAnnotation(null, out, file, location));
                 } else {
                     checker.reportWarning(
                             tree, "could not get result type annotation from PreparedStatement");
@@ -474,7 +486,14 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         null);
             }
 
-            return createSqlAnnotation(in, out);
+            String file = null;
+            String location = null;
+            if (root != null) {
+                file = root.getSourceFile().getName();
+                location = String.valueOf(trees.getSourcePositions().getStartPosition(root, tree));
+            }
+
+            return createSqlAnnotation(in, out, file, location);
         }
 
         private @Nullable String retrieveStringValue(ExpressionTree stringExpression) {
@@ -559,10 +578,15 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
     /** Returns a new SQL annotation with the given in and out types. */
     private @NonNull AnnotationMirror createSqlAnnotation(
-            @Nullable List<String> in, @Nullable List<String> out) {
+            @Nullable List<String> in,
+            @Nullable List<String> out,
+            @Nullable String file,
+            @Nullable String location) {
         AnnotationBuilder builder = new AnnotationBuilder(processingEnv, Sql.class);
         if (in != null) builder.setValue("in", in);
         if (out != null) builder.setValue("out", out);
+        if (file != null) builder.setValue("file", file);
+        if (location != null) builder.setValue("location", location);
         return builder.build();
     }
 }

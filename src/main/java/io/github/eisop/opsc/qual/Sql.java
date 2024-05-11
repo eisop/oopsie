@@ -16,4 +16,10 @@ public @interface Sql {
 
     /** The output types for the SQL query. */
     String[] out() default {};
+
+    /** The file name of the source code that contains the query */
+    String file() default "";
+
+    /** The location of the query within the source code file */
+    String location() default "";
 }

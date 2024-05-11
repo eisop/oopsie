@@ -6,18 +6,18 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 
 public record OpsLogEntry(
         @NonNull OpsLogEntryKind kind,
-        @NonNull String file,
-        @NonNull Long location,
+        @Nullable String file,
+        @Nullable String location,
         @Nullable String relatedStatementFile,
-        @Nullable Long relatedStatementLocation,
+        @Nullable String relatedStatementLocation,
         @Nullable String key,
         @Nullable String details) {
 
     public List<String> values() {
         return List.of(
                 kind.toString(),
-                file,
-                location.toString(),
+                str(file),
+                str(location),
                 str(relatedStatementFile),
                 str(relatedStatementLocation),
                 str(key),
