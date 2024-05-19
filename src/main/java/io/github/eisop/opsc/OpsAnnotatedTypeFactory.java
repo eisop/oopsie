@@ -14,7 +14,6 @@ import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
@@ -371,13 +370,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 if (!type.hasAnnotationRelaxed(SQL)) {
                     String stmt = retrieveStringValue(arg);
                     if (stmt != null) {
-                        AnnotationMirror sqlAnnotation = buildSqlAnnotation(stmt, tree);
-                        if (sqlAnnotation != null) {
-                            type.replaceAnnotation(sqlAnnotation);
-                        }
-                    } else {
-                        checker.reportWarning(
-                                tree, "could not determine SQL string value of prepared statement");
+                        type.replaceAnnotation(buildSqlAnnotation(stmt, tree));
                     }
                 }
             } else if (TreeUtils.isMethodInvocation(
@@ -393,10 +386,9 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                                     String.class,
                                     Collections.emptyList());
                     type.replaceAnnotation(createSqlAnnotation(null, out));
-//                } else {
-//                    checker.reportWarning(
-//                            tree, "could not get result type annotation from PreparedStatement");
-//                }
+                } else {
+                    checker.reportWarning(
+                            tree, "could not get result type annotation from PreparedStatement");
                 }
             }
             return super.visitMethodInvocation(tree, type);
@@ -414,7 +406,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
          * <p>Hack: Because Calcite doesn't support statements like 'SELECT ?', use JDBCSchemaInfo
          * as a fallback if
          */
-        private @Nullable AnnotationMirror buildSqlAnnotation(
+        private @NonNull AnnotationMirror buildSqlAnnotation(
                 @NonNull String stmt, MethodInvocationTree tree) {
             // get placeholder types of prepared statement
             List<String> in;
@@ -424,15 +416,15 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 // Retry with fallback JDBCSchemaInfo
                 try {
                     in = getInType(stmt, jdbcSchemaInfo);
-                    checker.reportWarning(tree, "determine.in.type.failed.first.try",
-                            calciteException.getMessage(), stmt);
+                    checker.reportWarning(
+                            tree,
+                            "determine.in.type.failed.first.try",
+                            calciteException.getMessage(),
+                            stmt);
                 } catch (OpsDatabaseException jdbcException) {
-//                    throw new TypeSystemError(
-//                            "Could not retrieve in type of prepared statement.\n\tReason: %s\n\tStatement: %s",
-//                            jdbcException.getMessage(), stmt);
-                    checker.reportError(tree, "determine.in.type.failed.second.try",
+                    throw new TypeSystemError(
+                            "Could not retrieve in type of prepared statement.\nReason: %s\nStatement: %s",
                             jdbcException.getMessage(), stmt);
-                    return null;
                 }
             }
 
@@ -444,15 +436,15 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 // Retry with fallback JDBCSchemaInfo
                 try {
                     out = getOutType(stmt, jdbcSchemaInfo);
-                    checker.reportWarning(tree, "determine.out.type.failed.first.try",
-                            calciteException.getMessage(), stmt);
+                    checker.reportWarning(
+                            tree,
+                            "determine.out.type.failed.first.try",
+                            calciteException.getMessage(),
+                            stmt);
                 } catch (OpsDatabaseException jdbcException) {
-//                    throw new TypeSystemError(
-//                            "Could not retrieve out type of prepared statement.\n\tReason: %s\n\tStatement: %s",
-//                            calciteException.getMessage(), stmt);
-                    checker.reportError(tree, "determine.out.type.failed.second.try",
+                    throw new TypeSystemError(
+                            "Could not retrieve out type of prepared statement.\nReason: %s\nStatement: %s",
                             calciteException.getMessage(), stmt);
-                    return null;
                 }
             }
 
@@ -465,29 +457,37 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             }
 
             AnnotationMirror stringValAnnoMirror = getStringValAnnoMirror(stringExpression);
-            if (stringValAnnoMirror != null) {
-                List<String> values =
-                        AnnotationUtils.getElementValueArray(
-                                stringValAnnoMirror,
-                                stringValValueELement,
-                                String.class,
-                                Collections.emptyList());
-                if (values.size() == 1) {
-                    return values.get(0);
-                } else if (values.size() > 1) {
-                    checker.reportWarning(
-                            stringExpression,
-                            "statement.multiple.string.values",
-                            values.toString());
-                    // try with longest in this case
-                    return values.stream()
-                            .max(Comparator.comparingInt(String::length))
-                            .orElse(null);
-                } else {
-                    return null;
-                }
+            if (stringValAnnoMirror == null) {
+                return null;
             }
 
+            List<String> values =
+                    AnnotationUtils.getElementValueArray(
+                            stringValAnnoMirror,
+                            stringValValueELement,
+                            String.class,
+                            Collections.emptyList());
+
+            if (values.isEmpty()) {
+                checker.reportWarning(
+                        stringExpression,
+                        "could not determine SQL string value of prepared statement");
+                return null;
+            }
+
+            if (values.size() == 1) {
+                return values.get(0);
+            }
+
+            if (checker.getBooleanOption("enableSqlStringHeuristic")) {
+                checker.reportWarning(
+                        stringExpression,
+                        "statement.multiple.string.values.continuing",
+                        values.toString());
+                return values.get(0);
+            }
+
+            checker.reportWarning(stringExpression, "statement.multiple.string.values");
             return null;
         }
 

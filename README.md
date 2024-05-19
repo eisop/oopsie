@@ -13,15 +13,12 @@ stemming from bugs that would otherwise only be detected at runtime.
 
 ### Build with tests (using gradle)
 
-* Setup the test postgres database with the chinook schema:
-  * Create a postgres docker container with
-  ```shell
-  sudo docker run --rm --name opsc-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=chinook -p 5432:5432 -d postgres
-  ```
-  * Run the schema creation script with
-  ```shell
-  cat tests/Chinook_Postgresql_schema.sql | sudo docker exec -i -u postgres opsc-postgres psql -d chinook
-  ```
+* Set up the test postgres database with the chinook schema:
+```shell
+cd tests
+docker-compose up
+```
+
 * Assemble and test with `./gradlew test`.
 
 

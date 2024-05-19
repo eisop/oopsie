@@ -24,7 +24,8 @@ public class OpscTest extends CheckerFrameworkPerDirectoryTest {
                 "-AnonNullStringsConcatenation=true",
                 "-AdbUrl=" + DB_URL_MYSQL,
                 "-AdbUser=" + DB_USER_MYSQL,
-                "-AdbPassword=" + DB_PASSWORD_MYSQL);
+                "-AdbPassword=" + DB_PASSWORD_MYSQL,
+                "-AenableSqlStringHeuristic=true");
     }
 
     @Parameters

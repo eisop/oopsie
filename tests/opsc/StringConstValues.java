@@ -95,6 +95,7 @@ public class StringConstValues {
                 })
         // False positive as ConstValueChecker is unable to track the value of `sql` in
         // concatenation
+        // :: warning: (statement.multiple.string.values.continuing)
         PreparedStatement ps1 = conn.prepareStatement(sql);
     }
 

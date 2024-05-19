@@ -7,7 +7,7 @@ plugins {
     // https://docs.gradle.org/current/userguide/eclipse_plugin.html
     id("eclipse")
     // To show task list as a tree, run: ./gradlew <taskname> taskTree
-    id("com.dorongold.task-tree").version("2.1.1")
+    id("com.dorongold.task-tree").version("3.0.0")
 }
 
 repositories {
@@ -23,7 +23,7 @@ group = "io.github.eisop"
 version = "0.0.1-SNAPSHOT"
 
 ext.versions= [
-    checkerFramework: "3.42.0-eisop2",
+    checkerFramework: "3.42.0-eisop3",
 ]
 
 dependencies {
@@ -33,12 +33,12 @@ dependencies {
     compileOnly("com.google.errorprone:javac:9+181-r4173-1")
 
     implementation("org.apache.calcite:calcite-core:1.36.0")
-    implementation("org.postgresql:postgresql:42.7.1")
+    implementation("org.postgresql:postgresql:42.7.3")
     implementation("com.mysql:mysql-connector-j:8.2.0")
 
-//    errorprone("com.google.errorprone:error_prone_core:2.24.1")
+//    errorprone("com.google.errorprone:error_prone_core:2.27.1")
 
-    implementation("com.google.guava:guava:33.0.0-jre")
+    implementation("com.google.guava:guava:33.2.0-jre")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("io.github.eisop:checker:${versions.checkerFramework}")
