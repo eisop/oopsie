@@ -164,7 +164,7 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
         }
         for (ExecutableElement method : resultSetGetMethodTypes.keySet()) {
             if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
-                checkGetResultByName(tree, method);
+                checkGetResult(tree, method);
                 break;
             }
         }
@@ -255,7 +255,7 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                     logError(
                             tree,
                             "column.type.incompatible",
-                            "expected=" + methodType + ", actual=" + out.get(index),
+                            "expected=" + resultSetGetMethodTypes.get(method) + ", actual=" + out.get(index),
                             sqlAnnotation);
                 }
             }
