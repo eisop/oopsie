@@ -93,9 +93,6 @@ public class StringConstValues {
                     "@NonNull BigDecimal",
                     "@Nullable @MaxLength(40) String"
                 })
-        // False positive as ConstValueChecker is unable to track the value of `sql` in
-        // concatenation
-        // :: warning: (statement.multiple.string.values.continuing)
         PreparedStatement ps1 = conn.prepareStatement(sql);
     }
 
@@ -138,7 +135,7 @@ public class StringConstValues {
             throws SQLException {
         // From oscar
         String sql = "select count(distinct demographic_no) from casemgmt_note where reporter_caisi_role=? and observation_date>=? and observation_date<?"+(programId==null?"":" and program_no=?");
-        // :: warning: (statement.multiple.string.values)
+        // :: warning: (statement.multiple.string.values.continuing)
         PreparedStatement ps = conn.prepareStatement(sql);
         ps.setString(1, String.valueOf(roleId));
         ps.setTimestamp(2, new Timestamp(startDate.getTime()));

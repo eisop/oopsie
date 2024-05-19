@@ -11,11 +11,7 @@ import io.github.eisop.opsc.qual.Sql;
 import io.github.eisop.opsc.qual.SqlBottom;
 import io.github.eisop.opsc.qual.SqlUnknown;
 import java.lang.annotation.Annotation;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.util.Elements;
@@ -479,12 +475,15 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 return values.get(0);
             }
 
-            if (checker.getBooleanOption("enableSqlStringHeuristic")) {
+            if (checker.getBooleanOption("enableSqlStringHeuristic") && values.size() > 1) {
                 checker.reportWarning(
                         stringExpression,
                         "statement.multiple.string.values.continuing",
                         values.toString());
-                return values.get(0);
+                // try with longest in this case
+                return values.stream()
+                        .max(Comparator.comparingInt(String::length))
+                        .orElse(null);
             }
 
             checker.reportWarning(stringExpression, "statement.multiple.string.values");
