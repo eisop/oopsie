@@ -5,4 +5,4 @@ ENV MYSQL_DATABASE=Chinook \
 
 ADD Chinook_Mysql_schema.sql extras.sql /docker-entrypoint-initdb.d/
 
-EXPOSE 3307
+EXPOSE 3306
