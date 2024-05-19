@@ -1,5 +1,6 @@
 package io.github.eisop.opsc.log;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -43,14 +44,15 @@ public final class OpsLogEntry {
     }
 
     public List<String> values() {
-        return List.of(
+        return Arrays.asList(
                 kind.toString(),
                 str(file),
                 str(location),
                 str(relatedStatementFile),
                 str(relatedStatementLocation),
                 str(key),
-                str(details));
+                str(details)
+        );
     }
 
     private String str(Object value) {

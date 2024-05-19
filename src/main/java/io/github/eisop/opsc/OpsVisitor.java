@@ -1,6 +1,5 @@
 package io.github.eisop.opsc;
 
-import com.google.common.base.Splitter;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
