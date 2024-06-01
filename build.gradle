@@ -35,7 +35,7 @@ dependencies {
 
     errorprone("com.google.errorprone:error_prone_core:2.27.1")
 
-    implementation("com.google.guava:guava:33.2.0-jre")
+    implementation("com.google.guava:guava:33.2.1-jre")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("io.github.eisop:checker:${versions.checkerFramework}")
