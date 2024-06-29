@@ -1,7 +1,11 @@
 package io.github.eisop.opsc;
 
+import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import io.github.eisop.opsc.log.OpsLogger;
 import java.io.IOException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
@@ -25,17 +29,36 @@ public class OpsChecker extends BaseTypeChecker {
 
     @Override
     public void typeProcessingOver() {
-        try {
-            logger.close();
-        } catch (IOException e) {
-            throw new TypeSystemError("Could not close logger: ", e.getMessage());
-        }
         super.typeProcessingOver();
     }
 
     @Override
     public void initChecker() {
-        String logDir = hasOption("opsLogDir") ? getOption("opsLogDir") : ".";
+        String projectRoot = getProjectRoot();
+
+        String logDir =
+                hasOption("opsLogDir")
+                        ? getOption("opsLogDir")
+                        : Paths.get(projectRoot, "opslog/").toString();
+
+        System.out.println("projectRoot = " + projectRoot);
+        System.out.println("logDir = " + logDir);
+
+        if (logDir == null) {
+            throw new UserError(
+                    "Unable to determine the log directory. Please provide it with -AopsLogDir.");
+        }
+
+        try {
+            Files.createDirectories(Paths.get(logDir));
+        } catch (IOException e) {
+            throw new UserError(
+                    "Could not create log directory: "
+                            + logDir
+                            + ". Consider choosing an alternative directory using -AopsLogDir",
+                    e);
+        }
+
         String logFileName =
                 DateTimeFormatter.ofPattern(LOG_FILE_NAME_PATTERN)
                         .format(LocalDateTime.now(ZoneId.systemDefault()));
@@ -50,6 +73,30 @@ public class OpsChecker extends BaseTypeChecker {
         System.out.println("Logging to " + logPath.toAbsolutePath());
 
         super.initChecker();
+    }
+
+    private String getProjectRoot() {
+        JavacProcessingEnvironment javacProcessingEnvironment =
+                (JavacProcessingEnvironment) getProcessingEnvironment();
+        URLClassLoader processorClassLoader =
+                (URLClassLoader) javacProcessingEnvironment.getProcessorClassLoader();
+
+        URL url = null;
+        for (URL u : processorClassLoader.getURLs()) {
+            String path = u.getFile();
+            if (path.matches(".*[/\\\\]build[/\\\\].*")
+                    && !path.matches(".*\\.(gradle|\\.m2)/.*")) {
+                url = u;
+                break;
+            }
+        }
+
+        // remove the last part of the path starting from "[/\\]build[/\\]" to get the root path
+        String projectRoot = null;
+        if (url != null) {
+            projectRoot = url.getFile().replaceFirst("[/\\\\]build[/\\\\].*", "");
+        }
+        return projectRoot;
     }
 
     @Override
