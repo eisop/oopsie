@@ -1,6 +1,7 @@
 package io.github.eisop.opsc;
 
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.LineMap;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
 import io.github.eisop.opsc.db.CalciteSchemaInfo;
@@ -507,13 +508,16 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             }
 
             String file = null;
-            String location = null;
+            String lineMappedLocation = null;
             if (root != null) {
                 file = root.getSourceFile().getName();
-                location = String.valueOf(trees.getSourcePositions().getStartPosition(root, tree));
+                LineMap lineMap = root.getLineMap();
+                long loc = trees.getSourcePositions().getStartPosition(root, tree);
+                lineMappedLocation =
+                        lineMap.getLineNumber(loc) + ":" + lineMap.getColumnNumber(loc);
             }
 
-            return createSqlAnnotation(in, out, file, location);
+            return createSqlAnnotation(in, out, file, lineMappedLocation);
         }
 
         private @Nullable String retrieveStringValue(ExpressionTree stringExpression) {

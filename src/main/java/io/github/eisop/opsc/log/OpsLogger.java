@@ -1,6 +1,7 @@
 package io.github.eisop.opsc.log;
 
 import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.LineMap;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -25,10 +26,13 @@ public class OpsLogger implements Closeable {
 
     private final CSVPrinter csvPrinter;
 
-    public OpsLogger(Path path) throws IOException {
+    private final String projectRoot;
+
+    public OpsLogger(Path path, String projectRoot) throws IOException {
         CSVFormat csvFormat = CSVFormat.DEFAULT.builder().setHeader(COLUMNS).build();
         csvPrinter =
                 new CSVPrinter(Files.newBufferedWriter(path, StandardCharsets.UTF_8), csvFormat);
+        this.projectRoot = projectRoot;
     }
 
     @Override
@@ -49,7 +53,7 @@ public class OpsLogger implements Closeable {
         String sourceFileName = null;
         String location = null;
         if (tree != null) {
-            sourceFileName = tree.getSourceFile().getName();
+            sourceFileName = sanitizeFileName(tree.getSourceFile().getName());
             location = String.valueOf(start);
         }
         logEntry(
@@ -74,18 +78,18 @@ public class OpsLogger implements Closeable {
     public void entryRelatedToStatement(
             OpsLogEntryKind kind,
             CompilationUnitTree warningTree,
-            long warningStart,
+            String warningLocation,
             String statementFile,
-            String statementStart,
+            String statementLocation,
             String key,
             String details) {
         logEntry(
                 new OpsLogEntry(
                         kind,
-                        warningTree.getSourceFile().getName(),
-                        String.valueOf(warningStart),
+                        sanitizeFileName(warningTree.getSourceFile().getName()),
+                        String.valueOf(warningLocation),
                         statementFile,
-                        statementStart,
+                        statementLocation,
                         key,
                         details));
     }
@@ -100,7 +104,7 @@ public class OpsLogger implements Closeable {
         entryRelatedToStatement(
                 OpsLogEntryKind.WARNING,
                 warningTree,
-                warningStart,
+                lineMappedLocation(warningTree, warningStart),
                 statementFile,
                 statementStart,
                 key,
@@ -117,7 +121,7 @@ public class OpsLogger implements Closeable {
         entryRelatedToStatement(
                 OpsLogEntryKind.ERROR,
                 errorTree,
-                errorStart,
+                lineMappedLocation(errorTree, errorStart),
                 statementFile,
                 statementStart,
                 key,
@@ -129,8 +133,8 @@ public class OpsLogger implements Closeable {
         String sourceFileName = null;
         String location = null;
         if (tree != null) {
-            sourceFileName = tree.getSourceFile().getName();
-            location = String.valueOf(start);
+            sourceFileName = sanitizeFileName(tree.getSourceFile().getName());
+            location = lineMappedLocation(tree, start);
         }
         logEntry(new OpsLogEntry(kind, sourceFileName, location, null, null, key, null));
     }
@@ -141,5 +145,16 @@ public class OpsLogger implements Closeable {
         } catch (IOException e) {
             throw new TypeSystemError("Unable to write to log: %s", e.getMessage());
         }
+    }
+
+    private String sanitizeFileName(String name) {
+        // todo is there a way to get the (qualified) class name instead?
+        // remove projectRoot prefix
+        return name.startsWith(projectRoot) ? name.substring(projectRoot.length()) : name;
+    }
+
+    private String lineMappedLocation(CompilationUnitTree tree, long loc) {
+        LineMap lineMap = tree.getLineMap();
+        return lineMap.getLineNumber(loc) + ":" + lineMap.getColumnNumber(loc);
     }
 }

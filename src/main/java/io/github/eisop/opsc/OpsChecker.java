@@ -27,6 +27,8 @@ public class OpsChecker extends BaseTypeChecker {
 
     protected OpsLogger logger;
 
+    protected String projectRoot;
+
     @Override
     public void typeProcessingOver() {
         super.typeProcessingOver();
@@ -34,7 +36,7 @@ public class OpsChecker extends BaseTypeChecker {
 
     @Override
     public void initChecker() {
-        String projectRoot = getProjectRoot();
+        projectRoot = getProjectRoot();
 
         String logDir =
                 hasOption("opsLogDir")
@@ -64,7 +66,7 @@ public class OpsChecker extends BaseTypeChecker {
                         .format(LocalDateTime.now(ZoneId.systemDefault()));
         Path logPath = Paths.get(logDir, logFileName);
         try {
-            logger = new OpsLogger(logPath);
+            logger = new OpsLogger(logPath, projectRoot);
         } catch (IOException e) {
             throw new UserError(
                     "Could not create logger. Check the path provided with -AopsLogDir", e);
