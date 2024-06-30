@@ -51,8 +51,13 @@ public class OpsChecker extends BaseTypeChecker {
                     "Unable to determine the log directory. Please provide it with -AopsLogDir.");
         }
 
+        String timeStamp =
+                DateTimeFormatter.ofPattern(LOG_FILE_NAME_PATTERN)
+                        .format(LocalDateTime.now(ZoneId.systemDefault()));
+        Path timeStampedLogDir = Paths.get(logDir, timeStamp);
+
         try {
-            Files.createDirectories(Paths.get(logDir));
+            Files.createDirectories(timeStampedLogDir);
         } catch (IOException e) {
             throw new UserError(
                     "Could not create log directory: "
@@ -61,18 +66,18 @@ public class OpsChecker extends BaseTypeChecker {
                     e);
         }
 
-        String logFileName =
-                DateTimeFormatter.ofPattern(LOG_FILE_NAME_PATTERN)
-                        .format(LocalDateTime.now(ZoneId.systemDefault()));
-        Path logPath = Paths.get(logDir, logFileName);
         try {
-            logger = new OpsLogger(logPath, projectRoot);
+            logger =
+                    new OpsLogger(
+                            timeStampedLogDir.resolve("statements.csv"),
+                            timeStampedLogDir.resolve("bindings.csv"),
+                            projectRoot);
         } catch (IOException e) {
             throw new UserError(
                     "Could not create logger. Check the path provided with -AopsLogDir", e);
         }
 
-        System.out.println("Logging to " + logPath.toAbsolutePath());
+        System.out.println("Logging in " + timeStampedLogDir.toAbsolutePath());
 
         super.initChecker();
     }

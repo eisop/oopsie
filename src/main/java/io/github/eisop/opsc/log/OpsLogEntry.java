@@ -13,7 +13,11 @@ public record OpsLogEntry(
         @Nullable String key,
         @Nullable String details) {
 
-    public List<String> values() {
+    public List<String> statementValues() {
+        return List.of(kind.toString(), str(file), str(location), str(details));
+    }
+
+    public List<String> bindingValues() {
         return List.of(
                 kind.toString(),
                 str(file),
