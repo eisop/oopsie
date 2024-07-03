@@ -59,8 +59,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "out", 0, processingEnv);
     protected final ExecutableElement sqlFileElement =
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "file", 0, processingEnv);
-    protected final ExecutableElement sqlLocationElement =
-            TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "location", 0, processingEnv);
+    protected final ExecutableElement sqlLineElement =
+            TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "line", 0, processingEnv);
+    protected final ExecutableElement sqlColumnElement =
+            TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "column", 0, processingEnv);
     private final OpsLogger logger = ((OpsChecker) checker).getLogger();
     private final ExecutableElement stringValValueELement =
             TreeUtils.getMethod(
@@ -162,12 +164,14 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             @Nullable List<String> in,
             @Nullable List<String> out,
             @Nullable String file,
-            @Nullable String location) {
+            @Nullable String line,
+            @Nullable String column) {
         AnnotationBuilder builder = new AnnotationBuilder(processingEnv, Sql.class);
         if (in != null) builder.setValue("in", in);
         if (out != null) builder.setValue("out", out);
         if (file != null) builder.setValue("file", file);
-        if (location != null) builder.setValue("location", location);
+        if (line != null) builder.setValue("line", line);
+        if (column != null) builder.setValue("column", column);
         return builder.build();
     }
 
@@ -325,7 +329,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         }
                     }
 
-                    return createSqlAnnotation(in1, outLub, null, null);
+                    return createSqlAnnotation(in1, outLub, null, null, null);
                 }
             } else if (qualifierKind1 == SQL_KIND && qualifierKind2 == SQLBOTTOM_KIND) {
                 return a1;
@@ -411,10 +415,13 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     String file =
                             AnnotationUtils.getElementValue(
                                     sqlAnnotation, sqlFileElement, String.class);
-                    String location =
+                    String line =
                             AnnotationUtils.getElementValue(
-                                    sqlAnnotation, sqlLocationElement, String.class);
-                    type.replaceAnnotation(createSqlAnnotation(null, out, file, location));
+                                    sqlAnnotation, sqlLineElement, String.class);
+                    String column =
+                            AnnotationUtils.getElementValue(
+                                    sqlAnnotation, sqlColumnElement, String.class);
+                    type.replaceAnnotation(createSqlAnnotation(null, out, file, line, column));
                 } else {
                     checker.reportWarning(
                             tree, "could not get result type annotation from PreparedStatement");
@@ -463,11 +470,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     logger.unsupportedPreparedStatement(
                             root,
                             trees.getSourcePositions().getStartPosition(root, tree),
-                            "determine.in.type.failed.final",
                             jdbcException.getMessage());
                     return null;
                 }
-                logger.simpleEntry(
+                logger.simpleStatementEntry(
                         OpsLogEntryKind.USING_FALLBACK,
                         root,
                         trees.getSourcePositions().getStartPosition(root, tree),
@@ -496,11 +502,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     logger.unsupportedPreparedStatement(
                             root,
                             trees.getSourcePositions().getStartPosition(root, tree),
-                            "determine.out.type.failed.final",
                             jdbcException.getMessage());
                     return null;
                 }
-                logger.simpleEntry(
+                logger.simpleStatementEntry(
                         OpsLogEntryKind.USING_FALLBACK,
                         root,
                         trees.getSourcePositions().getStartPosition(root, tree),
@@ -508,16 +513,17 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             }
 
             String file = null;
-            String lineMappedLocation = null;
+            String line = null;
+            String column = null;
             if (root != null) {
-                file = root.getSourceFile().getName();
+                file = logger.sanitizeFileName(root.getSourceFile().getName());
                 LineMap lineMap = root.getLineMap();
                 long loc = trees.getSourcePositions().getStartPosition(root, tree);
-                lineMappedLocation =
-                        lineMap.getLineNumber(loc) + ":" + lineMap.getColumnNumber(loc);
+                line = String.valueOf(lineMap.getLineNumber(loc));
+                column = String.valueOf(lineMap.getColumnNumber(loc));
             }
 
-            return createSqlAnnotation(in, out, file, lineMappedLocation);
+            return createSqlAnnotation(in, out, file, line, column);
         }
 
         private @Nullable String retrieveStringValue(ExpressionTree stringExpression) {
@@ -539,10 +545,11 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
             if (values.isEmpty()) {
                 checker.reportWarning(stringExpression, "statement.string.retrieval.failed");
-                logger.unsupportedPreparedStatement(
+                logger.simpleStatementEntry(
+                        OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
                         root,
                         trees.getSourcePositions().getStartPosition(root, stringExpression),
-                        "statement.string.retrieval.failed");
+                        "");
                 return null;
             }
 
@@ -555,7 +562,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         stringExpression,
                         "statement.multiple.string.values.continuing",
                         values.toString());
-                logger.simpleEntry(
+                logger.simpleStatementEntry(
                         OpsLogEntryKind.USING_SQL_STRING_HEURISTIC,
                         root,
                         trees.getSourcePositions().getStartPosition(root, stringExpression),
@@ -567,7 +574,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             logger.unsupportedPreparedStatement(
                     root,
                     trees.getSourcePositions().getStartPosition(root, stringExpression),
-                    "statement.multiple.string.values");
+                    "statement string could evaluate to multiple string values");
             return null;
         }
 
