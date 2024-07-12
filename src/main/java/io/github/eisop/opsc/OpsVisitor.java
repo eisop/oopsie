@@ -4,6 +4,7 @@ import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
+import io.github.eisop.opsc.log.OpsLogger;
 import io.github.eisop.opsc.qual.Sql;
 import java.util.Collections;
 import java.util.List;
@@ -20,14 +21,19 @@ import org.checkerframework.javacutil.TypeSystemError;
 
 public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
 
-    private final ProcessingEnvironment processingEnv = checker.getProcessingEnvironment();
+    private final OpsLogger logger = ((OpsChecker) checker).getLogger();
 
+    private final ProcessingEnvironment processingEnv = checker.getProcessingEnvironment();
+    protected final ExecutableElement sqlFileElement =
+            TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "file", 0, processingEnv);
+    protected final ExecutableElement sqlLineElement =
+            TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "line", 0, processingEnv);
+    protected final ExecutableElement sqlColumnElement =
+            TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "column", 0, processingEnv);
     private final ExecutableElement sqlInElement =
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "in", 0, processingEnv);
-
     private final ExecutableElement sqlOutElement =
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "out", 0, processingEnv);
-
     private final Map<ExecutableElement, String> preparedStatementSetMethodTypes =
             Map.ofEntries(
                     Map.entry(
@@ -168,6 +174,11 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                 if (index >= in.size()) {
                     checker.reportError(
                             tree, "parameter.index.out.of.bounds", index + 1, in.size());
+                    logError(
+                            tree,
+                            "parameter.index.out.of.bounds",
+                            "index=" + index + ", size=" + in.size(),
+                            sqlAnnotation);
                 } else if (!javaTypesMatch(
                         in.get(index), preparedStatementSetMethodTypes.get(method))) {
                     checker.reportError(
@@ -175,6 +186,16 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                             "parameter.type.incompatible",
                             preparedStatementSetMethodTypes.get(method),
                             in.get(index));
+                    logError(
+                            tree,
+                            "parameter.type.incompatible",
+                            "expected="
+                                    + preparedStatementSetMethodTypes.get(method)
+                                    + ", actual="
+                                    + in.get(index),
+                            sqlAnnotation);
+                } else {
+                    logOk(tree, "parameter.set", sqlAnnotation);
                 }
             }
         }
@@ -182,6 +203,9 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
 
     private void checkGetResultByIndex(MethodInvocationTree tree, ExecutableElement method) {
         AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
+        if (receiverType == null) {
+            throw new TypeSystemError("Could not find receiver of method invocation");
+        }
 
         if (receiverType.hasAnnotation(Sql.class)) {
             AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
@@ -197,6 +221,9 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
 
     private void checkGetResultByName(MethodInvocationTree tree, ExecutableElement method) {
         AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
+        if (receiverType == null) {
+            throw new TypeSystemError("Could not find receiver of method invocation");
+        }
 
         if (receiverType.hasAnnotation(Sql.class)) {
             AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
@@ -222,9 +249,14 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                                             sqlAnnotation,
                                             index);
                                 },
-                                () ->
-                                        checker.reportError(
-                                                tree, "column.name.not.found", columnName));
+                                () -> {
+                                    checker.reportError(tree, "column.name.not.found", columnName);
+                                    logError(
+                                            tree,
+                                            "column.name.not.found",
+                                            "name=" + columnName,
+                                            sqlAnnotation);
+                                });
             }
         }
     }
@@ -239,8 +271,20 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                         sqlAnnotation, sqlOutElement, String.class, Collections.emptyList());
         if (index >= out.size()) {
             checker.reportError(tree, "column.index.out.of.bounds", index + 1, out.size());
+            logError(
+                    tree,
+                    "column.index.out.of.bounds",
+                    "index=" + index + ", size=" + out.size(),
+                    sqlAnnotation);
         } else if (!javaTypesMatch(out.get(index), methodType)) {
             checker.reportError(tree, "column.type.incompatible", methodType, out.get(index));
+            logError(
+                    tree,
+                    "column.type.incompatible",
+                    "expected=" + methodType + ", actual=" + out.get(index),
+                    sqlAnnotation);
+        } else {
+            logOk(tree, "column.get", sqlAnnotation);
         }
     }
 
@@ -249,7 +293,29 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
     }
 
     private boolean columnNamesMatch(String ann, String other) {
-        return OpsAnnotatedTypeFactory.getName(ann) != null
-                && OpsAnnotatedTypeFactory.getName(ann).equalsIgnoreCase(other);
+        String name = OpsAnnotatedTypeFactory.getName(ann);
+        return name != null && name.equalsIgnoreCase(other);
+    }
+
+    private void logError(
+            MethodInvocationTree tree, String key, String message, AnnotationMirror sql) {
+        logger.errorRelatedToStatement(
+                root,
+                trees.getSourcePositions().getStartPosition(root, tree),
+                AnnotationUtils.getElementValue(sql, sqlFileElement, String.class, ""),
+                AnnotationUtils.getElementValue(sql, sqlLineElement, String.class, ""),
+                AnnotationUtils.getElementValue(sql, sqlColumnElement, String.class, ""),
+                key,
+                message);
+    }
+
+    private void logOk(MethodInvocationTree tree, String key, AnnotationMirror sql) {
+        logger.ok(
+                root,
+                trees.getSourcePositions().getStartPosition(root, tree),
+                AnnotationUtils.getElementValue(sql, sqlFileElement, String.class, ""),
+                AnnotationUtils.getElementValue(sql, sqlLineElement, String.class, ""),
+                AnnotationUtils.getElementValue(sql, sqlColumnElement, String.class, ""),
+                key);
     }
 }
