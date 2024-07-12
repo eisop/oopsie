@@ -23,7 +23,7 @@ import org.checkerframework.javacutil.UserError;
 @SupportedOptions({"dbUrl", "dbUser", "dbPassword", "enableSqlStringHeuristic", "opsLogDir"})
 public class OpsChecker extends BaseTypeChecker {
 
-    private static final String LOG_FILE_NAME_PATTERN = "yyyyMMdd-HHmmss'-opslog.csv'";
+    private static final String LOG_FILE_NAME_PATTERN = "yyyyMMdd-HHmmss'-opslog'";
 
     protected OpsLogger logger;
 

@@ -172,6 +172,7 @@ public class OpsLogger implements Closeable {
     private void statementLogEntry(OpsStatementLogEntry entry) {
         try {
             statementsCsvPrinter.printRecord(entry.values());
+            statementsCsvPrinter.flush();
         } catch (IOException e) {
             throw new TypeSystemError("Unable to write to log: %s", e.getMessage());
         }
@@ -180,6 +181,7 @@ public class OpsLogger implements Closeable {
     private void bindingLogEntry(OpsBindingLogEntry entry) {
         try {
             bindingsCsvPrinter.printRecord(entry.values());
+            bindingsCsvPrinter.flush();
             System.out.println(
                     "Printed record: "
                             + entry.kind()
