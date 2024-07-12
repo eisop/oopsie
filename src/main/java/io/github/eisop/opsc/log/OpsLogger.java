@@ -182,20 +182,12 @@ public class OpsLogger implements Closeable {
         try {
             bindingsCsvPrinter.printRecord(entry.values());
             bindingsCsvPrinter.flush();
-            System.out.println(
-                    "Printed record: "
-                            + entry.kind()
-                            + " / "
-                            + entry.key()
-                            + " / "
-                            + entry.details());
         } catch (IOException e) {
             throw new TypeSystemError("Unable to write to log: %s", e.getMessage());
         }
     }
 
     public String sanitizeFileName(String name) {
-        // todo is there a way to get the (qualified) class name instead?
         // remove projectRoot prefix
         return name.startsWith(projectRoot) ? name.substring(projectRoot.length()) : name;
     }
