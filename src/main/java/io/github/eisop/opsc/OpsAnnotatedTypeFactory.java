@@ -396,7 +396,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         if (annotation != null) {
                             type.replaceAnnotation(buildSqlAnnotation(stmt, tree));
                             logger.supportedPreparedStatement(
-                                    root, trees.getSourcePositions().getStartPosition(root, tree));
+                                    getRoot(),
+                                    trees.getSourcePositions().getStartPosition(getRoot(), tree));
                         }
                     }
                 }
@@ -426,7 +427,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     checker.reportWarning(
                             tree, "could not get result type annotation from PreparedStatement");
                     logger.unsupportedPreparedStatement(
-                            root, trees.getSourcePositions().getStartPosition(root, tree));
+                            getRoot(),
+                            trees.getSourcePositions().getStartPosition(getRoot(), tree));
                 }
             }
             return super.visitMethodInvocation(tree, type);
@@ -468,15 +470,15 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                             jdbcException.getMessage(),
                             stmt);
                     logger.unsupportedPreparedStatement(
-                            root,
-                            trees.getSourcePositions().getStartPosition(root, tree),
+                            getRoot(),
+                            trees.getSourcePositions().getStartPosition(getRoot(), tree),
                             jdbcException.getMessage());
                     return null;
                 }
                 logger.simpleStatementEntry(
                         OpsLogEntryKind.USING_FALLBACK,
-                        root,
-                        trees.getSourcePositions().getStartPosition(root, tree),
+                        getRoot(),
+                        trees.getSourcePositions().getStartPosition(getRoot(), tree),
                         null);
             }
 
@@ -500,25 +502,25 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                             jdbcException.getMessage(),
                             stmt);
                     logger.unsupportedPreparedStatement(
-                            root,
-                            trees.getSourcePositions().getStartPosition(root, tree),
+                            getRoot(),
+                            trees.getSourcePositions().getStartPosition(getRoot(), tree),
                             jdbcException.getMessage());
                     return null;
                 }
                 logger.simpleStatementEntry(
                         OpsLogEntryKind.USING_FALLBACK,
-                        root,
-                        trees.getSourcePositions().getStartPosition(root, tree),
+                        getRoot(),
+                        trees.getSourcePositions().getStartPosition(getRoot(), tree),
                         null);
             }
 
             String file = null;
             String line = null;
             String column = null;
-            if (root != null) {
-                file = logger.sanitizeFileName(root.getSourceFile().getName());
-                LineMap lineMap = root.getLineMap();
-                long loc = trees.getSourcePositions().getStartPosition(root, tree);
+            if (getRoot() != null) {
+                file = logger.sanitizeFileName(getRoot().getSourceFile().getName());
+                LineMap lineMap = getRoot().getLineMap();
+                long loc = trees.getSourcePositions().getStartPosition(getRoot(), tree);
                 line = String.valueOf(lineMap.getLineNumber(loc));
                 column = String.valueOf(lineMap.getColumnNumber(loc));
             }
@@ -547,8 +549,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 checker.reportWarning(stringExpression, "statement.string.retrieval.failed");
                 logger.simpleStatementEntry(
                         OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
-                        root,
-                        trees.getSourcePositions().getStartPosition(root, stringExpression),
+                        getRoot(),
+                        trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
                         "");
                 return null;
             }
@@ -564,16 +566,16 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         values.toString());
                 logger.simpleStatementEntry(
                         OpsLogEntryKind.USING_SQL_STRING_HEURISTIC,
-                        root,
-                        trees.getSourcePositions().getStartPosition(root, stringExpression),
+                        getRoot(),
+                        trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
                         null);
                 return values.get(0);
             }
 
             checker.reportWarning(stringExpression, "statement.multiple.string.values");
             logger.unsupportedPreparedStatement(
-                    root,
-                    trees.getSourcePositions().getStartPosition(root, stringExpression),
+                    getRoot(),
+                    trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
                     "statement string could evaluate to multiple string values");
             return null;
         }
