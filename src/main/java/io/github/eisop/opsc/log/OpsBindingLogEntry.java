@@ -1,5 +1,6 @@
 package io.github.eisop.opsc.log;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -60,7 +61,7 @@ public final class OpsBindingLogEntry {
     }
 
     public List<String> values() {
-        return List.of(
+        return Arrays.asList(
                 kind.toString(),
                 str(bindingFile),
                 str(bindingLine),
