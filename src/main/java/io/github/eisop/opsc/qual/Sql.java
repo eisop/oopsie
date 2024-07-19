@@ -21,5 +21,8 @@ public @interface Sql {
     String file() default "";
 
     /** The location of the query within the source code file */
-    String location() default "";
+    String line() default "";
+
+    /** The column of the query within the source code file */
+    String column() default "";
 }

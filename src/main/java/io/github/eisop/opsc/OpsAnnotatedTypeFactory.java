@@ -1,6 +1,7 @@
 package io.github.eisop.opsc;
 
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.LineMap;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
 import io.github.eisop.opsc.db.CalciteSchemaInfo;
@@ -56,8 +57,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "out", 0, processingEnv);
     protected final ExecutableElement sqlFileElement =
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "file", 0, processingEnv);
-    protected final ExecutableElement sqlLocationElement =
-            TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "location", 0, processingEnv);
+    protected final ExecutableElement sqlLineElement =
+            TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "line", 0, processingEnv);
+    protected final ExecutableElement sqlColumnElement =
+            TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "column", 0, processingEnv);
     private final OpsLogger logger = ((OpsChecker) checker).getLogger();
     private final ExecutableElement stringValValueELement =
             TreeUtils.getMethod(
@@ -159,12 +162,14 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             @Nullable List<String> in,
             @Nullable List<String> out,
             @Nullable String file,
-            @Nullable String location) {
+            @Nullable String line,
+            @Nullable String column) {
         AnnotationBuilder builder = new AnnotationBuilder(processingEnv, Sql.class);
         if (in != null) builder.setValue("in", in);
         if (out != null) builder.setValue("out", out);
         if (file != null) builder.setValue("file", file);
-        if (location != null) builder.setValue("location", location);
+        if (line != null) builder.setValue("line", line);
+        if (column != null) builder.setValue("column", column);
         return builder.build();
     }
 
@@ -322,7 +327,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         }
                     }
 
-                    return createSqlAnnotation(in1, outLub, null, null);
+                    return createSqlAnnotation(in1, outLub, null, null, null);
                 }
             } else if (qualifierKind1 == SQL_KIND && qualifierKind2 == SQLBOTTOM_KIND) {
                 return a1;
@@ -389,7 +394,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         if (annotation != null) {
                             type.replaceAnnotation(buildSqlAnnotation(stmt, tree));
                             logger.supportedPreparedStatement(
-                                    root, trees.getSourcePositions().getStartPosition(root, tree));
+                                    getRoot(),
+                                    trees.getSourcePositions().getStartPosition(getRoot(), tree));
                         }
                     }
                 }
@@ -408,15 +414,19 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     String file =
                             AnnotationUtils.getElementValue(
                                     sqlAnnotation, sqlFileElement, String.class);
-                    String location =
+                    String line =
                             AnnotationUtils.getElementValue(
-                                    sqlAnnotation, sqlLocationElement, String.class);
-                    type.replaceAnnotation(createSqlAnnotation(null, out, file, location));
+                                    sqlAnnotation, sqlLineElement, String.class);
+                    String column =
+                            AnnotationUtils.getElementValue(
+                                    sqlAnnotation, sqlColumnElement, String.class);
+                    type.replaceAnnotation(createSqlAnnotation(null, out, file, line, column));
                 } else {
                     checker.reportWarning(
                             tree, "could not get result type annotation from PreparedStatement");
                     logger.unsupportedPreparedStatement(
-                            root, trees.getSourcePositions().getStartPosition(root, tree));
+                            getRoot(),
+                            trees.getSourcePositions().getStartPosition(getRoot(), tree));
                 }
             }
             return super.visitMethodInvocation(tree, type);
@@ -446,6 +456,9 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 // Retry with fallback JDBCSchemaInfo
                 try {
                     in = getInType(stmt, jdbcSchemaInfo);
+                    if (in == null) {
+                        throw new OpsDatabaseException("JDBC failed");
+                    }
                     checker.reportWarning(
                             tree,
                             "determine.in.type.failed.first.try",
@@ -458,16 +471,15 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                             jdbcException.getMessage(),
                             stmt);
                     logger.unsupportedPreparedStatement(
-                            root,
-                            trees.getSourcePositions().getStartPosition(root, tree),
-                            "determine.in.type.failed.final",
+                            getRoot(),
+                            trees.getSourcePositions().getStartPosition(getRoot(), tree),
                             jdbcException.getMessage());
                     return null;
                 }
-                logger.simpleEntry(
+                logger.simpleStatementEntry(
                         OpsLogEntryKind.USING_FALLBACK,
-                        root,
-                        trees.getSourcePositions().getStartPosition(root, tree),
+                        getRoot(),
+                        trees.getSourcePositions().getStartPosition(getRoot(), tree),
                         null);
             }
 
@@ -491,27 +503,30 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                             jdbcException.getMessage(),
                             stmt);
                     logger.unsupportedPreparedStatement(
-                            root,
-                            trees.getSourcePositions().getStartPosition(root, tree),
-                            "determine.out.type.failed.final",
+                            getRoot(),
+                            trees.getSourcePositions().getStartPosition(getRoot(), tree),
                             jdbcException.getMessage());
                     return null;
                 }
-                logger.simpleEntry(
+                logger.simpleStatementEntry(
                         OpsLogEntryKind.USING_FALLBACK,
-                        root,
-                        trees.getSourcePositions().getStartPosition(root, tree),
+                        getRoot(),
+                        trees.getSourcePositions().getStartPosition(getRoot(), tree),
                         null);
             }
 
             String file = null;
-            String location = null;
-            if (root != null) {
-                file = root.getSourceFile().getName();
-                location = String.valueOf(trees.getSourcePositions().getStartPosition(root, tree));
+            String line = null;
+            String column = null;
+            if (getRoot() != null) {
+                file = logger.sanitizeFileName(getRoot().getSourceFile().getName());
+                LineMap lineMap = getRoot().getLineMap();
+                long loc = trees.getSourcePositions().getStartPosition(getRoot(), tree);
+                line = String.valueOf(lineMap.getLineNumber(loc));
+                column = String.valueOf(lineMap.getColumnNumber(loc));
             }
 
-            return createSqlAnnotation(in, out, file, location);
+            return createSqlAnnotation(in, out, file, line, column);
         }
 
         private @Nullable String retrieveStringValue(ExpressionTree stringExpression) {
@@ -533,10 +548,11 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
             if (values.isEmpty()) {
                 checker.reportWarning(stringExpression, "statement.string.retrieval.failed");
-                logger.unsupportedPreparedStatement(
-                        root,
-                        trees.getSourcePositions().getStartPosition(root, stringExpression),
-                        "statement.string.retrieval.failed");
+                logger.simpleStatementEntry(
+                        OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
+                        getRoot(),
+                        trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
+                        "");
                 return null;
             }
 
@@ -549,10 +565,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         stringExpression,
                         "statement.multiple.string.values.continuing",
                         values.toString());
-                logger.simpleEntry(
+                logger.simpleStatementEntry(
                         OpsLogEntryKind.USING_SQL_STRING_HEURISTIC,
-                        root,
-                        trees.getSourcePositions().getStartPosition(root, stringExpression),
+                        getRoot(),
+                        trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
                         null);
                 // try with longest in this case
                 return values.stream()
@@ -562,9 +578,9 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
             checker.reportWarning(stringExpression, "statement.multiple.string.values");
             logger.unsupportedPreparedStatement(
-                    root,
-                    trees.getSourcePositions().getStartPosition(root, stringExpression),
-                    "statement.multiple.string.values");
+                    getRoot(),
+                    trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
+                    "statement string could evaluate to multiple string values");
             return null;
         }
 

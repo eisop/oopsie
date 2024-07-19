@@ -13,53 +13,57 @@ import org.checkerframework.javacutil.TypeSystemError;
 
 public class OpsLogger implements Closeable {
 
-    private static final String[] COLUMNS = {
-        "kind",
-        "file",
-        "location",
-        "relatedStatementFile",
-        "relatedStatementLocation",
-        "key",
-        "details"
-    };
+    private final CSVPrinter statementsCsvPrinter;
+    private final CSVPrinter bindingsCsvPrinter;
 
-    private final CSVPrinter csvPrinter;
+    private final String projectRoot;
 
-    public OpsLogger(Path path) throws IOException {
-        CSVFormat csvFormat = CSVFormat.DEFAULT.builder().setHeader(COLUMNS).build();
-        csvPrinter =
-                new CSVPrinter(Files.newBufferedWriter(path, StandardCharsets.UTF_8), csvFormat);
+    public OpsLogger(Path statementsPath, Path bindingsPath, String projectRoot)
+            throws IOException {
+        CSVFormat statementsCsvFormat =
+                CSVFormat.DEFAULT
+                        .builder()
+                        .setHeader(OpsStatementLogEntry.STATEMENT_COLUMNS)
+                        .build();
+        CSVFormat bindingsCsvFormat =
+                CSVFormat.DEFAULT.builder().setHeader(OpsBindingLogEntry.BINDING_COLUMNS).build();
+        statementsCsvPrinter =
+                new CSVPrinter(
+                        Files.newBufferedWriter(statementsPath, StandardCharsets.UTF_8),
+                        statementsCsvFormat);
+        bindingsCsvPrinter =
+                new CSVPrinter(
+                        Files.newBufferedWriter(bindingsPath, StandardCharsets.UTF_8),
+                        bindingsCsvFormat);
+        this.projectRoot = projectRoot;
     }
 
     @Override
     public void close() throws IOException {
-        csvPrinter.close();
+        statementsCsvPrinter.close(true);
+        bindingsCsvPrinter.close(true);
     }
 
     public void supportedPreparedStatement(CompilationUnitTree tree, long start) {
-        supportedPreparedStatement(tree, start, null);
-    }
-
-    public void supportedPreparedStatement(CompilationUnitTree tree, long start, String key) {
-        simpleEntry(OpsLogEntryKind.SUPPORTED_PREPARED_STATEMENT, tree, start, key);
+        simpleStatementEntry(OpsLogEntryKind.SUPPORTED_PREPARED_STATEMENT, tree, start, null);
     }
 
     public void unsupportedPreparedStatement(
-            CompilationUnitTree tree, long start, String key, String details) {
+            CompilationUnitTree tree, long location, String details) {
         String sourceFileName = null;
-        String location = null;
+        String line = null;
+        String column = null;
         if (tree != null) {
-            sourceFileName = tree.getSourceFile().getName();
-            location = String.valueOf(start);
+            sourceFileName = sanitizeFileName(tree.getSourceFile().getName());
+            line = lineNumberFromLocation(tree, location);
+            column = columnNumberFromLocation(tree, location);
         }
-        logEntry(
-                new OpsLogEntry(
+        statementLogEntry(
+                new OpsStatementLogEntry(
                         OpsLogEntryKind.UNSUPPORTED_PREPARED_STATEMENT,
                         sourceFileName,
-                        location,
-                        null,
-                        null,
-                        key,
+                        line,
+                        column,
                         details));
     }
 
@@ -67,79 +71,132 @@ public class OpsLogger implements Closeable {
         unsupportedPreparedStatement(tree, start, null);
     }
 
-    public void unsupportedPreparedStatement(CompilationUnitTree tree, long start, String key) {
-        simpleEntry(OpsLogEntryKind.UNSUPPORTED_PREPARED_STATEMENT, tree, start, key);
-    }
-
     public void entryRelatedToStatement(
             OpsLogEntryKind kind,
             CompilationUnitTree warningTree,
-            long warningStart,
+            String warningLine,
+            String warningColumn,
             String statementFile,
-            String statementStart,
+            String statementLine,
+            String statementColumn,
             String key,
             String details) {
-        logEntry(
-                new OpsLogEntry(
+        bindingLogEntry(
+                new OpsBindingLogEntry(
                         kind,
-                        warningTree.getSourceFile().getName(),
-                        String.valueOf(warningStart),
+                        sanitizeFileName(warningTree.getSourceFile().getName()),
+                        warningLine,
+                        warningColumn,
                         statementFile,
-                        statementStart,
+                        statementLine,
+                        statementColumn,
                         key,
                         details));
     }
 
     public void warningRelatedToStatement(
             CompilationUnitTree warningTree,
-            long warningStart,
+            long warningLocation,
             String statementFile,
-            String statementStart,
+            String statementLine,
+            String statementColumn,
             String key,
             String details) {
         entryRelatedToStatement(
                 OpsLogEntryKind.WARNING,
                 warningTree,
-                warningStart,
+                lineNumberFromLocation(warningTree, warningLocation),
+                columnNumberFromLocation(warningTree, warningLocation),
                 statementFile,
-                statementStart,
+                statementLine,
+                statementColumn,
                 key,
                 details);
     }
 
     public void errorRelatedToStatement(
             CompilationUnitTree errorTree,
-            long errorStart,
+            long errorLocation,
             String statementFile,
-            String statementStart,
+            String statementLine,
+            String statementColumn,
             String key,
             String details) {
         entryRelatedToStatement(
                 OpsLogEntryKind.ERROR,
                 errorTree,
-                errorStart,
+                lineNumberFromLocation(errorTree, errorLocation),
+                columnNumberFromLocation(errorTree, errorLocation),
                 statementFile,
-                statementStart,
+                statementLine,
+                statementColumn,
                 key,
                 details);
     }
 
-    public void simpleEntry(
-            OpsLogEntryKind kind, @Nullable CompilationUnitTree tree, long start, String key) {
-        String sourceFileName = null;
-        String location = null;
-        if (tree != null) {
-            sourceFileName = tree.getSourceFile().getName();
-            location = String.valueOf(start);
-        }
-        logEntry(new OpsLogEntry(kind, sourceFileName, location, null, null, key, null));
+    public void ok(
+            CompilationUnitTree tree,
+            long location,
+            String statementFile,
+            String statementLine,
+            String statementColumn,
+            String key) {
+        entryRelatedToStatement(
+                OpsLogEntryKind.OK,
+                tree,
+                lineNumberFromLocation(tree, location),
+                columnNumberFromLocation(tree, location),
+                statementFile,
+                statementLine,
+                statementColumn,
+                key,
+                null);
     }
 
-    private void logEntry(OpsLogEntry entry) {
+    public void simpleStatementEntry(
+            OpsLogEntryKind kind,
+            @Nullable CompilationUnitTree tree,
+            long location,
+            String details) {
+        String sourceFileName = null;
+        String line = null;
+        String column = null;
+        if (tree != null) {
+            sourceFileName = sanitizeFileName(tree.getSourceFile().getName());
+            line = lineNumberFromLocation(tree, location);
+            column = columnNumberFromLocation(tree, location);
+        }
+        statementLogEntry(new OpsStatementLogEntry(kind, sourceFileName, line, column, details));
+    }
+
+    private void statementLogEntry(OpsStatementLogEntry entry) {
         try {
-            csvPrinter.printRecord(entry.values());
+            statementsCsvPrinter.printRecord(entry.values());
+            statementsCsvPrinter.flush();
         } catch (IOException e) {
             throw new TypeSystemError("Unable to write to log: %s", e.getMessage());
         }
+    }
+
+    private void bindingLogEntry(OpsBindingLogEntry entry) {
+        try {
+            bindingsCsvPrinter.printRecord(entry.values());
+            bindingsCsvPrinter.flush();
+        } catch (IOException e) {
+            throw new TypeSystemError("Unable to write to log: %s", e.getMessage());
+        }
+    }
+
+    public String sanitizeFileName(String name) {
+        // remove projectRoot prefix
+        return name.startsWith(projectRoot) ? name.substring(projectRoot.length()) : name;
+    }
+
+    private String lineNumberFromLocation(CompilationUnitTree tree, long loc) {
+        return String.valueOf(tree.getLineMap().getLineNumber(loc));
+    }
+
+    private String columnNumberFromLocation(CompilationUnitTree tree, long loc) {
+        return String.valueOf(tree.getLineMap().getColumnNumber(loc));
     }
 }

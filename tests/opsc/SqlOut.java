@@ -21,9 +21,11 @@ public class SqlOut {
 
         ps.setBigDecimal(1, BigDecimal.valueOf(244.331));
 
+        ResultSet rs = ps.executeQuery();
+
         @Sql(out = {"@NonNull Integer", "@NonNull BigDecimal", "@Nullable @MaxLength(40) String"})
         // this should work
-        ResultSet rs = ps.executeQuery();
+        ResultSet rsCopy = rs; // copy so we don't remove the statment location from the annotation for logging
 
         // this should work
         rs.getInt(1);
@@ -50,7 +52,6 @@ public class SqlOut {
 
         ps.setBigDecimal(1, BigDecimal.valueOf(244.331));
 
-        @Sql(out = {"@NonNull Integer", "@NonNull BigDecimal", "@Nullable @MaxLength(40) String"})
         ResultSet rs = ps.executeQuery();
 
         // :: error: (column.type.incompatible)
@@ -61,7 +62,6 @@ public class SqlOut {
         PreparedStatement ps =
                 conn.prepareStatement("SELECT InvoiceId, Total, BillingCountry FROM Invoice");
 
-        @Sql(out = {"@NonNull Integer", "@NonNull BigDecimal", "@Nullable @MaxLength(40) String"})
         ResultSet rs = ps.executeQuery();
 
         // :: error: (column.index.out.of.bounds)
@@ -73,8 +73,11 @@ public class SqlOut {
         PreparedStatement ps =
                 conn.prepareStatement("SELECT InvoiceId, Total, BillingCountry FROM Invoice");
 
-        @Sql(out = {"@NonNull Integer", "@NonNull BigDecimal", "@Nullable @MaxLength(40) String"})
         ResultSet rs = ps.executeQuery();
+
+        @Sql(out = {"@NonNull Integer", "@NonNull BigDecimal", "@Nullable @MaxLength(40) String"})
+        ResultSet rsCopy = rs;
+
         rs.getInt(1);
     }
 }

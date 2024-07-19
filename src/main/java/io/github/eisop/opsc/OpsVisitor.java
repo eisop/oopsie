@@ -27,8 +27,10 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
     private final ProcessingEnvironment processingEnv = checker.getProcessingEnvironment();
     protected final ExecutableElement sqlFileElement =
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "file", 0, processingEnv);
-    protected final ExecutableElement sqlLocationElement =
-            TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "location", 0, processingEnv);
+    protected final ExecutableElement sqlLineElement =
+            TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "line", 0, processingEnv);
+    protected final ExecutableElement sqlColumnElement =
+            TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "column", 0, processingEnv);
     private final ExecutableElement sqlInElement =
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "in", 0, processingEnv);
     private final ExecutableElement sqlOutElement =
@@ -212,6 +214,8 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                                     + ", actual="
                                     + in.get(index),
                             sqlAnnotation);
+                } else {
+                    logOk(tree, "parameter.set", sqlAnnotation);
                 }
             }
         }
@@ -256,6 +260,8 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                             "column.type.incompatible",
                             "expected=" + resultSetGetMethodTypes.get(method) + ", actual=" + out.get(index),
                             sqlAnnotation);
+                } else {
+                    logOk(tree, "column.get", sqlAnnotation);
                 }
             }
         }
@@ -271,8 +277,19 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                 root,
                 trees.getSourcePositions().getStartPosition(root, tree),
                 AnnotationUtils.getElementValue(sql, sqlFileElement, String.class, ""),
-                AnnotationUtils.getElementValue(sql, sqlLocationElement, String.class, ""),
+                AnnotationUtils.getElementValue(sql, sqlLineElement, String.class, ""),
+                AnnotationUtils.getElementValue(sql, sqlColumnElement, String.class, ""),
                 key,
                 message);
+    }
+
+    private void logOk(MethodInvocationTree tree, String key, AnnotationMirror sql) {
+        logger.ok(
+                root,
+                trees.getSourcePositions().getStartPosition(root, tree),
+                AnnotationUtils.getElementValue(sql, sqlFileElement, String.class, ""),
+                AnnotationUtils.getElementValue(sql, sqlLineElement, String.class, ""),
+                AnnotationUtils.getElementValue(sql, sqlColumnElement, String.class, ""),
+                key);
     }
 }
