@@ -572,7 +572,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 return values.get(0);
             }
 
-            checker.reportWarning(stringExpression, "statement.multiple.string.values");
+            checker.reportWarning(stringExpression, "statement.multiple.string.values", values.toString());
             logger.unsupportedPreparedStatement(
                     getRoot(),
                     trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
