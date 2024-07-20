@@ -98,12 +98,12 @@ public class OpsChecker extends BaseTypeChecker {
             }
         }
 
-        // remove the last part of the path starting from "[/\\]build[/\\]" to get the root path
-        String projectRoot = null;
-        if (url != null) {
-            projectRoot = url.getFile().replaceFirst("[/\\\\]build[/\\\\].*", "");
+        if (url == null) {
+            return "";
         }
-        return projectRoot;
+
+        // remove the last part of the path starting from "[/\\]build[/\\]" to get the root path
+        return url.getFile().replaceFirst("[/\\\\]build[/\\\\].*", "");
     }
 
     @Override
