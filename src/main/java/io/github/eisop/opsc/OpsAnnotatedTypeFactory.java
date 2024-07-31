@@ -426,9 +426,6 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 } else {
                     checker.reportWarning(
                             tree, "could not get result type annotation from PreparedStatement");
-                    logger.unsupportedPreparedStatement(
-                            getRoot(),
-                            trees.getSourcePositions().getStartPosition(getRoot(), tree));
                 }
             }
             return super.visitMethodInvocation(tree, type);
@@ -535,6 +532,11 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
             AnnotationMirror stringValAnnoMirror = getStringValAnnoMirror(stringExpression);
             if (stringValAnnoMirror == null) {
+                logger.simpleStatementEntry(
+                        OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
+                        root,
+                        trees.getSourcePositions().getStartPosition(root, stringExpression),
+                        "");
                 return null;
             }
 
@@ -573,7 +575,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             }
 
             checker.reportWarning(stringExpression, "statement.multiple.string.values", values.toString());
-            logger.unsupportedPreparedStatement(
+            logger.simpleStatementEntry(
+                    OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
                     getRoot(),
                     trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
                     "statement string could evaluate to multiple string values");
