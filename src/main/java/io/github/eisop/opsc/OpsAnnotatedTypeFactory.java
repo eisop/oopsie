@@ -466,7 +466,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     checker.reportError(
                             tree,
                             "determine.in.type.failed.final",
-                            jdbcException.getMessage(),
+                            calciteException.getMessage() + "\nJDBC: " + jdbcException.getMessage(),
                             stmt);
                     logger.unsupportedPreparedStatement(
                             root,
