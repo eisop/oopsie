@@ -9,10 +9,18 @@ public record OpsStatementLogEntry(
         @Nullable String statementFile,
         @Nullable String statementLine,
         @Nullable String statementColumn,
-        @Nullable String details) {
+        @Nullable String details,
+        @Nullable String statementString,
+        @Nullable Integer numberOfParameters) {
 
     static final String[] STATEMENT_COLUMNS = {
-        "kind", "statementFile", "statementLine", "statementColumns", "details"
+        "kind",
+        "statementFile",
+        "statementLine",
+        "statementColumns",
+        "details",
+        "statementString",
+        "numberOfParameters"
     };
 
     public List<String> values() {
@@ -21,7 +29,9 @@ public record OpsStatementLogEntry(
                 str(statementFile),
                 str(statementLine),
                 str(statementColumn),
-                str(details));
+                str(details),
+                str(statementString),
+                str(numberOfParameters));
     }
 
     private String str(Object value) {

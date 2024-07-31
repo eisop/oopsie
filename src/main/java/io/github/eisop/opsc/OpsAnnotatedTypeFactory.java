@@ -340,16 +340,6 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             throw new TypeSystemError("Unexpected qualifiers: %s %s", a1, a2);
         }
 
-        private List<String> getInElement(AnnotationMirror a1) {
-            return AnnotationUtils.getElementValueArray(
-                    a1, sqlInElement, String.class, Collections.emptyList());
-        }
-
-        private List<String> getOutElement(AnnotationMirror a1) {
-            return AnnotationUtils.getElementValueArray(
-                    a1, sqlOutElement, String.class, Collections.emptyList());
-        }
-
         @Override
         protected AnnotationMirror greatestLowerBoundWithElements(
                 AnnotationMirror a1,
@@ -398,7 +388,9 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
                             logger.supportedPreparedStatement(
                                     getRoot(),
-                                    trees.getSourcePositions().getStartPosition(getRoot(), tree));
+                                    trees.getSourcePositions().getStartPosition(getRoot(), tree),
+                                    stmt,
+                                    getInElement(annotation).size());
                         }
                     }
                 }
@@ -470,7 +462,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     logger.unsupportedPreparedStatement(
                             getRoot(),
                             trees.getSourcePositions().getStartPosition(getRoot(), tree),
-                            jdbcException.getMessage());
+                            calciteException.getMessage()
+                                    + "--- JDBC: "
+                                    + jdbcException.getMessage(),
+                            stmt);
                     return null;
                 }
                 logger.simpleStatementEntry(
@@ -502,7 +497,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     logger.unsupportedPreparedStatement(
                             getRoot(),
                             trees.getSourcePositions().getStartPosition(getRoot(), tree),
-                            jdbcException.getMessage());
+                            calciteException.getMessage()
+                                    + "--- JDBC: "
+                                    + jdbcException.getMessage(),
+                            stmt);
                     return null;
                 }
                 logger.simpleStatementEntry(
@@ -612,5 +610,15 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             }
             return pt;
         }
+    }
+
+    private List<String> getInElement(AnnotationMirror a1) {
+        return AnnotationUtils.getElementValueArray(
+                a1, sqlInElement, String.class, Collections.emptyList());
+    }
+
+    private List<String> getOutElement(AnnotationMirror a1) {
+        return AnnotationUtils.getElementValueArray(
+                a1, sqlOutElement, String.class, Collections.emptyList());
     }
 }
