@@ -464,7 +464,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     checker.reportError(
                             tree,
                             "determine.in.type.failed.final",
-                            jdbcException.getMessage(),
+                            calciteException.getMessage() + "\nJDBC: " + jdbcException.getMessage(),
                             stmt);
                     logger.unsupportedPreparedStatement(
                             getRoot(),
@@ -534,8 +534,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             if (stringValAnnoMirror == null) {
                 logger.simpleStatementEntry(
                         OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
-                        root,
-                        trees.getSourcePositions().getStartPosition(root, stringExpression),
+                        getRoot(),
+                        trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
                         "");
                 return null;
             }
@@ -574,7 +574,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 return values.get(0);
             }
 
-            checker.reportWarning(stringExpression, "statement.multiple.string.values", values.toString());
+            checker.reportWarning(
+                    stringExpression, "statement.multiple.string.values", values.toString());
             logger.simpleStatementEntry(
                     OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
                     getRoot(),
