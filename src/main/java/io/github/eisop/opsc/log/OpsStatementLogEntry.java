@@ -10,7 +10,13 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 public final class OpsStatementLogEntry {
 
     static final String[] STATEMENT_COLUMNS = {
-            "kind", "statementFile", "statementLine", "statementColumns", "details"
+            "kind",
+            "statementFile",
+            "statementLine",
+            "statementColumns",
+            "details",
+            "statementString",
+            "numberOfParameters"
     };
     @NonNull
     private final OpsLogEntryKind kind;
@@ -22,18 +28,26 @@ public final class OpsStatementLogEntry {
     private final String statementColumn;
     @Nullable
     private final String details;
+    @Nullable
+    private final String statementString;
+    @Nullable
+    private final Integer numberOfParameters;
 
     public OpsStatementLogEntry(
             @NonNull OpsLogEntryKind kind,
             @Nullable String statementFile,
             @Nullable String statementLine,
             @Nullable String statementColumn,
-            @Nullable String details) {
+            @Nullable String details,
+            @Nullable String statementString,
+            @Nullable Integer numberOfParameters) {
         this.kind = kind;
         this.statementFile = statementFile;
         this.statementLine = statementLine;
         this.statementColumn = statementColumn;
         this.details = details;
+        this.statementString = statementString;
+        this.numberOfParameters = numberOfParameters;
     }
 
     public List<String> values() {
@@ -42,7 +56,9 @@ public final class OpsStatementLogEntry {
                 str(statementFile),
                 str(statementLine),
                 str(statementColumn),
-                str(details));
+                str(details),
+                str(statementString),
+                str(numberOfParameters));
     }
 
     private String str(Object value) {
@@ -74,6 +90,16 @@ public final class OpsStatementLogEntry {
         return details;
     }
 
+    @Nullable
+    public String statementString() {
+        return statementString;
+    }
+
+    @Nullable
+    public Integer numberOfParameters() {
+        return numberOfParameters;
+    }
+
     @Override
     public boolean equals(Object obj) {
         if (obj == this) return true;
@@ -83,12 +109,14 @@ public final class OpsStatementLogEntry {
                 Objects.equals(this.statementFile, that.statementFile) &&
                 Objects.equals(this.statementLine, that.statementLine) &&
                 Objects.equals(this.statementColumn, that.statementColumn) &&
-                Objects.equals(this.details, that.details);
+                Objects.equals(this.details, that.details) &&
+                Objects.equals(this.statementString, that.statementString) &&
+                Objects.equals(this.numberOfParameters, that.numberOfParameters);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(kind, statementFile, statementLine, statementColumn, details);
+        return Objects.hash(kind, statementFile, statementLine, statementColumn, details, statementString, numberOfParameters);
     }
 
     @Override
@@ -98,7 +126,9 @@ public final class OpsStatementLogEntry {
                 "statementFile=" + statementFile + ", " +
                 "statementLine=" + statementLine + ", " +
                 "statementColumn=" + statementColumn + ", " +
-                "details=" + details + ']';
+                "details=" + details + ", " +
+                "statementString=" + statementString + ", " +
+                "numberOfParameters=" + numberOfParameters + ']';
     }
 
 }

@@ -14,7 +14,12 @@ import io.github.eisop.opsc.qual.Sql;
 import io.github.eisop.opsc.qual.SqlBottom;
 import io.github.eisop.opsc.qual.SqlUnknown;
 import java.lang.annotation.Annotation;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.util.Elements;
@@ -338,16 +343,6 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             throw new TypeSystemError("Unexpected qualifiers: %s %s", a1, a2);
         }
 
-        private List<String> getInElement(AnnotationMirror a1) {
-            return AnnotationUtils.getElementValueArray(
-                    a1, sqlInElement, String.class, Collections.emptyList());
-        }
-
-        private List<String> getOutElement(AnnotationMirror a1) {
-            return AnnotationUtils.getElementValueArray(
-                    a1, sqlOutElement, String.class, Collections.emptyList());
-        }
-
         @Override
         protected AnnotationMirror greatestLowerBoundWithElements(
                 AnnotationMirror a1,
@@ -395,7 +390,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                             type.replaceAnnotation(annotation);
 
                             logger.supportedPreparedStatement(
-                                    root, trees.getSourcePositions().getStartPosition(root, tree));
+                                    root,
+                                    trees.getSourcePositions().getStartPosition(root, tree),
+                                    stmt,
+                                    getInElement(annotation).size());
                         }
                     }
                 }
@@ -472,7 +470,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     logger.unsupportedPreparedStatement(
                             root,
                             trees.getSourcePositions().getStartPosition(root, tree),
-                            jdbcException.getMessage());
+                            calciteException.getMessage()
+                                    + "--- JDBC: "
+                                    + jdbcException.getMessage(),
+                            stmt);
                     return null;
                 }
                 logger.simpleStatementEntry(
@@ -504,7 +505,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     logger.unsupportedPreparedStatement(
                             root,
                             trees.getSourcePositions().getStartPosition(root, tree),
-                            jdbcException.getMessage());
+                            calciteException.getMessage()
+                                    + "--- JDBC: "
+                                    + jdbcException.getMessage(),
+                            stmt);
                     return null;
                 }
                 logger.simpleStatementEntry(
@@ -616,5 +620,15 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             }
             return pt;
         }
+    }
+
+    private List<String> getInElement(AnnotationMirror a1) {
+        return AnnotationUtils.getElementValueArray(
+                a1, sqlInElement, String.class, Collections.emptyList());
+    }
+
+    private List<String> getOutElement(AnnotationMirror a1) {
+        return AnnotationUtils.getElementValueArray(
+                a1, sqlOutElement, String.class, Collections.emptyList());
     }
 }

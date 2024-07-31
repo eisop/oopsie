@@ -44,12 +44,22 @@ public class OpsLogger implements Closeable {
         bindingsCsvPrinter.close(true);
     }
 
-    public void supportedPreparedStatement(CompilationUnitTree tree, long start) {
-        simpleStatementEntry(OpsLogEntryKind.SUPPORTED_PREPARED_STATEMENT, tree, start, null);
+    public void supportedPreparedStatement(
+            CompilationUnitTree tree,
+            long start,
+            String statementString,
+            Integer numberOfParameters) {
+        statementEntry(
+                OpsLogEntryKind.SUPPORTED_PREPARED_STATEMENT,
+                tree,
+                start,
+                null,
+                statementString,
+                numberOfParameters);
     }
 
     public void unsupportedPreparedStatement(
-            CompilationUnitTree tree, long location, String details) {
+            CompilationUnitTree tree, long location, String details, String statementString) {
         String sourceFileName = null;
         String line = null;
         String column = null;
@@ -64,11 +74,9 @@ public class OpsLogger implements Closeable {
                         sourceFileName,
                         line,
                         column,
-                        details));
-    }
-
-    public void unsupportedPreparedStatement(CompilationUnitTree tree, long start) {
-        unsupportedPreparedStatement(tree, start, null);
+                        details,
+                        statementString,
+                        null));
     }
 
     public void entryRelatedToStatement(
@@ -153,11 +161,13 @@ public class OpsLogger implements Closeable {
                 null);
     }
 
-    public void simpleStatementEntry(
+    public void statementEntry(
             OpsLogEntryKind kind,
             @Nullable CompilationUnitTree tree,
             long location,
-            String details) {
+            String details,
+            String statementString,
+            Integer numberOfParameters) {
         String sourceFileName = null;
         String line = null;
         String column = null;
@@ -166,7 +176,23 @@ public class OpsLogger implements Closeable {
             line = lineNumberFromLocation(tree, location);
             column = columnNumberFromLocation(tree, location);
         }
-        statementLogEntry(new OpsStatementLogEntry(kind, sourceFileName, line, column, details));
+        statementLogEntry(
+                new OpsStatementLogEntry(
+                        kind,
+                        sourceFileName,
+                        line,
+                        column,
+                        details,
+                        statementString,
+                        numberOfParameters));
+    }
+
+    public void simpleStatementEntry(
+            OpsLogEntryKind kind,
+            @Nullable CompilationUnitTree tree,
+            long location,
+            String details) {
+        statementEntry(kind, tree, location, details, null, null);
     }
 
     private void statementLogEntry(OpsStatementLogEntry entry) {

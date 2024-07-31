@@ -109,6 +109,7 @@ public class CalciteSchemaInfo implements SchemaInfo {
     @Override
     public ImmutableList<String> getPlaceholderTypesOf(String stmt) throws OpsDatabaseException {
         RelNode tree = parseSql(stmt);
+
         List<RexDynamicParam> params = new ArrayList<>();
         tree.childrenAccept(
                 new RelVisitor() {
