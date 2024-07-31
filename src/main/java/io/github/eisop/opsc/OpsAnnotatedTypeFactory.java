@@ -392,7 +392,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     if (stmt != null) {
                         AnnotationMirror annotation = buildSqlAnnotation(stmt, tree);
                         if (annotation != null) {
-                            type.replaceAnnotation(buildSqlAnnotation(stmt, tree));
+                            type.replaceAnnotation(annotation);
+
                             logger.supportedPreparedStatement(
                                     root, trees.getSourcePositions().getStartPosition(root, tree));
                         }
