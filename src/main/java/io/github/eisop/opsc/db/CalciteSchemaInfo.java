@@ -236,7 +236,8 @@ public class CalciteSchemaInfo implements SchemaInfo {
             case BOOLEAN -> "Boolean";
             case NUMERIC ->
                     switch (sqlTypeName) {
-                        case INTEGER, TINYINT, SMALLINT, BIGINT -> "Integer";
+                        case BIGINT -> "Long";
+                        case INTEGER, TINYINT, SMALLINT -> "Integer";
                         case DECIMAL -> "BigDecimal";
                         default -> "Double";
                     };

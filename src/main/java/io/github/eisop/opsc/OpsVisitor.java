@@ -46,6 +46,10 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                             "Integer"),
                     Map.entry(
                             TreeUtils.getMethod(
+                                    "java.sql.PreparedStatement", "setLong", 2, processingEnv),
+                            "Long"),
+                    Map.entry(
+                            TreeUtils.getMethod(
                                     "java.sql.PreparedStatement", "setDouble", 2, processingEnv),
                             "Double"),
                     Map.entry(
@@ -70,6 +74,10 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                             TreeUtils.getMethod(
                                     "java.sql.ResultSet", "getInt", processingEnv, "int"),
                             "Integer"),
+                    Map.entry(
+                            TreeUtils.getMethod(
+                                    "java.sql.ResultSet", "getLong", processingEnv, "int"),
+                            "Long"),
                     Map.entry(
                             TreeUtils.getMethod(
                                     "java.sql.ResultSet", "getDouble", processingEnv, "int"),
