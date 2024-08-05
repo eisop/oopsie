@@ -261,8 +261,10 @@ public class CalciteSchemaInfo implements SchemaInfo {
                     case INTEGER:
                     case TINYINT:
                     case SMALLINT:
-                    case BIGINT:
                         type = "Integer";
+                        break;
+                    case BIGINT:
+                        type = "Long";
                         break;
                     case DECIMAL:
                         type = "BigDecimal";
