@@ -110,6 +110,13 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                     Map.entry(
                             TreeUtils.getMethod(
                                     "java.sql.ResultSet",
+                                    "getLong",
+                                    processingEnv,
+                                    "java.lang.String"),
+                            "Long"),
+                    Map.entry(
+                            TreeUtils.getMethod(
+                                    "java.sql.ResultSet",
                                     "getDouble",
                                     processingEnv,
                                     "java.lang.String"),
