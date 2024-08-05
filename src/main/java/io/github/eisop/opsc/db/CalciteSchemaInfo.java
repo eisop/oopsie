@@ -217,11 +217,11 @@ public class CalciteSchemaInfo implements SchemaInfo {
 
     private ImmutableList<String> getJavaTypesWithAnnotations(RelDataType relType) {
         return relType.getFieldList().stream()
-                .map(field -> getJavaTypeWithAnnotations(field.getType()))
+                .map(field -> getJavaTypeWithAnnotations(field.getType(), field.getName()))
                 .collect(ImmutableList.toImmutableList());
     }
 
-    private String getJavaTypeWithAnnotations(RelDataType relType) {
+    private String getJavaTypeWithAnnotations(RelDataType relType, String name) {
         String type = getJavaType(relType);
         String anno = relType.isNullable() ? "@Nullable " : "@NonNull ";
         if (Objects.equals(type, "String")) {
@@ -230,7 +230,8 @@ public class CalciteSchemaInfo implements SchemaInfo {
                 anno += "@MaxLength(" + maxLength + ") ";
             }
         }
-        return anno + type;
+        name = name != null ? " " + name : "";
+        return anno + type + name;
     }
 
     private String getJavaType(RelDataType relType) {
