@@ -6,6 +6,7 @@ plugins {
     id("com.diffplug.spotless").version("6.25.0")
     // https://docs.gradle.org/current/userguide/eclipse_plugin.html
     id("eclipse")
+    id("idea")
     // To show task list as a tree, run: ./gradlew <taskname> taskTree
     id("com.dorongold.task-tree").version("4.0.0")
 }
@@ -129,6 +130,13 @@ eclipse.classpath {
                 cpe.path = cpe.path.replace "bin/", "build/"
             }
         }
+    }
+}
+
+idea {
+    module {
+        downloadJavadoc = true
+        downloadSources = true
     }
 }
 
