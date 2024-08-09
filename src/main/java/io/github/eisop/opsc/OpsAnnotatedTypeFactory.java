@@ -411,13 +411,13 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                                     Collections.emptyList());
                     String file =
                             AnnotationUtils.getElementValue(
-                                    sqlAnnotation, sqlFileElement, String.class);
+                                    sqlAnnotation, sqlFileElement, String.class, null);
                     String line =
                             AnnotationUtils.getElementValue(
-                                    sqlAnnotation, sqlLineElement, String.class);
+                                    sqlAnnotation, sqlLineElement, String.class, null);
                     String column =
                             AnnotationUtils.getElementValue(
-                                    sqlAnnotation, sqlColumnElement, String.class);
+                                    sqlAnnotation, sqlColumnElement, String.class, null);
                     type.replaceAnnotation(createSqlAnnotation(null, out, file, line, column));
                 } else {
                     checker.reportWarning(
