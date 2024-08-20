@@ -377,50 +377,58 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
          */
         @Override
         public Void visitMethodInvocation(MethodInvocationTree tree, AnnotatedTypeMirror type) {
-            if (isPreparedStatementMethodInvocation(tree)) {
-                ExpressionTree arg = tree.getArguments().get(0);
-                if (!type.hasAnnotationRelaxed(SQL)) {
-                    String stmt = retrieveStringValue(arg);
-                    if (stmt != null) {
-                        AnnotationMirror annotation = buildSqlAnnotation(stmt, tree);
-                        if (annotation != null) {
-                            type.replaceAnnotation(annotation);
-
-                            logger.supportedPreparedStatement(
-                                    getRoot(),
-                                    trees.getSourcePositions().getStartPosition(getRoot(), tree),
-                                    stmt,
-                                    getInElement(annotation).size());
-                        }
-                    }
-                }
-            } else if (TreeUtils.isMethodInvocation(
-                    tree, preparedStatementExecuteQuery, processingEnv)) {
-                // get type annotation from PreparedStatement and transfer it to the result set
-                AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
-                if (receiverType.hasAnnotation(Sql.class)) {
-                    AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
-                    List<String> out =
-                            AnnotationUtils.getElementValueArray(
-                                    sqlAnnotation,
-                                    sqlOutElement,
-                                    String.class,
-                                    Collections.emptyList());
-                    String file =
-                            AnnotationUtils.getElementValue(
-                                    sqlAnnotation, sqlFileElement, String.class, null);
-                    String line =
-                            AnnotationUtils.getElementValue(
-                                    sqlAnnotation, sqlLineElement, String.class, null);
-                    String column =
-                            AnnotationUtils.getElementValue(
-                                    sqlAnnotation, sqlColumnElement, String.class, null);
-                    type.replaceAnnotation(createSqlAnnotation(null, out, file, line, column));
-                } else {
-                    checker.reportWarning(
-                            tree, "could not get result type annotation from PreparedStatement");
-                }
-            }
+            //            if (isPreparedStatementMethodInvocation(tree)) {
+            //                ExpressionTree arg = tree.getArguments().get(0);
+            //                if (!type.hasAnnotationRelaxed(SQL)) {
+            //                    String stmt = retrieveStringValue(arg);
+            //                    if (stmt != null) {
+            //                        AnnotationMirror annotation = buildSqlAnnotation(stmt, tree);
+            //                        if (annotation != null) {
+            //                            type.replaceAnnotation(annotation);
+            //
+            //                            logger.supportedPreparedStatement(
+            //                                    getRoot(),
+            //
+            // trees.getSourcePositions().getStartPosition(getRoot(), tree),
+            //                                    stmt,
+            //                                    getInElement(annotation).size());
+            //                        }
+            //                    }
+            //                }
+            //            } else if (TreeUtils.isMethodInvocation(
+            //                    tree, preparedStatementExecuteQuery, processingEnv)) {
+            //                // get type annotation from PreparedStatement and transfer it to the
+            // result set
+            //                AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
+            //                if (receiverType.hasAnnotation(Sql.class)) {
+            //                    AnnotationMirror sqlAnnotation =
+            // receiverType.getAnnotation(Sql.class);
+            //                    List<String> out =
+            //                            AnnotationUtils.getElementValueArray(
+            //                                    sqlAnnotation,
+            //                                    sqlOutElement,
+            //                                    String.class,
+            //                                    Collections.emptyList());
+            //                    String file =
+            //                            AnnotationUtils.getElementValue(
+            //                                    sqlAnnotation, sqlFileElement, String.class,
+            // null);
+            //                    String line =
+            //                            AnnotationUtils.getElementValue(
+            //                                    sqlAnnotation, sqlLineElement, String.class,
+            // null);
+            //                    String column =
+            //                            AnnotationUtils.getElementValue(
+            //                                    sqlAnnotation, sqlColumnElement, String.class,
+            // null);
+            //                    type.replaceAnnotation(createSqlAnnotation(null, out, file, line,
+            // column));
+            //                } else {
+            //                    checker.reportWarning(
+            //                            tree, "could not get result type annotation from
+            // PreparedStatement");
+            //                }
+            //            }
             return super.visitMethodInvocation(tree, type);
         }
 

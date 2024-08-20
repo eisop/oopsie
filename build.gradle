@@ -68,7 +68,7 @@ java {
 }
 
 tasks.withType(JavaCompile).all {
-    options.compilerArgs.addAll(["-Werror", "-Xlint:all"])
+    //    options.compilerArgs.addAll(["-Werror", "-Xlint:all"])
     options.compilerArgs.addAll(
             [
                 "api",

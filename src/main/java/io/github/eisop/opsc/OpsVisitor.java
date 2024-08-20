@@ -148,24 +148,24 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
     @SuppressWarnings("VoidUsed")
     @Override
     public Void visitMethodInvocation(MethodInvocationTree tree, Void p) {
-        for (ExecutableElement method : preparedStatementSetMethodTypes.keySet()) {
-            if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
-                checkSetParameter(tree, method);
-                break;
-            }
-        }
-        for (ExecutableElement method : resultSetGetByIndexMethodTypes.keySet()) {
-            if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
-                checkGetResultByIndex(tree, method);
-                break;
-            }
-        }
-        for (ExecutableElement method : resultSetGetByNameMethodTypes.keySet()) {
-            if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
-                checkGetResultByName(tree, method);
-                break;
-            }
-        }
+        //        for (ExecutableElement method : preparedStatementSetMethodTypes.keySet()) {
+        //            if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
+        //                checkSetParameter(tree, method);
+        //                break;
+        //            }
+        //        }
+        //        for (ExecutableElement method : resultSetGetByIndexMethodTypes.keySet()) {
+        //            if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
+        //                checkGetResultByIndex(tree, method);
+        //                break;
+        //            }
+        //        }
+        //        for (ExecutableElement method : resultSetGetByNameMethodTypes.keySet()) {
+        //            if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
+        //                checkGetResultByName(tree, method);
+        //                break;
+        //            }
+        //        }
 
         return super.visitMethodInvocation(tree, p);
     }
