@@ -7,16 +7,16 @@ import com.sun.source.tree.Tree;
 import io.github.eisop.opsc.log.OpsLogger;
 import io.github.eisop.opsc.qual.Sql;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
+
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
+import org.checkerframework.common.value.ValueAnnotatedTypeFactory;
+import org.checkerframework.common.value.ValueChecker;
+import org.checkerframework.common.value.qual.IntVal;
 import org.checkerframework.framework.type.AnnotatedTypeMirror;
 import org.checkerframework.javacutil.AnnotationUtils;
 import org.checkerframework.javacutil.TreeUtils;
@@ -37,6 +37,10 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "in", 0, processingEnv);
     private final ExecutableElement sqlOutElement =
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "out", 0, processingEnv);
+
+    private final ExecutableElement intValValueElement =
+            TreeUtils.getMethod(
+                    "org.checkerframework.common.value.qual.IntVal", "value", 0, processingEnv);
 
     private final Map<ExecutableElement, String> preparedStatementSetMethodTypes =
         new HashMap<ExecutableElement, String>() {{
@@ -202,37 +206,39 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
         if (receiverType.hasAnnotation(Sql.class)) {
             AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
             ExpressionTree indexTree = tree.getArguments().get(0);
-            if (indexTree.getKind() == Tree.Kind.INT_LITERAL) {
-                LiteralTree literal = (LiteralTree) indexTree;
-                int index =
-                        (int) literal.getValue() - 1; // PreparedStatement parameters are 1-indexed
+            int literalIndex = retrieveIntValue(indexTree);
+            if (literalIndex == -1) {
+                checker.reportError(tree, "parameter.index.cannot.be.determined");
+                logError(tree, "parameter.index.not.literal", "", sqlAnnotation);
+            } else {
+                int psIndex = literalIndex - 1; // PreparedStatement parameters are 1-indexed
                 List<String> in =
                         AnnotationUtils.getElementValueArray(
                                 sqlAnnotation, sqlInElement, String.class, Collections.emptyList());
-                if (index >= in.size()) {
+                if (psIndex >= in.size()) {
                     checker.reportError(
-                            tree, "parameter.index.out.of.bounds", index + 1, in.size());
+                            tree, "parameter.index.out.of.bounds", psIndex + 1, in.size());
                     logError(
                             tree,
                             "parameter.index.out.of.bounds",
-                            "index=" + index + ", size=" + in.size(),
+                            "index=" + psIndex + ", size=" + in.size(),
                             sqlAnnotation);
                 } else if (!(
-                        javaTypesMatch(in.get(index), "Object")
-                        || javaTypesMatch(in.get(index), preparedStatementSetMethodTypes.get(method))
+                        javaTypesMatch(in.get(psIndex), "Object")
+                        || javaTypesMatch(in.get(psIndex), preparedStatementSetMethodTypes.get(method))
                 )) {
                     checker.reportError(
                             tree,
                             "parameter.type.incompatible",
                             preparedStatementSetMethodTypes.get(method),
-                            in.get(index));
+                            in.get(psIndex));
                     logError(
                             tree,
                             "parameter.type.incompatible",
                             "expected="
                                     + preparedStatementSetMethodTypes.get(method)
                                     + ", actual="
-                                    + in.get(index),
+                                    + in.get(psIndex),
                             sqlAnnotation);
                 } else {
                     logOk(tree, "parameter.set", sqlAnnotation);
@@ -341,6 +347,40 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
     private boolean columnNamesMatch(String ann, String other) {
         String name = OpsAnnotatedTypeFactory.getName(ann);
         return name != null && name.equalsIgnoreCase(other);
+    }
+
+    private int retrieveIntValue(ExpressionTree intExpression) {
+        if (intExpression.getKind() == ExpressionTree.Kind.INT_LITERAL) {
+            return (int) ((LiteralTree) intExpression).getValue();
+        }
+
+        AnnotationMirror intValAnnoMirror = getIntValAnnoMirror(intExpression);
+        if (intValAnnoMirror == null) {
+            return -1;
+        }
+
+        List<Long> values =
+                AnnotationUtils.getElementValueArray(
+                        intValAnnoMirror,
+                        intValValueElement,
+                        Long.class,
+                        Collections.emptyList());
+
+        if (values.size() != 1) {
+            return -1;
+        }
+
+        return values.get(0).intValue();
+    }
+
+    private AnnotationMirror getIntValAnnoMirror(final ExpressionTree valueExp) {
+        ValueAnnotatedTypeFactory valueAnnotatedTypeFactory =
+                getTypeFactory().getTypeFactoryOfSubchecker(ValueChecker.class);
+        if (valueAnnotatedTypeFactory == null) {
+            throw new TypeSystemError("Missing subchecker ValueChecker");
+        }
+        AnnotatedTypeMirror valueType = valueAnnotatedTypeFactory.getAnnotatedType(valueExp);
+        return valueType.getAnnotation(IntVal.class);
     }
 
     private void logError(
