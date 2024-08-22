@@ -1,11 +1,10 @@
 package io.github.eisop.opsc.log;
 
 import java.util.List;
-import org.checkerframework.checker.nullness.qual.NonNull;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jspecify.annotations.Nullable;
 
 public record OpsStatementLogEntry(
-        @NonNull OpsLogEntryKind kind,
+        OpsLogEntryKind kind,
         @Nullable String statementFile,
         @Nullable String statementLine,
         @Nullable String statementColumn,

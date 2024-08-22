@@ -3,13 +3,10 @@ package io.github.eisop.opsc;
 import com.google.common.base.Splitter;
 import java.util.Collections;
 import java.util.List;
-import org.checkerframework.checker.nullness.qual.NonNull;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jspecify.annotations.Nullable;
 
 public record OpscType(
-        @NonNull String columnDataType,
-        @NonNull List<String> columnAnnotations,
-        @Nullable String columnName) {
+        String columnDataType, List<String> columnAnnotations, @Nullable String columnName) {
 
     public static OpscType fromAnnotationString(String annotationString) {
         String columnDataType;

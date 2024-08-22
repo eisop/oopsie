@@ -22,8 +22,6 @@ import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.util.Elements;
-import org.checkerframework.checker.nullness.qual.NonNull;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.value.ValueAnnotatedTypeFactory;
@@ -45,6 +43,7 @@ import org.checkerframework.javacutil.AnnotationUtils;
 import org.checkerframework.javacutil.TreeUtils;
 import org.checkerframework.javacutil.TypeSystemError;
 import org.checkerframework.javacutil.UserError;
+import org.jspecify.annotations.Nullable;
 
 public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
@@ -160,7 +159,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     }
 
     /** Returns a new SQL annotation with the given in and out types. */
-    private @NonNull AnnotationMirror createSqlAnnotation(
+    private AnnotationMirror createSqlAnnotation(
             @Nullable List<String> in,
             @Nullable List<String> out,
             @Nullable String file,
@@ -439,7 +438,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
          * @return the @Sql annotation or null if the types could not be determined
          */
         private @Nullable AnnotationMirror buildSqlAnnotation(
-                @NonNull String stmt, MethodInvocationTree tree) {
+                String stmt, MethodInvocationTree tree) {
             // get placeholder types of prepared statement
             List<String> in;
             try {
