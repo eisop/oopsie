@@ -148,7 +148,8 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
     @SuppressWarnings("VoidUsed")
     @Override
     public Void visitMethodInvocation(MethodInvocationTree tree, Void p) {
-        if (tree.getArguments().size() != 2) {
+        int argsize = tree.getArguments().size();
+        if (argsize != 1 && argsize != 2) {
             // Early exit if the method call can't be relevant.
             return super.visitMethodInvocation(tree, p);
         }
