@@ -148,22 +148,30 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
     @SuppressWarnings("VoidUsed")
     @Override
     public Void visitMethodInvocation(MethodInvocationTree tree, Void p) {
+        boolean found = false;
         for (ExecutableElement method : preparedStatementSetMethodTypes.keySet()) {
             if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
                 checkSetParameter(tree, method);
+                found = true;
                 break;
             }
         }
-        for (ExecutableElement method : resultSetGetByIndexMethodTypes.keySet()) {
-            if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
-                checkGetResultByIndex(tree, method);
-                break;
+        if (!found) {
+            for (ExecutableElement method : resultSetGetByIndexMethodTypes.keySet()) {
+                if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
+                    checkGetResultByIndex(tree, method);
+                    found = true;
+                    break;
+                }
             }
         }
-        for (ExecutableElement method : resultSetGetByNameMethodTypes.keySet()) {
-            if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
-                checkGetResultByName(tree, method);
-                break;
+        if (!found) {
+            for (ExecutableElement method : resultSetGetByNameMethodTypes.keySet()) {
+                if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
+                    checkGetResultByName(tree, method);
+                    // found = true; Not needed until something depends on it.
+                    break;
+                }
             }
         }
 
