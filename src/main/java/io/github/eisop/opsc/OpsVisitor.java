@@ -154,15 +154,17 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
             return super.visitMethodInvocation(tree, p);
         }
 
-        boolean found = false;
-        for (ExecutableElement method : preparedStatementSetMethodTypes.keySet()) {
-            if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
-                checkSetParameter(tree, method);
-                found = true;
-                break;
+        if (argsize == 2) {
+            for (ExecutableElement method : preparedStatementSetMethodTypes.keySet()) {
+                if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
+                    checkSetParameter(tree, method);
+                    break;
+                }
             }
-        }
-        if (!found) {
+        } else {
+            // argsize == 1;
+            boolean found = false;
+
             for (ExecutableElement method : resultSetGetByIndexMethodTypes.keySet()) {
                 if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
                     checkGetResultByIndex(tree, method);
@@ -170,13 +172,13 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                     break;
                 }
             }
-        }
-        if (!found) {
-            for (ExecutableElement method : resultSetGetByNameMethodTypes.keySet()) {
-                if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
-                    checkGetResultByName(tree, method);
-                    // found = true; Not needed until something depends on it.
-                    break;
+            if (!found) {
+                for (ExecutableElement method : resultSetGetByNameMethodTypes.keySet()) {
+                    if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
+                        checkGetResultByName(tree, method);
+                        // found = true; Not needed until something depends on it.
+                        break;
+                    }
                 }
             }
         }
