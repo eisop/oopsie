@@ -39,7 +39,8 @@ class MethodAnnotations {
     }
 
     public void testGetAge() throws SQLException {
-        PreparedStatement ps = conn.prepareStatement("SELECT Date '1990-01-01' AS dob, 'anotherColumn'");
+        PreparedStatement ps =
+                conn.prepareStatement("SELECT Date '1990-01-01' AS dob, 'anotherColumn'");
         ResultSet rs = ps.executeQuery();
         int age = getAge(rs);
     }
