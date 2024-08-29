@@ -1,5 +1,7 @@
 import io.github.eisop.opsc.qual.Sql;
 import java.sql.*;
+import java.time.LocalDate;
+import java.time.Period;
 
 class MethodAnnotations {
 
@@ -29,5 +31,16 @@ class MethodAnnotations {
         ResultSet rs = getResultSet();
         // :: error: (column.type.incompatible)
         rs.getInt(3);
+    }
+
+    public int getAge(@Sql(out = {"Date dob"}) ResultSet rs) throws SQLException {
+        Date dob = rs.getDate("dob");
+        return Period.between(dob.toLocalDate(), LocalDate.now()).getYears();
+    }
+
+    public void testGetAge() throws SQLException {
+        PreparedStatement ps = conn.prepareStatement("SELECT Date '1990-01-01' AS dob, 'anotherColumn'");
+        ResultSet rs = ps.executeQuery();
+        int age = getAge(rs);
     }
 }
