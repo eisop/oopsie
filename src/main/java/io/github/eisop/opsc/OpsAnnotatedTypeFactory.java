@@ -72,6 +72,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
     private final ExecutableElement preparedStatementExecuteQuery =
             TreeUtils.getMethod("java.sql.PreparedStatement", "executeQuery", 0, processingEnv);
+    private final ExecutableElement statementExecuteQuery =
+            TreeUtils.getMethod("java.sql.Statement", "executeQuery", 1, processingEnv);
 
     private SchemaInfo calciteSchemaInfo;
 
@@ -377,7 +379,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
          */
         @Override
         public Void visitMethodInvocation(MethodInvocationTree tree, AnnotatedTypeMirror type) {
-            if (isPreparedStatementMethodInvocation(tree)) {
+            if (isPreparedStatementMethodInvocation(tree)
+                    || TreeUtils.isMethodInvocation(tree, statementExecuteQuery, processingEnv)) {
                 ExpressionTree arg = tree.getArguments().get(0);
                 if (!type.hasAnnotationRelaxed(SQL)) {
                     String stmt = retrieveStringValue(arg);
