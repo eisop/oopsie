@@ -10,13 +10,14 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 public final class OpsStatementLogEntry {
 
     static final String[] STATEMENT_COLUMNS = {
-            "kind",
-            "statementFile",
-            "statementLine",
-            "statementColumns",
-            "details",
-            "statementString",
-            "numberOfParameters"
+        "kind",
+        "statementFile",
+        "statementLine",
+        "statementColumns",
+        "details",
+        "statementString",
+        "numberOfParameters",
+        "isPreparedStatement"
     };
     @NonNull
     private final OpsLogEntryKind kind;
@@ -32,6 +33,8 @@ public final class OpsStatementLogEntry {
     private final String statementString;
     @Nullable
     private final Integer numberOfParameters;
+    @Nullable
+    private final Boolean isPreparedStatement;
 
     public OpsStatementLogEntry(
             @NonNull OpsLogEntryKind kind,
@@ -40,7 +43,8 @@ public final class OpsStatementLogEntry {
             @Nullable String statementColumn,
             @Nullable String details,
             @Nullable String statementString,
-            @Nullable Integer numberOfParameters) {
+            @Nullable Integer numberOfParameters,
+            @Nullable Boolean isPreparedStatement) {
         this.kind = kind;
         this.statementFile = statementFile;
         this.statementLine = statementLine;
@@ -48,6 +52,7 @@ public final class OpsStatementLogEntry {
         this.details = details;
         this.statementString = statementString;
         this.numberOfParameters = numberOfParameters;
+        this.isPreparedStatement = isPreparedStatement;
     }
 
     public List<String> values() {
@@ -58,7 +63,8 @@ public final class OpsStatementLogEntry {
                 str(statementColumn),
                 str(details),
                 str(statementString),
-                str(numberOfParameters));
+                str(numberOfParameters),
+                str(isPreparedStatement));
     }
 
     private String str(Object value) {

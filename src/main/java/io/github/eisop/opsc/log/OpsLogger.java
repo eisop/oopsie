@@ -44,22 +44,28 @@ public class OpsLogger implements Closeable {
         bindingsCsvPrinter.close(true);
     }
 
-    public void supportedPreparedStatement(
+    public void supportedStatement(
             CompilationUnitTree tree,
             long start,
             String statementString,
-            Integer numberOfParameters) {
+            Integer numberOfParameters,
+            boolean isPreparedStatement) {
         statementEntry(
                 OpsLogEntryKind.SUPPORTED_PREPARED_STATEMENT,
                 tree,
                 start,
                 null,
                 statementString,
-                numberOfParameters);
+                numberOfParameters,
+                isPreparedStatement);
     }
 
     public void unsupportedPreparedStatement(
-            CompilationUnitTree tree, long location, String details, String statementString) {
+            CompilationUnitTree tree,
+            long location,
+            String details,
+            String statementString,
+            boolean isPreparedStatement) {
         String sourceFileName = null;
         String line = null;
         String column = null;
@@ -76,7 +82,8 @@ public class OpsLogger implements Closeable {
                         column,
                         details,
                         statementString,
-                        null));
+                        null,
+                        isPreparedStatement));
     }
 
     public void entryRelatedToStatement(
@@ -100,26 +107,6 @@ public class OpsLogger implements Closeable {
                         statementColumn,
                         key,
                         details));
-    }
-
-    public void warningRelatedToStatement(
-            CompilationUnitTree warningTree,
-            long warningLocation,
-            String statementFile,
-            String statementLine,
-            String statementColumn,
-            String key,
-            String details) {
-        entryRelatedToStatement(
-                OpsLogEntryKind.WARNING,
-                warningTree,
-                lineNumberFromLocation(warningTree, warningLocation),
-                columnNumberFromLocation(warningTree, warningLocation),
-                statementFile,
-                statementLine,
-                statementColumn,
-                key,
-                details);
     }
 
     public void errorRelatedToStatement(
@@ -167,7 +154,8 @@ public class OpsLogger implements Closeable {
             long location,
             String details,
             String statementString,
-            Integer numberOfParameters) {
+            Integer numberOfParameters,
+            boolean isPreparedStatement) {
         String sourceFileName = null;
         String line = null;
         String column = null;
@@ -184,15 +172,17 @@ public class OpsLogger implements Closeable {
                         column,
                         details,
                         statementString,
-                        numberOfParameters));
+                        numberOfParameters,
+                        isPreparedStatement));
     }
 
     public void simpleStatementEntry(
             OpsLogEntryKind kind,
             @Nullable CompilationUnitTree tree,
             long location,
-            String details) {
-        statementEntry(kind, tree, location, details, null, null);
+            String details,
+            boolean isPreparedStatement) {
+        statementEntry(kind, tree, location, details, null, null, isPreparedStatement);
     }
 
     private void statementLogEntry(OpsStatementLogEntry entry) {
