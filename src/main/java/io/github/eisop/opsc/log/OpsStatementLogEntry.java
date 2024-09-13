@@ -11,7 +11,8 @@ public record OpsStatementLogEntry(
         @Nullable String statementColumn,
         @Nullable String details,
         @Nullable String statementString,
-        @Nullable Integer numberOfParameters) {
+        @Nullable Integer numberOfParameters,
+        @Nullable Boolean isPreparedStatement) {
 
     static final String[] STATEMENT_COLUMNS = {
         "kind",
@@ -20,7 +21,8 @@ public record OpsStatementLogEntry(
         "statementColumns",
         "details",
         "statementString",
-        "numberOfParameters"
+        "numberOfParameters",
+        "isPreparedStatement"
     };
 
     public List<String> values() {
@@ -31,7 +33,8 @@ public record OpsStatementLogEntry(
                 str(statementColumn),
                 str(details),
                 str(statementString),
-                str(numberOfParameters));
+                str(numberOfParameters),
+                str(isPreparedStatement));
     }
 
     private String str(Object value) {
