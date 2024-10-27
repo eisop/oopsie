@@ -1,5 +1,7 @@
 package io.github.eisop.opsc.db;
 
+import static io.github.eisop.opsc.db.JDBCUtil.jdbcTypeNameFromOrdinal;
+
 import com.google.common.collect.ImmutableList;
 import io.github.eisop.opsc.exception.OpsDatabaseException;
 import java.sql.Connection;
@@ -8,7 +10,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
 import java.util.Properties;
 import javax.sql.DataSource;
 import org.apache.calcite.adapter.jdbc.JdbcSchema;
@@ -30,7 +31,7 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
-import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
@@ -100,10 +101,7 @@ public class CalciteSchemaInfo implements SchemaInfo {
 
     @Override
     public ImmutableList<String> getResultTypeOf(String stmt) throws OpsDatabaseException {
-        //        System.out.println(parseSql(stmt).getRowType().getFieldNames());
-        //        System.out.println(parseSql(stmt).getRowType().getFieldList());
-        //        System.out.println(parseSql(stmt).getRowType().getFieldCount());
-        return getJavaTypesWithAnnotations(parseSql(stmt).getRowType());
+        return getTypesWithAnnotations(parseSql(stmt).getRowType());
     }
 
     @Override
@@ -193,7 +191,7 @@ public class CalciteSchemaInfo implements SchemaInfo {
 
         return params.stream()
                 .sorted(Comparator.comparingInt(RexDynamicParam::getIndex))
-                .map(param -> getJavaType(param.getType()))
+                .map(param -> getJDBCTypeName(param.getType()))
                 .collect(ImmutableList.toImmutableList());
     }
 
@@ -215,70 +213,30 @@ public class CalciteSchemaInfo implements SchemaInfo {
         return tree;
     }
 
-    private ImmutableList<String> getJavaTypesWithAnnotations(RelDataType relType) {
+    private ImmutableList<String> getTypesWithAnnotations(RelDataType relType) {
         return relType.getFieldList().stream()
-                .map(field -> getJavaTypeWithAnnotations(field.getType(), field.getName()))
+                .map(field -> getTypeWithAnnotations(field.getType(), field.getName()))
                 .collect(ImmutableList.toImmutableList());
     }
 
-    private String getJavaTypeWithAnnotations(RelDataType relType, String name) {
-        String type = getJavaType(relType);
+    private String getTypeWithAnnotations(RelDataType relType, String name) {
+        String typeName = getJDBCTypeName(relType);
+
         String anno = relType.isNullable() ? "@Nullable " : "@NonNull ";
-        if (Objects.equals(type, "String")) {
+
+        SqlTypeFamily typeFamily = relType.getSqlTypeName().getFamily();
+        String familyName = typeFamily == null ? "" : typeFamily.name();
+        if (familyName.equals("CHARACTER")) {
             int maxLength = relType.getPrecision();
             if (maxLength != RelDataType.PRECISION_NOT_SPECIFIED) {
                 anno += "@MaxLength(" + maxLength + ") ";
             }
         }
         name = name != null ? " " + name : "";
-        return anno + type + name;
+        return anno + typeName + name;
     }
 
-    private String getJavaType(RelDataType relType) {
-        SqlTypeName sqlTypeName = relType.getSqlTypeName();
-        if (sqlTypeName.getFamily() == null) {
-            throw new RuntimeException("Unknown SQL type: " + sqlTypeName);
-        }
-
-        String type;
-        switch (sqlTypeName.getFamily()) {
-            case CHARACTER:
-                type = "String";
-                break;
-            case DATE:
-                type = "Date";
-                break;
-            case TIME:
-                type = "Time";
-                break;
-            case TIMESTAMP:
-                type = "Timestamp";
-                break;
-            case BOOLEAN:
-                type = "Boolean";
-                break;
-            case NUMERIC:
-                switch (sqlTypeName) {
-                    case INTEGER:
-                    case TINYINT:
-                    case SMALLINT:
-                        type = "Integer";
-                        break;
-                    case BIGINT:
-                        type = "Long";
-                        break;
-                    case DECIMAL:
-                        type = "BigDecimal";
-                        break;
-                    default:
-                        type = "Double";
-                        break;
-                }
-                break;
-            default:
-                type = "Object";
-                break;
-        }
-        return type;
+    private static String getJDBCTypeName(RelDataType relType) {
+        return jdbcTypeNameFromOrdinal(relType.getSqlTypeName().getJdbcOrdinal());
     }
 }

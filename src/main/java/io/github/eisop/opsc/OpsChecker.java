@@ -29,6 +29,8 @@ public class OpsChecker extends BaseTypeChecker {
 
     protected String projectRoot;
 
+    protected TypeMapping typeMapping;
+
     @Override
     public void typeProcessingOver() {
         super.typeProcessingOver();
@@ -78,6 +80,14 @@ public class OpsChecker extends BaseTypeChecker {
         }
 
         System.out.println("Logging in " + timeStampedLogDir.toAbsolutePath());
+
+        // Load the type mapping file from resources and initialize the type mapping
+        URL mappingUrl =
+                Thread.currentThread().getContextClassLoader().getResource("type_mapping.csv");
+        if (mappingUrl == null) {
+            throw new TypeSystemError("Could not load type mapping configuration");
+        }
+        typeMapping = new TypeMapping(mappingUrl);
 
         super.initChecker();
     }
@@ -136,5 +146,9 @@ public class OpsChecker extends BaseTypeChecker {
 
     protected OpsLogger getLogger() {
         return logger;
+    }
+
+    public TypeMapping getTypeMapping() {
+        return typeMapping;
     }
 }
