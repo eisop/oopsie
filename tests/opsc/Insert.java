@@ -15,7 +15,7 @@ class Insert {
         // set parameters
         stmt.setInt(1, 1);
         stmt.setInt(2, 2);
-        stmt.setDate(3, Date.valueOf("2023-05-02"));
+        stmt.setTimestamp(3, Timestamp.valueOf("2023-05-02 12:00:00"));
         stmt.setBigDecimal(4, BigDecimal.valueOf(3));
 
         // more parameters than are good for you

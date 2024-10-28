@@ -23,8 +23,8 @@ class Issues {
                 conn.prepareStatement("SELECT * FROM Invoice", new String[] {"oluwa", "tikz"});
 
         @Sql(
-                in = {"@NonNull BigDecimal"},
-                out = {"@NonNull Integer"})
+                in = {"@NonNull NUMERIC"},
+                out = {"@NonNull INTEGER"})
         PreparedStatement ps3 =
                 conn.prepareStatement("SELECT CustomerId FROM Invoice WHERE Total > ?", 1, 2, 3);
     }

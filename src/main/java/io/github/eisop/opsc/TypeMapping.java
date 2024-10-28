@@ -20,15 +20,18 @@ public class TypeMapping {
         try {
             Reader reader =
                     new InputStreamReader(configFilePath.openStream(), StandardCharsets.UTF_8);
-            records = CSVFormat.DEFAULT.parse(reader).getRecords();
+            CSVFormat format = CSVFormat.DEFAULT.builder().setCommentMarker('#').build();
+            records = format.parse(reader).getRecords();
         } catch (IOException e) {
             throw new TypeSystemError("Could not load type mapping configuration");
         }
     }
 
-    public OpsCheckResult checkCall(String method, String jdbcType) {
+    public OpsCheckResult checkCall(String method, String annotatedType) {
+        OpscType opscType = OpscType.fromAnnotationString(annotatedType);
+        String jdbcType = opscType.columnDataType();
         for (CSVRecord record : records) {
-            if (record.get(0).equals(method) && record.get(1).equals(jdbcType)) {
+            if (record.get(0).equals(method) && record.get(1).equalsIgnoreCase(jdbcType)) {
                 OpsCheckResultKind kind = OpsCheckResultKind.valueOf(record.get(2));
                 return new OpsCheckResult(kind, record.get(3));
             }
