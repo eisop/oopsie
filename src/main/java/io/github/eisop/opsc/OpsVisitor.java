@@ -138,17 +138,18 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
             AnnotationMirror sqlAnnotation) {
         OpsCheckResult result = typeMapping.checkCall(methodName, jdbcType);
         if (result.getKind() == OpsCheckResultKind.ERROR) {
-            checker.reportError(tree, result.getKey(), methodName, jdbcType);
+            checker.reportError(tree, "parameter.type.incompatible", methodName, jdbcType);
             logError(
                     tree,
-                    result.getKey(),
+                    result.getDetails(),
                     "expected=" + methodName + ", actual=" + jdbcType,
                     sqlAnnotation);
         } else if (result.getKind() == OpsCheckResultKind.WARNING) {
-            checker.reportWarning(tree, result.getKey(), methodName, jdbcType);
+            checker.reportWarning(
+                    tree, result.getDetails(), methodName, jdbcType, result.getDetails());
             logWarning(
                     tree,
-                    result.getKey(),
+                    result.getDetails(),
                     "expected=" + methodName + ", actual=" + jdbcType,
                     sqlAnnotation);
         } else {
@@ -232,17 +233,22 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
         } else {
             OpsCheckResult result = typeMapping.checkCall(methodName, out.get(index));
             if (result.getKind() == OpsCheckResultKind.ERROR) {
-                checker.reportError(tree, result.getKey(), methodName, out.get(index));
+                checker.reportError(tree, "column.type.incompatible", methodName, out.get(index));
                 logError(
                         tree,
-                        result.getKey(),
+                        result.getDetails(),
                         "expected=" + methodName + ", actual=" + out.get(index),
                         sqlAnnotation);
             } else if (result.getKind() == OpsCheckResultKind.WARNING) {
-                checker.reportWarning(tree, result.getKey(), methodName, out.get(index));
+                checker.reportWarning(
+                        tree,
+                        "warning.column.types",
+                        methodName,
+                        out.get(index),
+                        result.getDetails());
                 logWarning(
                         tree,
-                        result.getKey(),
+                        result.getDetails(),
                         "expected=" + methodName + ", actual=" + out.get(index),
                         sqlAnnotation);
             } else {

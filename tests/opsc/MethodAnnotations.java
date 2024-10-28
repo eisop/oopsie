@@ -33,7 +33,7 @@ class MethodAnnotations {
         rs.getInt(3);
     }
 
-    public int getAge(@Sql(out = {"Date dob"}) ResultSet rs) throws SQLException {
+    public int getAge(@Sql(out = {"DATE dob"}) ResultSet rs) throws SQLException {
         Date dob = rs.getDate("dob");
         return Period.between(dob.toLocalDate(), LocalDate.now()).getYears();
     }

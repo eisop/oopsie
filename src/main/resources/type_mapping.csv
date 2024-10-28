@@ -6,6 +6,8 @@ setString,NCHAR,WARNING,conversionNotGuaranteed
 setString,NVARCHAR,OK,
 setString,LONGNVARCHAR,OK,
 setBigDecimal,NUMERIC,OK,
+#########[setBigDecimal,DECIMAL missing in specification?]
+setBigDecimal,DECIMAL,OK,
 setBoolean,BIT,OK,
 setBoolean,BOOLEAN,OK,
 setByte,TINYINT,OK,

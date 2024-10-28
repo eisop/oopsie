@@ -7,18 +7,18 @@ public class OpsCheckResult {
 
     private final @NonNull OpsCheckResultKind kind;
 
-    private final @Nullable String key;
+    private final @Nullable String details;
 
     public OpsCheckResult(@NonNull OpsCheckResultKind kind, @Nullable String key) {
         this.kind = kind;
-        this.key = key;
+        this.details = key;
     }
 
     public @NonNull OpsCheckResultKind getKind() {
         return kind;
     }
 
-    public @Nullable String getKey() {
-        return key;
+    public @Nullable String getDetails() {
+        return details;
     }
 }
