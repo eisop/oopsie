@@ -1,6 +1,5 @@
 package io.github.eisop.opsc.db;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.github.eisop.opsc.exception.OpsDatabaseException;
 import java.sql.Connection;
@@ -10,7 +9,6 @@ import java.sql.ParameterMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.util.List;
 import java.util.Objects;
 import java.util.ServiceLoader;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -61,7 +59,7 @@ public class JDBCSchemaInfo implements SchemaInfo {
             }
             ImmutableList.Builder<String> builder = ImmutableList.builder();
             for (int i = 1; i <= md.getColumnCount(); i++) {
-                builder.add(getJavaTypeWithAnnotations(i, md));
+                builder.add(getTypeWithAnnotations(i, md));
             }
             return builder.build();
         } catch (SQLException e) {
@@ -87,7 +85,7 @@ public class JDBCSchemaInfo implements SchemaInfo {
             }
             ImmutableList.Builder<String> builder = ImmutableList.builder();
             for (int i = 1; i <= md.getParameterCount(); i++) {
-                builder.add(getJavaTypeWithAnnotations(i, md));
+                builder.add(getTypeWithAnnotations(i, md));
             }
             return builder.build();
         } catch (SQLException e) {
@@ -96,49 +94,27 @@ public class JDBCSchemaInfo implements SchemaInfo {
     }
 
     // use the isNullable method of the given ResultSetMetaData OR ParameterMetaData
-    private String getJavaTypeWithAnnotations(int index, ResultSetMetaData md)
+    private String getTypeWithAnnotations(int index, ResultSetMetaData md)
             throws OpsDatabaseException {
         try {
-            return getJavaTypeWithAnnotations(
-                    classNameFromFullyQualified(md.getColumnClassName(index)),
-                    // todo use md.getColumnLabel(index) to get the column name
-                    md.isNullable(index),
-                    md.getPrecision(index));
+            String jdbcType = JDBCUtil.jdbcTypeNameFromOrdinal(md.getColumnType(index));
+            return getTypeWithAnnotations(jdbcType, md.isNullable(index), md.getPrecision(index));
         } catch (SQLException e) {
             throw new OpsDatabaseException(e);
         }
     }
 
-    private String getJavaTypeWithAnnotations(int index, ParameterMetaData md)
+    private String getTypeWithAnnotations(int index, ParameterMetaData md)
             throws OpsDatabaseException {
         try {
-            return getJavaTypeWithAnnotations(
-                    classNameFromFullyQualified(md.getParameterClassName(index)),
-                    md.isNullable(index),
-                    md.getPrecision(index));
+            String jdbcType = JDBCUtil.jdbcTypeNameFromOrdinal(md.getParameterType(index));
+            return getTypeWithAnnotations(jdbcType, md.isNullable(index), md.getPrecision(index));
         } catch (SQLException e) {
             throw new OpsDatabaseException(e);
         }
     }
 
-    private String classNameFromFullyQualified(String fullyQualifiedName) {
-        List<String> splits = Splitter.on(".").splitToList(fullyQualifiedName);
-        return splits.get(splits.size() - 1);
-    }
-
-    private String getJavaTypeWithAnnotations(String className, int nullability, int precision) {
-        //        String anno =
-        //                switch (nullability) {
-        //                    case ParameterMetaData.parameterNoNulls -> "@NonNull ";
-        //                    case ParameterMetaData.parameterNullable -> "@Nullable ";
-        //                    case ParameterMetaData.parameterNullableUnknown -> "";
-        //                    default -> throw new IllegalArgumentException(
-        //                            "nullability must be one of
-        // ParameterMetaData.parameterNoNulls, "
-        //                                    + "ParameterMetaData.parameterNullable "
-        //                                    + "or ParameterMetaData.parameterNullableUnknown");
-        //                };
-        // java 8
+    private String getTypeWithAnnotations(String className, int nullability, int precision) {
         String anno;
         switch (nullability) {
             case ParameterMetaData.parameterNoNulls:
@@ -156,7 +132,7 @@ public class JDBCSchemaInfo implements SchemaInfo {
                                 + "ParameterMetaData.parameterNullable "
                                 + "or ParameterMetaData.parameterNullableUnknown");
         }
-        if (Objects.equals(className, "String")) {
+        if (Objects.equals(className, "VARCHAR")) {
             if (precision != 0) {
                 anno += "@MaxLength(" + precision + ") ";
             }
