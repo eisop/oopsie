@@ -21,7 +21,7 @@ public class SqlOut {
 
         ps.setBigDecimal(1, BigDecimal.valueOf(244.331));
 
-        @Sql(out = {"@NonNull Integer", "@NonNull BigDecimal", "@Nullable @MaxLength(40) String"})
+        @Sql(out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
         // this should work
         ResultSet rs = ps.executeQuery();
 
@@ -38,7 +38,7 @@ public class SqlOut {
 
         ps.setBigDecimal(1, BigDecimal.valueOf(244.331));
 
-        @Sql(out = {"@NonNull Integer", "@NonNull BigDecimal", "@Nullable @MaxLength(40) Integer"})
+        @Sql(out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) INTEGER"})
         // :: error: (assignment.type.incompatible)
         ResultSet rs = ps.executeQuery();
     }
@@ -50,7 +50,7 @@ public class SqlOut {
 
         ps.setBigDecimal(1, BigDecimal.valueOf(244.331));
 
-        @Sql(out = {"@NonNull Integer", "@NonNull BigDecimal", "@Nullable @MaxLength(40) String"})
+        @Sql(out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
         ResultSet rs = ps.executeQuery();
 
         // :: error: (column.type.incompatible)
@@ -61,7 +61,7 @@ public class SqlOut {
         PreparedStatement ps =
                 conn.prepareStatement("SELECT InvoiceId, Total, BillingCountry FROM Invoice");
 
-        @Sql(out = {"@NonNull Integer", "@NonNull BigDecimal", "@Nullable @MaxLength(40) String"})
+        @Sql(out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
         ResultSet rs = ps.executeQuery();
 
         // :: error: (column.index.out.of.bounds)
@@ -73,7 +73,7 @@ public class SqlOut {
         PreparedStatement ps =
                 conn.prepareStatement("SELECT InvoiceId, Total, BillingCountry FROM Invoice");
 
-        @Sql(out = {"@NonNull Integer", "@NonNull BigDecimal", "@Nullable @MaxLength(40) String"})
+        @Sql(out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
         ResultSet rs = ps.executeQuery();
         rs.getInt(1);
     }
