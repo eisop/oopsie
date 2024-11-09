@@ -82,12 +82,12 @@ public class OpsChecker extends BaseTypeChecker {
         System.out.println("Logging in " + timeStampedLogDir.toAbsolutePath());
 
         // Load the type mapping file from resources and initialize the type mapping
-        URL mappingUrl =
-                Thread.currentThread().getContextClassLoader().getResource("type_mapping.csv");
-        if (mappingUrl == null) {
+        URL typeMappingPath = getClass().getResource("/type_mapping.csv");
+        if (typeMappingPath == null) {
             throw new TypeSystemError("Could not load type mapping configuration");
         }
-        typeMapping = new TypeMapping(mappingUrl);
+
+        typeMapping = new TypeMapping(typeMappingPath);
 
         super.initChecker();
     }
