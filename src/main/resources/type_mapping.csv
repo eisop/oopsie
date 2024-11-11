@@ -1,8 +1,9 @@
 method,sqlType,resultKind,resultKey
+######### OK irrespective of VARCHAR/CHAR column length
 setString,VARCHAR,OK,
-setString,CHAR,WARNING,conversionNotGuaranteed
+setString,CHAR,OK,
 setString,LONGVARCHAR,OK,
-setString,NCHAR,WARNING,conversionNotGuaranteed
+setString,NCHAR,OK,OK,
 setString,NVARCHAR,OK,
 setString,LONGNVARCHAR,OK,
 setBigDecimal,NUMERIC,OK,
