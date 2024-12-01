@@ -131,7 +131,7 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
             checker.reportError(tree, "parameter.type.incompatible", methodName, jdbcType);
             logError(
                     tree,
-                    result.getDetails(),
+                    "parameter." + result.getDetails(),
                     "expected=" + methodName + ", actual=" + jdbcType,
                     sqlAnnotation);
         } else if (result.getKind() == OpsCheckResultKind.WARNING) {
@@ -139,7 +139,7 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                     tree, result.getDetails(), methodName, jdbcType, result.getDetails());
             logWarning(
                     tree,
-                    result.getDetails(),
+                    "parameter." + result.getDetails(),
                     "expected=" + methodName + ", actual=" + jdbcType,
                     sqlAnnotation);
         } else {
@@ -227,7 +227,7 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                 checker.reportError(tree, "column.type.incompatible", methodName, out.get(index));
                 logError(
                         tree,
-                        result.getDetails(),
+                        "column." + result.getDetails(),
                         "expected=" + methodName + ", actual=" + out.get(index),
                         sqlAnnotation);
             } else if (result.getKind() == OpsCheckResultKind.WARNING) {
@@ -239,7 +239,7 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                         result.getDetails());
                 logWarning(
                         tree,
-                        result.getDetails(),
+                        "column." + result.getDetails(),
                         "expected=" + methodName + ", actual=" + out.get(index),
                         sqlAnnotation);
             } else {
