@@ -14,15 +14,14 @@ class MethodAnnotations {
     }
 
     public @Sql(
-            in = {"Timestamp"},
-            out = {"@NonNull Integer", "@NonNull BigDecimal", "@Nullable @MaxLength(40) String"})
+            in = {"TIMESTAMP"},
+            out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
     PreparedStatement getPreparedStatement() throws SQLException {
         return conn.prepareStatement(
                 "SELECT InvoiceId, Total, BillingCountry FROM Invoice WHERE InvoiceDate > ?");
     }
 
-    public @Sql(
-            out = {"@NonNull Integer", "@NonNull BigDecimal", "@Nullable @MaxLength(40) String"})
+    public @Sql(out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
     ResultSet getResultSet() throws SQLException {
         return getPreparedStatement().executeQuery();
     }
@@ -33,7 +32,7 @@ class MethodAnnotations {
         rs.getInt(3);
     }
 
-    public int getAge(@Sql(out = {"Date dob"}) ResultSet rs) throws SQLException {
+    public int getAge(@Sql(out = {"DATE dob"}) ResultSet rs) throws SQLException {
         Date dob = rs.getDate("dob");
         return Period.between(dob.toLocalDate(), LocalDate.now()).getYears();
     }

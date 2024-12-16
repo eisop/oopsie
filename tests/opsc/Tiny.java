@@ -13,16 +13,12 @@ class Tiny {
         // this should work
         @Sql(
                 in = {"Timestamp"},
-                out = {
-                    "@NonNull Integer",
-                    "@NonNull BigDecimal",
-                    "@Nullable @MaxLength(40) String"
-                })
+                out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
         PreparedStatement ps1 =
                 conn.prepareStatement(
                         "SELECT InvoiceId, Total, BillingCountry FROM Invoice WHERE InvoiceDate > ?");
 
-        @Sql(out = {"@NonNull Integer", "@NonNull BigDecimal", "@Nullable Integer"})
+        @Sql(out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable INTEGER"})
         PreparedStatement ps2 =
                 // :: error: (assignment.type.incompatible)
                 conn.prepareStatement(
@@ -30,10 +26,10 @@ class Tiny {
 
         @Sql(
                 out = {
-                    "@NonNull Integer",
-                    "@NonNull BigDecimal",
-                    "@Nullable @MaxLength(40) String",
-                    "@NonNull Integer"
+                    "@NonNull INTEGER",
+                    "@NonNull DECIMAL",
+                    "@Nullable @MaxLength(40) VARCHAR",
+                    "@NonNull INTEGER"
                 })
         PreparedStatement ps3 =
                 // :: error: (assignment.type.incompatible)

@@ -14,7 +14,7 @@ class Update {
 
         // set parameters
         stmt.setInt(1, 2);
-        stmt.setDate(2, Date.valueOf("2023-05-02"));
+        stmt.setTimestamp(2, Timestamp.valueOf("2023-05-02 12:00:00"));
         stmt.setBigDecimal(3, BigDecimal.valueOf(3));
         stmt.setInt(4, 1);
 

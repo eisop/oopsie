@@ -129,6 +129,26 @@ public class OpsLogger implements Closeable {
                 details);
     }
 
+    public void warningRelatedToStatement(
+            CompilationUnitTree errorTree,
+            long errorLocation,
+            String statementFile,
+            String statementLine,
+            String statementColumn,
+            String key,
+            String details) {
+        entryRelatedToStatement(
+                OpsLogEntryKind.WARNING,
+                errorTree,
+                lineNumberFromLocation(errorTree, errorLocation),
+                columnNumberFromLocation(errorTree, errorLocation),
+                statementFile,
+                statementLine,
+                statementColumn,
+                key,
+                details);
+    }
+
     public void ok(
             CompilationUnitTree tree,
             long location,
