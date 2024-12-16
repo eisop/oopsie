@@ -65,16 +65,13 @@ public class StringConstValues {
     }
 
     void stringfromLocalVariableConcatenated2() throws SQLException {
+        // Only works with -AnonNullStringsConcatenation=true option for Constant Value Checker
         String sql = "SELECT InvoiceId, Total, BillingCountry ";
-        sql += "FROM Invoice WHERE InvoiceDate > ?"; // ConstValueChecker treats `sql` as
-        // potentially null in concatenation
+        sql += "FROM Invoice WHERE InvoiceDate > ?";
 
         @Sql(
                 in = {"Timestamp"},
                 out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
-        // False positive as ConstValueChecker is unable to track the value of `sql` in
-        // concatenation
-        // :: warning: (statement.multiple.string.values.continuing)
         PreparedStatement ps1 = conn.prepareStatement(sql);
     }
 
