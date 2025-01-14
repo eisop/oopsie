@@ -3,7 +3,7 @@ plugins {
     // https://github.com/tbroyer/gradle-errorprone-plugin
     id("net.ltgt.errorprone").version("4.1.0")
     id("maven-publish")
-    id("com.diffplug.spotless").version("6.25.0")
+    id("com.diffplug.spotless").version("7.0.2")
     // https://docs.gradle.org/current/userguide/eclipse_plugin.html
     id("eclipse")
     id("idea")
