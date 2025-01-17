@@ -71,6 +71,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
     private final ExecutableElement preparedStatementExecuteQuery =
             TreeUtils.getMethod("java.sql.PreparedStatement", "executeQuery", 0, processingEnv);
+    private final ExecutableElement statementExecuteQuery =
+            TreeUtils.getMethod("java.sql.Statement", "executeQuery", 1, processingEnv);
 
     private SchemaInfo calciteSchemaInfo;
 
@@ -377,50 +379,62 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         @Override
         public Void visitMethodInvocation(MethodInvocationTree tree, AnnotatedTypeMirror type) {
             if (isPreparedStatementMethodInvocation(tree)) {
-                ExpressionTree arg = tree.getArguments().get(0);
-                if (!type.hasAnnotationRelaxed(SQL)) {
-                    String stmt = retrieveStringValue(arg);
-                    if (stmt != null) {
-                        AnnotationMirror annotation = buildSqlAnnotation(stmt, tree);
-                        if (annotation != null) {
-                            type.replaceAnnotation(annotation);
-
-                            logger.supportedPreparedStatement(
-                                    getRoot(),
-                                    trees.getSourcePositions().getStartPosition(getRoot(), tree),
-                                    stmt,
-                                    getInElement(annotation).size());
-                        }
+                annotateStatement(tree, type, true);
+            } else if (TreeUtils.isMethodInvocation(tree, statementExecuteQuery, processingEnv)) {
+                annotateStatement(tree, type, false);
+            } else {
+                if (TreeUtils.isMethodInvocation(
+                        tree, preparedStatementExecuteQuery, processingEnv)) {
+                    // get type annotation from PreparedStatement and transfer it to the result set
+                    AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
+                    if (receiverType.hasAnnotation(Sql.class)) {
+                        AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
+                        List<String> out =
+                                AnnotationUtils.getElementValueArray(
+                                        sqlAnnotation,
+                                        sqlOutElement,
+                                        String.class,
+                                        Collections.emptyList());
+                        String file =
+                                AnnotationUtils.getElementValue(
+                                        sqlAnnotation, sqlFileElement, String.class, null);
+                        String line =
+                                AnnotationUtils.getElementValue(
+                                        sqlAnnotation, sqlLineElement, String.class, null);
+                        String column =
+                                AnnotationUtils.getElementValue(
+                                        sqlAnnotation, sqlColumnElement, String.class, null);
+                        type.replaceAnnotation(createSqlAnnotation(null, out, file, line, column));
+                    } else {
+                        checker.reportWarning(
+                                tree,
+                                "could not get result type annotation from PreparedStatement");
                     }
-                }
-            } else if (TreeUtils.isMethodInvocation(
-                    tree, preparedStatementExecuteQuery, processingEnv)) {
-                // get type annotation from PreparedStatement and transfer it to the result set
-                AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
-                if (receiverType.hasAnnotation(Sql.class)) {
-                    AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
-                    List<String> out =
-                            AnnotationUtils.getElementValueArray(
-                                    sqlAnnotation,
-                                    sqlOutElement,
-                                    String.class,
-                                    Collections.emptyList());
-                    String file =
-                            AnnotationUtils.getElementValue(
-                                    sqlAnnotation, sqlFileElement, String.class, null);
-                    String line =
-                            AnnotationUtils.getElementValue(
-                                    sqlAnnotation, sqlLineElement, String.class, null);
-                    String column =
-                            AnnotationUtils.getElementValue(
-                                    sqlAnnotation, sqlColumnElement, String.class, null);
-                    type.replaceAnnotation(createSqlAnnotation(null, out, file, line, column));
-                } else {
-                    checker.reportWarning(
-                            tree, "could not get result type annotation from PreparedStatement");
                 }
             }
             return super.visitMethodInvocation(tree, type);
+        }
+
+        private void annotateStatement(
+                MethodInvocationTree tree, AnnotatedTypeMirror type, boolean isPreparedStatement) {
+            ExpressionTree arg = tree.getArguments().get(0);
+            if (!type.hasAnnotationRelaxed(SQL)) {
+                String stmt = retrieveStringValue(arg, isPreparedStatement);
+                if (stmt != null) {
+                    AnnotationMirror annotation =
+                            buildSqlAnnotation(stmt, tree, isPreparedStatement);
+                    if (annotation != null) {
+                        type.replaceAnnotation(annotation);
+
+                        logger.supportedStatement(
+                                getRoot(),
+                                trees.getSourcePositions().getStartPosition(getRoot(), tree),
+                                stmt,
+                                getInElement(annotation).size(),
+                                isPreparedStatement);
+                    }
+                }
+            }
         }
 
         private boolean isPreparedStatementMethodInvocation(MethodInvocationTree tree) {
@@ -438,7 +452,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
          * @return the @Sql annotation or null if the types could not be determined
          */
         private @Nullable AnnotationMirror buildSqlAnnotation(
-                String stmt, MethodInvocationTree tree) {
+                String stmt, MethodInvocationTree tree, boolean isPreparedStatement) {
             // get placeholder types of prepared statement
             List<String> in;
             try {
@@ -464,14 +478,16 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                             calciteException.getMessage()
                                     + "--- JDBC: "
                                     + jdbcException.getMessage(),
-                            stmt);
+                            stmt,
+                            isPreparedStatement);
                     return null;
                 }
                 logger.simpleStatementEntry(
                         OpsLogEntryKind.USING_FALLBACK,
                         getRoot(),
                         trees.getSourcePositions().getStartPosition(getRoot(), tree),
-                        null);
+                        null,
+                        isPreparedStatement);
             }
 
             // get result type of prepared statement
@@ -499,14 +515,16 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                             calciteException.getMessage()
                                     + "--- JDBC: "
                                     + jdbcException.getMessage(),
-                            stmt);
+                            stmt,
+                            isPreparedStatement);
                     return null;
                 }
                 logger.simpleStatementEntry(
                         OpsLogEntryKind.USING_FALLBACK,
                         getRoot(),
                         trees.getSourcePositions().getStartPosition(getRoot(), tree),
-                        null);
+                        null,
+                        isPreparedStatement);
             }
 
             String file = null;
@@ -523,7 +541,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             return createSqlAnnotation(in, out, file, line, column);
         }
 
-        private @Nullable String retrieveStringValue(ExpressionTree stringExpression) {
+        private @Nullable String retrieveStringValue(
+                ExpressionTree stringExpression, boolean isPreparedStatement) {
             if (stringExpression.getKind() == ExpressionTree.Kind.STRING_LITERAL) {
                 return (String) ((LiteralTree) stringExpression).getValue();
             }
@@ -534,7 +553,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
                         getRoot(),
                         trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
-                        "");
+                        "",
+                        isPreparedStatement);
                 return null;
             }
 
@@ -551,7 +571,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
                         getRoot(),
                         trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
-                        "");
+                        "",
+                        isPreparedStatement);
                 return null;
             }
 
@@ -568,7 +589,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         OpsLogEntryKind.USING_SQL_STRING_HEURISTIC,
                         getRoot(),
                         trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
-                        null);
+                        null,
+                        isPreparedStatement);
                 return values.get(0);
             }
 
@@ -578,7 +600,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
                     getRoot(),
                     trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
-                    "statement string could evaluate to multiple string values");
+                    "statement string could evaluate to multiple string values",
+                    isPreparedStatement);
             return null;
         }
 

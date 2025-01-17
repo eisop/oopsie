@@ -23,11 +23,7 @@ public class StringConstValues {
     void simpleLiteral() throws SQLException {
         @Sql(
                 in = {"Timestamp"},
-                out = {
-                    "@NonNull Integer",
-                    "@NonNull BigDecimal",
-                    "@Nullable @MaxLength(40) String"
-                })
+                out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
         PreparedStatement ps1 =
                 conn.prepareStatement(
                         "SELECT InvoiceId, Total, BillingCountry FROM Invoice WHERE InvoiceDate > ?");
@@ -36,11 +32,7 @@ public class StringConstValues {
     void concatenation() throws SQLException {
         @Sql(
                 in = {"Timestamp"},
-                out = {
-                    "@NonNull Integer",
-                    "@NonNull BigDecimal",
-                    "@Nullable @MaxLength(40) String"
-                })
+                out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
         PreparedStatement ps1 =
                 conn.prepareStatement(
                         "SELECT InvoiceId, Total, BillingCountry "
@@ -51,22 +43,14 @@ public class StringConstValues {
         String sql = "SELECT InvoiceId, Total, BillingCountry FROM Invoice WHERE InvoiceDate > ?";
         @Sql(
                 in = {"Timestamp"},
-                out = {
-                    "@NonNull Integer",
-                    "@NonNull BigDecimal",
-                    "@Nullable @MaxLength(40) String"
-                })
+                out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
         PreparedStatement ps1 = conn.prepareStatement(sql);
     }
 
     void stringFromConstantField() throws SQLException {
         @Sql(
                 in = {"Timestamp"},
-                out = {
-                    "@NonNull Integer",
-                    "@NonNull BigDecimal",
-                    "@Nullable @MaxLength(40) String"
-                })
+                out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
         PreparedStatement ps1 = conn.prepareStatement(stmt);
     }
 
@@ -76,29 +60,18 @@ public class StringConstValues {
 
         @Sql(
                 in = {"Timestamp"},
-                out = {
-                    "@NonNull Integer",
-                    "@NonNull BigDecimal",
-                    "@Nullable @MaxLength(40) String"
-                })
+                out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
         PreparedStatement ps1 = conn.prepareStatement(sql);
     }
 
     void stringfromLocalVariableConcatenated2() throws SQLException {
+        // Only works with -AnonNullStringsConcatenation=true option for Constant Value Checker
         String sql = "SELECT InvoiceId, Total, BillingCountry ";
-        sql += "FROM Invoice WHERE InvoiceDate > ?"; // ConstValueChecker treats `sql` as
-        // potentially null in concatenation
+        sql += "FROM Invoice WHERE InvoiceDate > ?";
 
         @Sql(
                 in = {"Timestamp"},
-                out = {
-                    "@NonNull Integer",
-                    "@NonNull BigDecimal",
-                    "@Nullable @MaxLength(40) String"
-                })
-        // False positive as ConstValueChecker is unable to track the value of `sql` in
-        // concatenation
-        // :: warning: (statement.multiple.string.values.continuing)
+                out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
         PreparedStatement ps1 = conn.prepareStatement(sql);
     }
 
@@ -110,11 +83,7 @@ public class StringConstValues {
                 """;
         @Sql(
                 in = {"Timestamp"},
-                out = {
-                    "@NonNull Integer",
-                    "@NonNull BigDecimal",
-                    "@Nullable @MaxLength(40) String"
-                })
+                out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
         PreparedStatement ps1 = conn.prepareStatement(sql);
     }
 
@@ -127,10 +96,10 @@ public class StringConstValues {
         @Sql(
                 in = {"Timestamp"},
                 out = {
-                    "@NonNull Integer",
-                    "@NonNull BigDecimal",
-                    "@Nullable @MaxLength(40) String",
-                    "@NonNull Integer"
+                    "@NonNull INTEGER",
+                    "@NonNull DECIMAL",
+                    "@Nullable @MaxLength(40) VARCHAR",
+                    "@NonNull INTEGER"
                 })
         PreparedStatement ps1 =
                 // :: error: (assignment.type.incompatible)
