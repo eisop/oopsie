@@ -155,7 +155,8 @@ public class OpsLogger implements Closeable {
             String statementFile,
             String statementLine,
             String statementColumn,
-            String key) {
+            String key,
+            String details) {
         entryRelatedToStatement(
                 OpsLogEntryKind.OK,
                 tree,
@@ -165,7 +166,7 @@ public class OpsLogger implements Closeable {
                 statementLine,
                 statementColumn,
                 key,
-                null);
+                details);
     }
 
     public void statementEntry(

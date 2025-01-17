@@ -27,7 +27,7 @@ public class OpsChecker extends BaseTypeChecker {
 
     protected OpsLogger logger;
 
-    protected String projectRoot;
+    protected String projectRoot = "";
 
     protected TypeMapping typeMapping;
 
@@ -38,15 +38,13 @@ public class OpsChecker extends BaseTypeChecker {
 
     @Override
     public void initChecker() {
-        projectRoot = getProjectRoot();
-
-        String logDir =
-                hasOption("opsLogDir")
-                        ? getOption("opsLogDir")
-                        : Paths.get(projectRoot, "opslog/").toString();
-
-        System.out.println("projectRoot = " + projectRoot);
-        System.out.println("logDir = " + logDir);
+        String logDir;
+        if (hasOption("opsLogDir")) {
+            logDir = getOption("opsLogDir");
+        } else {
+            projectRoot = getProjectRoot();
+            logDir = Paths.get(projectRoot, "opslog/").toString();
+        }
 
         if (logDir == null) {
             throw new UserError(
@@ -79,8 +77,6 @@ public class OpsChecker extends BaseTypeChecker {
                     "Could not create logger. Check the path provided with -AopsLogDir", e);
         }
 
-        System.out.println("Logging in " + timeStampedLogDir.toAbsolutePath());
-
         // Load the type mapping file from resources and initialize the type mapping
         URL typeMappingPath = getClass().getResource("/type_mapping.csv");
         if (typeMappingPath == null) {
@@ -108,12 +104,12 @@ public class OpsChecker extends BaseTypeChecker {
             }
         }
 
-        // remove the last part of the path starting from "[/\\]build[/\\]" to get the root path
-        String projectRoot = null;
-        if (url != null) {
-            projectRoot = url.getFile().replaceFirst("[/\\\\]build[/\\\\].*", "");
+        if (url == null) {
+            return "";
         }
-        return projectRoot;
+
+        // remove the last part of the path starting from "[/\\]build[/\\]" to get the root path
+        return url.getFile().replaceFirst("[/\\\\]build[/\\\\].*", "");
     }
 
     @Override

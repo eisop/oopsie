@@ -132,7 +132,8 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
             logError(
                     tree,
                     "parameter." + result.getDetails(),
-                    "expected=" + methodName + ", actual=" + jdbcType,
+                    //                    "expected=" + methodName + ", actual=" + jdbcType,
+                    "SQL type=" + jdbcType + ", method=" + methodName,
                     sqlAnnotation);
         } else if (result.getKind() == OpsCheckResultKind.WARNING) {
             checker.reportWarning(
@@ -140,10 +141,14 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
             logWarning(
                     tree,
                     "parameter." + result.getDetails(),
-                    "expected=" + methodName + ", actual=" + jdbcType,
+                    "SQL type=" + jdbcType + ", method=" + methodName,
                     sqlAnnotation);
         } else {
-            logOk(tree, "parameter.set", sqlAnnotation);
+            logOk(
+                    tree,
+                    "parameter.set",
+                    "SQL type=" + jdbcType + ", method=" + methodName,
+                    sqlAnnotation);
         }
     }
 
@@ -228,7 +233,9 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                 logError(
                         tree,
                         "column." + result.getDetails(),
-                        "expected=" + methodName + ", actual=" + out.get(index),
+                        //                        "expected=" + methodName + ", actual=" +
+                        // out.get(index),
+                        "SQL type=" + out.get(index) + ", method=" + methodName,
                         sqlAnnotation);
             } else if (result.getKind() == OpsCheckResultKind.WARNING) {
                 checker.reportWarning(
@@ -240,10 +247,16 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                 logWarning(
                         tree,
                         "column." + result.getDetails(),
-                        "expected=" + methodName + ", actual=" + out.get(index),
+                        //                        "expected=" + methodName + ", actual=" +
+                        // out.get(index),
+                        "SQL type=" + out.get(index) + ", method=" + methodName,
                         sqlAnnotation);
             } else {
-                logOk(tree, "column.get", sqlAnnotation);
+                logOk(
+                        tree,
+                        "column.get",
+                        "SQL type=" + out.get(index) + ", method=" + methodName,
+                        sqlAnnotation);
             }
         }
     }
@@ -277,13 +290,15 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                 message);
     }
 
-    private void logOk(MethodInvocationTree tree, String key, AnnotationMirror sql) {
+    private void logOk(
+            MethodInvocationTree tree, String key, String message, AnnotationMirror sql) {
         logger.ok(
                 root,
                 trees.getSourcePositions().getStartPosition(root, tree),
                 AnnotationUtils.getElementValue(sql, sqlFileElement, String.class, ""),
                 AnnotationUtils.getElementValue(sql, sqlLineElement, String.class, ""),
                 AnnotationUtils.getElementValue(sql, sqlColumnElement, String.class, ""),
-                key);
+                key,
+                message);
     }
 }
