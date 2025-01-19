@@ -45,7 +45,7 @@ public class OpsLogger implements Closeable {
     }
 
     public void supportedStatement(
-            CompilationUnitTree tree,
+            @Nullable CompilationUnitTree tree,
             long start,
             String statementString,
             Integer numberOfParameters,
@@ -61,9 +61,9 @@ public class OpsLogger implements Closeable {
     }
 
     public void unsupportedPreparedStatement(
-            CompilationUnitTree tree,
+            @Nullable CompilationUnitTree tree,
             long location,
-            String details,
+            @Nullable String details,
             String statementString,
             boolean isPreparedStatement) {
         String sourceFileName = null;
@@ -173,9 +173,9 @@ public class OpsLogger implements Closeable {
             OpsLogEntryKind kind,
             @Nullable CompilationUnitTree tree,
             long location,
-            String details,
-            String statementString,
-            Integer numberOfParameters,
+            @Nullable String details,
+            @Nullable String statementString,
+            @Nullable Integer numberOfParameters,
             boolean isPreparedStatement) {
         String sourceFileName = null;
         String line = null;
@@ -201,7 +201,7 @@ public class OpsLogger implements Closeable {
             OpsLogEntryKind kind,
             @Nullable CompilationUnitTree tree,
             long location,
-            String details,
+            @Nullable String details,
             boolean isPreparedStatement) {
         statementEntry(kind, tree, location, details, null, null, isPreparedStatement);
     }

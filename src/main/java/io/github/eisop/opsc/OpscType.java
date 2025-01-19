@@ -3,6 +3,7 @@ package io.github.eisop.opsc;
 import com.google.common.base.Splitter;
 import java.util.Collections;
 import java.util.List;
+import org.checkerframework.dataflow.qual.Pure;
 import org.jspecify.annotations.Nullable;
 
 public record OpscType(
@@ -36,6 +37,7 @@ public record OpscType(
         return new OpscType(columnDataType, columnAnnotations, columnName);
     }
 
+    @Pure
     public boolean dataTypeMatches(OpscType other, boolean ignoreCase) {
         if (ignoreCase) {
             return columnDataType.equalsIgnoreCase(other.columnDataType);
@@ -45,7 +47,7 @@ public record OpscType(
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (!(obj instanceof OpscType other)) {
             return false;
         }
@@ -63,6 +65,7 @@ public record OpscType(
                 && columnName.equalsIgnoreCase(other.columnName);
     }
 
+    @Pure
     public boolean equalsIgnoringName(OpscType other, boolean ignoreCase) {
         return dataTypeMatches(other, ignoreCase)
                 && columnAnnotations.equals(other.columnAnnotations);

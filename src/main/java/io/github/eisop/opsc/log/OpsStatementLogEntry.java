@@ -36,7 +36,7 @@ public record OpsStatementLogEntry(
                 str(isPreparedStatement));
     }
 
-    private String str(Object value) {
+    private String str(@Nullable Object value) {
         return value == null ? "" : value.toString();
     }
 }
