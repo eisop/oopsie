@@ -1,3 +1,5 @@
+package tests;
+
 import io.github.eisop.opsc.OpsChecker;
 import java.io.File;
 import java.util.List;
@@ -20,7 +22,8 @@ public class OpscTest extends CheckerFrameworkPerDirectoryTest {
                 "-AdbUrl=" + DB_URL,
                 "-AdbUser=" + DB_USER,
                 "-AdbPassword=" + DB_PASSWORD,
-                "-AenableSqlStringHeuristic=true");
+                "-AenableSqlStringHeuristic=false",
+                "-AnonNullStringsConcatenation=true");
     }
 
     @Parameters

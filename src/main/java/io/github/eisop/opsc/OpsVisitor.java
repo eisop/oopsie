@@ -6,9 +6,7 @@ import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
 import io.github.eisop.opsc.log.OpsLogger;
 import io.github.eisop.opsc.qual.Sql;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
@@ -22,6 +20,7 @@ import org.checkerframework.javacutil.TypeSystemError;
 public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
 
     private final OpsLogger logger = ((OpsChecker) checker).getLogger();
+    private final TypeMapping typeMapping = ((OpsChecker) checker).getTypeMapping();
 
     private final ProcessingEnvironment processingEnv = checker.getProcessingEnvironment();
     protected final ExecutableElement sqlFileElement =
@@ -34,110 +33,30 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "in", 0, processingEnv);
     private final ExecutableElement sqlOutElement =
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "out", 0, processingEnv);
-    private final Map<ExecutableElement, String> preparedStatementSetMethodTypes =
-            Map.ofEntries(
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.PreparedStatement", "setString", 2, processingEnv),
-                            "String"),
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.PreparedStatement", "setInt", 2, processingEnv),
-                            "Integer"),
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.PreparedStatement", "setLong", 2, processingEnv),
-                            "Long"),
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.PreparedStatement", "setDouble", 2, processingEnv),
-                            "Double"),
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.PreparedStatement",
-                                    "setBigDecimal",
-                                    2,
-                                    processingEnv),
-                            "BigDecimal"),
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.PreparedStatement", "setBoolean", 2, processingEnv),
-                            "Boolean"));
-
-    private final Map<ExecutableElement, String> resultSetGetByIndexMethodTypes =
-            Map.ofEntries(
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.ResultSet", "getString", processingEnv, "int"),
-                            "String"),
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.ResultSet", "getInt", processingEnv, "int"),
-                            "Integer"),
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.ResultSet", "getLong", processingEnv, "int"),
-                            "Long"),
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.ResultSet", "getDouble", processingEnv, "int"),
-                            "Double"),
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.ResultSet", "getBigDecimal", processingEnv, "int"),
-                            "BigDecimal"),
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.ResultSet", "getBoolean", processingEnv, "int"),
-                            "Boolean"));
-
-    private final Map<ExecutableElement, String> resultSetGetByNameMethodTypes =
-            Map.ofEntries(
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.ResultSet",
-                                    "getString",
-                                    processingEnv,
-                                    "java.lang.String"),
-                            "String"),
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.ResultSet",
-                                    "getInt",
-                                    processingEnv,
-                                    "java.lang.String"),
-                            "Integer"),
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.ResultSet",
-                                    "getLong",
-                                    processingEnv,
-                                    "java.lang.String"),
-                            "Long"),
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.ResultSet",
-                                    "getDouble",
-                                    processingEnv,
-                                    "java.lang.String"),
-                            "Double"),
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.ResultSet",
-                                    "getBigDecimal",
-                                    processingEnv,
-                                    "java.lang.String"),
-                            "BigDecimal"),
-                    Map.entry(
-                            TreeUtils.getMethod(
-                                    "java.sql.ResultSet",
-                                    "getBoolean",
-                                    processingEnv,
-                                    "java.lang.String"),
-                            "Boolean"));
+    private final Set<ExecutableElement> preparedStatementSetMethodTypes = new HashSet<>();
+    private final Set<ExecutableElement> resultSetGetByIndexMethodTypes = new HashSet<>();
+    private final Set<ExecutableElement> resultSetGetByNameMethodTypes = new HashSet<>();
 
     public OpsVisitor(BaseTypeChecker checker) {
         super(checker);
+        for (String s : typeMapping.getSetMethodNames()) {
+            preparedStatementSetMethodTypes.addAll(
+                    TreeUtils.getMethods("java.sql.PreparedStatement", s, 2, processingEnv));
+        }
+        typeMapping
+                .getGetMethodNames()
+                .forEach(
+                        name -> {
+                            resultSetGetByIndexMethodTypes.add(
+                                    TreeUtils.getMethod(
+                                            "java.sql.ResultSet", name, processingEnv, "int"));
+                            resultSetGetByNameMethodTypes.add(
+                                    TreeUtils.getMethod(
+                                            "java.sql.ResultSet",
+                                            name,
+                                            processingEnv,
+                                            "java.lang.String"));
+                        });
     }
 
     @Override
@@ -148,24 +67,24 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
     @SuppressWarnings("VoidUsed")
     @Override
     public Void visitMethodInvocation(MethodInvocationTree tree, Void p) {
-        int argsize = tree.getArguments().size();
-        if (argsize != 1 && argsize != 2) {
+        int argSize = tree.getArguments().size();
+        if (argSize != 1 && argSize != 2) {
             // Early exit if the method call can't be relevant.
             return super.visitMethodInvocation(tree, p);
         }
 
-        if (argsize == 2) {
-            for (ExecutableElement method : preparedStatementSetMethodTypes.keySet()) {
+        if (argSize == 2) {
+            for (ExecutableElement method : preparedStatementSetMethodTypes) {
                 if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
-                    checkSetParameter(tree, method);
+                    checkSetInvocation(tree, method);
                     break;
                 }
             }
         } else {
-            // argsize == 1;
+            // argSize == 1;
             boolean found = false;
 
-            for (ExecutableElement method : resultSetGetByIndexMethodTypes.keySet()) {
+            for (ExecutableElement method : resultSetGetByIndexMethodTypes) {
                 if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
                     checkGetResultByIndex(tree, method);
                     found = true;
@@ -173,7 +92,7 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                 }
             }
             if (!found) {
-                for (ExecutableElement method : resultSetGetByNameMethodTypes.keySet()) {
+                for (ExecutableElement method : resultSetGetByNameMethodTypes) {
                     if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
                         checkGetResultByName(tree, method);
                         // found = true; Not needed until something depends on it.
@@ -186,7 +105,7 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
         return super.visitMethodInvocation(tree, p);
     }
 
-    private void checkSetParameter(MethodInvocationTree tree, ExecutableElement method) {
+    private void checkSetInvocation(MethodInvocationTree tree, ExecutableElement method) {
         AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
         if (receiverType == null) {
             throw new TypeSystemError("Could not find receiver of method invocation");
@@ -210,25 +129,42 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                             "parameter.index.out.of.bounds",
                             "index=" + index + ", size=" + in.size(),
                             sqlAnnotation);
-                } else if (!javaTypesMatch(
-                        in.get(index), preparedStatementSetMethodTypes.get(method))) {
-                    checker.reportError(
-                            tree,
-                            "parameter.type.incompatible",
-                            preparedStatementSetMethodTypes.get(method),
-                            in.get(index));
-                    logError(
-                            tree,
-                            "parameter.type.incompatible",
-                            "expected="
-                                    + preparedStatementSetMethodTypes.get(method)
-                                    + ", actual="
-                                    + in.get(index),
-                            sqlAnnotation);
                 } else {
-                    logOk(tree, "parameter.set", sqlAnnotation);
+                    checkParameterType(
+                            tree, method.getSimpleName().toString(), in.get(index), sqlAnnotation);
                 }
             }
+        }
+    }
+
+    private void checkParameterType(
+            MethodInvocationTree tree,
+            String methodName,
+            String jdbcType,
+            AnnotationMirror sqlAnnotation) {
+        OpsCheckResult result = typeMapping.checkCall(methodName, jdbcType);
+        if (result.getKind() == OpsCheckResultKind.ERROR) {
+            checker.reportError(tree, "parameter.type.incompatible", methodName, jdbcType);
+            logError(
+                    tree,
+                    "parameter." + result.getDetails(),
+                    //                    "expected=" + methodName + ", actual=" + jdbcType,
+                    "SQL type=" + jdbcType + ", method=" + methodName,
+                    sqlAnnotation);
+        } else if (result.getKind() == OpsCheckResultKind.WARNING) {
+            checker.reportWarning(
+                    tree, result.getDetails(), methodName, jdbcType, result.getDetails());
+            logWarning(
+                    tree,
+                    "parameter." + result.getDetails(),
+                    "SQL type=" + jdbcType + ", method=" + methodName,
+                    sqlAnnotation);
+        } else {
+            logOk(
+                    tree,
+                    "parameter.set",
+                    "SQL type=" + jdbcType + ", method=" + methodName,
+                    sqlAnnotation);
         }
     }
 
@@ -244,8 +180,7 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
             if (indexTree.getKind() == Tree.Kind.INT_LITERAL) {
                 LiteralTree literal = (LiteralTree) indexTree;
                 int index = (int) literal.getValue() - 1; // ResultSet columns are 1-indexed
-                checkGetResult(
-                        tree, resultSetGetByIndexMethodTypes.get(method), sqlAnnotation, index);
+                checkGetResult(tree, method.getSimpleName().toString(), sqlAnnotation, index);
             }
         }
     }
@@ -276,7 +211,7 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                                     int index = out.indexOf(s);
                                     checkGetResult(
                                             tree,
-                                            resultSetGetByNameMethodTypes.get(method),
+                                            method.getSimpleName().toString(),
                                             sqlAnnotation,
                                             index);
                                 },
@@ -294,7 +229,7 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
 
     private void checkGetResult(
             MethodInvocationTree tree,
-            String methodType,
+            String methodName,
             AnnotationMirror sqlAnnotation,
             int index) {
         List<String> out =
@@ -307,20 +242,39 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                     "column.index.out.of.bounds",
                     "index=" + index + ", size=" + out.size(),
                     sqlAnnotation);
-        } else if (!javaTypesMatch(out.get(index), methodType)) {
-            checker.reportError(tree, "column.type.incompatible", methodType, out.get(index));
-            logError(
-                    tree,
-                    "column.type.incompatible",
-                    "expected=" + methodType + ", actual=" + out.get(index),
-                    sqlAnnotation);
         } else {
-            logOk(tree, "column.get", sqlAnnotation);
+            OpsCheckResult result = typeMapping.checkCall(methodName, out.get(index));
+            if (result.getKind() == OpsCheckResultKind.ERROR) {
+                checker.reportError(tree, "column.type.incompatible", methodName, out.get(index));
+                logError(
+                        tree,
+                        "column." + result.getDetails(),
+                        //                        "expected=" + methodName + ", actual=" +
+                        // out.get(index),
+                        "SQL type=" + out.get(index) + ", method=" + methodName,
+                        sqlAnnotation);
+            } else if (result.getKind() == OpsCheckResultKind.WARNING) {
+                checker.reportWarning(
+                        tree,
+                        "warning.column.types",
+                        methodName,
+                        out.get(index),
+                        result.getDetails());
+                logWarning(
+                        tree,
+                        "column." + result.getDetails(),
+                        //                        "expected=" + methodName + ", actual=" +
+                        // out.get(index),
+                        "SQL type=" + out.get(index) + ", method=" + methodName,
+                        sqlAnnotation);
+            } else {
+                logOk(
+                        tree,
+                        "column.get",
+                        "SQL type=" + out.get(index) + ", method=" + methodName,
+                        sqlAnnotation);
+            }
         }
-    }
-
-    private boolean javaTypesMatch(String type, String other) {
-        return OpsAnnotatedTypeFactory.getType(type).equals(OpsAnnotatedTypeFactory.getType(other));
     }
 
     private boolean columnNamesMatch(String ann, String other) {
@@ -340,13 +294,27 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                 message);
     }
 
-    private void logOk(MethodInvocationTree tree, String key, AnnotationMirror sql) {
+    private void logWarning(
+            MethodInvocationTree tree, String key, String message, AnnotationMirror sql) {
+        logger.warningRelatedToStatement(
+                root,
+                trees.getSourcePositions().getStartPosition(root, tree),
+                AnnotationUtils.getElementValue(sql, sqlFileElement, String.class, ""),
+                AnnotationUtils.getElementValue(sql, sqlLineElement, String.class, ""),
+                AnnotationUtils.getElementValue(sql, sqlColumnElement, String.class, ""),
+                key,
+                message);
+    }
+
+    private void logOk(
+            MethodInvocationTree tree, String key, String message, AnnotationMirror sql) {
         logger.ok(
                 root,
                 trees.getSourcePositions().getStartPosition(root, tree),
                 AnnotationUtils.getElementValue(sql, sqlFileElement, String.class, ""),
                 AnnotationUtils.getElementValue(sql, sqlLineElement, String.class, ""),
                 AnnotationUtils.getElementValue(sql, sqlColumnElement, String.class, ""),
-                key);
+                key,
+                message);
     }
 }
