@@ -20,12 +20,8 @@ public class SqlIn {
     void inAnnotation() throws SQLException {
         // this should work
         @Sql(
-                in = {"@NonNull BigDecimal"},
-                out = {
-                    "@NonNull Integer",
-                    "@NonNull BigDecimal",
-                    "@Nullable @MaxLength(40) String"
-                })
+                in = {"@NonNull DECIMAL"},
+                out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
         PreparedStatement ps1 =
                 conn.prepareStatement(
                         "SELECT InvoiceId, Total, BillingCountry FROM Invoice WHERE Total > ?");
@@ -33,12 +29,8 @@ public class SqlIn {
 
     void wrongAnnotation() throws SQLException {
         @Sql(
-                in = {"String"},
-                out = {
-                    "@NonNull Integer",
-                    "@NonNull BigDecimal",
-                    "@Nullable @MaxLength(40) String"
-                })
+                in = {"VARCHAR"},
+                out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
         PreparedStatement ps1 =
                 // :: error: (assignment.type.incompatible)
                 conn.prepareStatement(
