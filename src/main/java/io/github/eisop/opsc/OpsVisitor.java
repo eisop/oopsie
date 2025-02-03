@@ -67,22 +67,38 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
     @SuppressWarnings("VoidUsed")
     @Override
     public Void visitMethodInvocation(MethodInvocationTree tree, Void p) {
-        for (ExecutableElement method : preparedStatementSetMethodTypes) {
-            if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
-                checkSetInvocation(tree, method);
-                break;
-            }
+        int argSize = tree.getArguments().size();
+        if (argSize != 1 && argSize != 2) {
+            // Early exit if the method call can't be relevant.
+            return super.visitMethodInvocation(tree, p);
         }
-        for (ExecutableElement method : resultSetGetByIndexMethodTypes) {
-            if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
-                checkGetResultByIndex(tree, method);
-                break;
+
+        if (argSize == 2) {
+            for (ExecutableElement method : preparedStatementSetMethodTypes) {
+                if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
+                    checkSetInvocation(tree, method);
+                    break;
+                }
             }
-        }
-        for (ExecutableElement method : resultSetGetByNameMethodTypes) {
-            if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
-                checkGetResultByName(tree, method);
-                break;
+        } else {
+            // argSize == 1;
+            boolean found = false;
+
+            for (ExecutableElement method : resultSetGetByIndexMethodTypes) {
+                if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
+                    checkGetResultByIndex(tree, method);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                for (ExecutableElement method : resultSetGetByNameMethodTypes) {
+                    if (TreeUtils.isMethodInvocation(tree, method, processingEnv)) {
+                        checkGetResultByName(tree, method);
+                        // found = true; Not needed until something depends on it.
+                        break;
+                    }
+                }
             }
         }
 
