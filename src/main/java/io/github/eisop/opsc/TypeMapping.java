@@ -20,7 +20,7 @@ public class TypeMapping {
         try {
             Reader reader =
                     new InputStreamReader(configFilePath.openStream(), StandardCharsets.UTF_8);
-            CSVFormat format = CSVFormat.DEFAULT.builder().setCommentMarker('#').build();
+            CSVFormat format = CSVFormat.DEFAULT.builder().setCommentMarker('#').get();
             records = format.parse(reader).getRecords();
         } catch (IOException e) {
             throw new TypeSystemError("Could not load type mapping configuration");
