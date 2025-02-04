@@ -21,12 +21,9 @@ public class OpsLogger implements Closeable {
     public OpsLogger(Path statementsPath, Path bindingsPath, String projectRoot)
             throws IOException {
         CSVFormat statementsCsvFormat =
-                CSVFormat.DEFAULT
-                        .builder()
-                        .setHeader(OpsStatementLogEntry.STATEMENT_COLUMNS)
-                        .build();
+                CSVFormat.DEFAULT.builder().setHeader(OpsStatementLogEntry.STATEMENT_COLUMNS).get();
         CSVFormat bindingsCsvFormat =
-                CSVFormat.DEFAULT.builder().setHeader(OpsBindingLogEntry.BINDING_COLUMNS).build();
+                CSVFormat.DEFAULT.builder().setHeader(OpsBindingLogEntry.BINDING_COLUMNS).get();
         statementsCsvPrinter =
                 new CSVPrinter(
                         Files.newBufferedWriter(statementsPath, StandardCharsets.UTF_8),
