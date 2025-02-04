@@ -105,7 +105,7 @@ tasks.withType(Test) {
         showStackTraces = false
         showStandardStreams = true
         events "failed"
-        exceptionFormat "full"
+        exceptionFormat = "full"
     }
 }
 
@@ -149,7 +149,7 @@ spotless {
 
     format "misc", {
         target("*.md", "*.tex", ".gitignore", "Makefile")
-        indentWithSpaces(2)
+        leadingTabsToSpaces(2)
         trimTrailingWhitespace()
         // endWithNewline() // Don't want to end empty files with a newline
     }
@@ -157,7 +157,7 @@ spotless {
     groovyGradle {
         target("**/*.gradle")
         greclipse()  // which formatter Spotless should use to format .gradle files.
-        indentWithSpaces(4)
+        leadingTabsToSpaces(4)
         trimTrailingWhitespace()
         // endWithNewline() // Don't want to end empty files with a newline
     }
