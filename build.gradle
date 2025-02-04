@@ -32,7 +32,7 @@ dependencies {
     compileOnly("io.github.eisop:checker:${versions.checkerFramework}")
 
     implementation("org.apache.calcite:calcite-core:1.38.0")
-    implementation("org.postgresql:postgresql:42.7.4")
+    implementation("org.postgresql:postgresql:42.7.5")
 
     errorprone("com.google.errorprone:error_prone_core:2.36.0")
 
