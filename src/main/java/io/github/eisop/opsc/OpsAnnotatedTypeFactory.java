@@ -430,8 +430,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         type.replaceAnnotation(annotation);
 
                         logger.supportedStatement(
-                                getRoot(),
-                                trees.getSourcePositions().getStartPosition(getRoot(), tree),
+                                root,
+                                trees.getSourcePositions().getStartPosition(root, tree),
                                 stmt,
                                 getInElement(annotation).size(),
                                 isPreparedStatement);
@@ -479,8 +479,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                             calciteException.getMessage() + "\nJDBC: " + jdbcException.getMessage(),
                             stmt);
                     logger.unsupportedPreparedStatement(
-                            getRoot(),
-                            trees.getSourcePositions().getStartPosition(getRoot(), tree),
+                            root,
+                            trees.getSourcePositions().getStartPosition(root, tree),
                             calciteException.getMessage()
                                     + "--- JDBC: "
                                     + jdbcException.getMessage(),
@@ -490,8 +490,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 }
                 logger.simpleStatementEntry(
                         OpsLogEntryKind.USING_FALLBACK,
-                        getRoot(),
-                        trees.getSourcePositions().getStartPosition(getRoot(), tree),
+                        root,
+                        trees.getSourcePositions().getStartPosition(root, tree),
                         null,
                         isPreparedStatement);
             }
@@ -516,8 +516,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                             jdbcException.getMessage(),
                             stmt);
                     logger.unsupportedPreparedStatement(
-                            getRoot(),
-                            trees.getSourcePositions().getStartPosition(getRoot(), tree),
+                            root,
+                            trees.getSourcePositions().getStartPosition(root, tree),
                             calciteException.getMessage()
                                     + "--- JDBC: "
                                     + jdbcException.getMessage(),
@@ -527,8 +527,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 }
                 logger.simpleStatementEntry(
                         OpsLogEntryKind.USING_FALLBACK,
-                        getRoot(),
-                        trees.getSourcePositions().getStartPosition(getRoot(), tree),
+                        root,
+                        trees.getSourcePositions().getStartPosition(root, tree),
                         null,
                         isPreparedStatement);
             }
@@ -536,10 +536,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             String file = null;
             String line = null;
             String column = null;
-            if (getRoot() != null) {
-                file = logger.sanitizeFileName(getRoot().getSourceFile().getName());
-                LineMap lineMap = getRoot().getLineMap();
-                long loc = trees.getSourcePositions().getStartPosition(getRoot(), tree);
+            if (root != null) {
+                file = logger.sanitizeFileName(root.getSourceFile().getName());
+                LineMap lineMap = root.getLineMap();
+                long loc = trees.getSourcePositions().getStartPosition(root, tree);
                 line = String.valueOf(lineMap.getLineNumber(loc));
                 column = String.valueOf(lineMap.getColumnNumber(loc));
             }
@@ -557,8 +557,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             if (stringValAnnoMirror == null) {
                 logger.simpleStatementEntry(
                         OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
-                        getRoot(),
-                        trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
+                        root,
+                        trees.getSourcePositions().getStartPosition(root, stringExpression),
                         "",
                         isPreparedStatement);
                 return null;
@@ -575,8 +575,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 checker.reportWarning(stringExpression, "statement.string.retrieval.failed");
                 logger.simpleStatementEntry(
                         OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
-                        getRoot(),
-                        trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
+                        root,
+                        trees.getSourcePositions().getStartPosition(root, stringExpression),
                         "",
                         isPreparedStatement);
                 return null;
@@ -593,8 +593,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         values.toString());
                 logger.simpleStatementEntry(
                         OpsLogEntryKind.USING_SQL_STRING_HEURISTIC,
-                        getRoot(),
-                        trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
+                        root,
+                        trees.getSourcePositions().getStartPosition(root, stringExpression),
                         null,
                         isPreparedStatement);
                 // try with longest in this case
@@ -606,8 +606,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             checker.reportWarning(stringExpression, "statement.multiple.string.values", values.toString());
             logger.simpleStatementEntry(
                     OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
-                    getRoot(),
-                    trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
+                    root,
+                    trees.getSourcePositions().getStartPosition(root, stringExpression),
                     "statement string could evaluate to multiple string values",
                     isPreparedStatement);
             return null;
