@@ -22,12 +22,12 @@ class Issues {
         PreparedStatement ps2 =
                 conn.prepareStatement("SELECT * FROM Invoice", new String[] {"oluwa", "tikz"});
 
-        // TODO should work but Calcite is calling the type "DECIMAL" instead of "NUMERIC"
+        // should work but Calcite is calling the type "DECIMAL" instead of "NUMERIC"
+        // -> solved by workaround in type hierarchy
         @Sql(
                 in = {"@NonNull NUMERIC"},
                 out = {"@NonNull INTEGER"})
         PreparedStatement ps3 =
-                // :: error: (assignment.type.incompatible)
                 conn.prepareStatement("SELECT CustomerId FROM Invoice WHERE Total > ?", 1, 2, 3);
 
         @Sql(
