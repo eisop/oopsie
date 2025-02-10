@@ -233,7 +233,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 OpscType sup = OpscType.fromAnnotationString(superOut.get(i));
 
                 // Check if the types are equal
-                if (!sub.dataTypeMatches(sup, true)) {
+                if (!sub.dataTypeMatches(sup)) {
                     return false;
                 }
 
@@ -323,7 +323,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         if (out1Type.equals(out2Type)) {
                             outLub.add(out1.get(i));
                         } else {
-                            if (out1Type.equalsIgnoringName(out2Type, true)) {
+                            if (out1Type.equalsIgnoringName(out2Type)) {
                                 outLub.add(out1.get(i));
                             } else {
                                 break;
