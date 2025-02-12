@@ -144,6 +144,8 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                             tree, method.getSimpleName().toString(), in.get(psIndex), sqlAnnotation);
                 }
             }
+        } else {
+            checker.reportWarning(tree, "parameter.preparedStatement.untyped");
         }
     }
 
@@ -187,6 +189,8 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                 int index = (int) literal.getValue() - 1; // ResultSet columns are 1-indexed
                 checkGetResult(tree, method.getSimpleName().toString(), sqlAnnotation, index);
             }
+        } else {
+            checker.reportWarning(tree, "getter.resultSet.untyped");
         }
     }
 
@@ -228,6 +232,8 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                             sqlAnnotation);
                 }
             }
+        } else {
+            checker.reportWarning(tree, "getter.resultSet.untyped");
         }
     }
 
