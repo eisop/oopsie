@@ -136,6 +136,7 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
             }
         } else {
             checker.reportWarning(tree, "parameter.preparedStatement.untyped");
+            logUntyped(tree, "parameter.preparedStatement.untyped", "method name: " + method.getSimpleName());
         }
     }
 
@@ -186,6 +187,7 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
             }
         } else {
             checker.reportWarning(tree, "getter.resultSet.untyped");
+            logUntyped(tree, "getter.resultSet.untyped", "method name: " + method.getSimpleName());
         }
     }
 
@@ -230,6 +232,7 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
             }
         } else {
             checker.reportWarning(tree, "getter.resultSet.untyped");
+            logUntyped(tree, "getter.resultSet.untyped", "method name: " + method.getSimpleName());
         }
     }
 
@@ -322,5 +325,16 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                 AnnotationUtils.getElementValue(sql, sqlColumnElement, String.class, ""),
                 key,
                 message);
+    }
+
+    private void logUntyped(MethodInvocationTree tree, String key, String details) {
+        logger.errorRelatedToStatement(
+                root,
+                trees.getSourcePositions().getStartPosition(root, tree),
+                "",
+                "",
+                "",
+                key,
+                details);
     }
 }
