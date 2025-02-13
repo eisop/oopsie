@@ -13,6 +13,7 @@ import io.github.eisop.opsc.log.OpsLogger;
 import io.github.eisop.opsc.qual.Sql;
 import io.github.eisop.opsc.qual.SqlBottom;
 import io.github.eisop.opsc.qual.SqlUnknown;
+import io.github.eisop.opsc.qual.SqlUnsupported;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -49,6 +50,8 @@ import org.checkerframework.javacutil.UserError;
 public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
     protected final AnnotationMirror SQL = AnnotationBuilder.fromClass(elements, Sql.class);
+    protected final AnnotationMirror SQLUNSUPPORTED =
+            AnnotationBuilder.fromClass(elements, SqlUnsupported.class);
     protected final AnnotationMirror SQLUNKNOWN =
             AnnotationBuilder.fromClass(elements, SqlUnknown.class);
     protected final AnnotationMirror SQLBOTTOM =
@@ -386,7 +389,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             } else {
                 if (TreeUtils.isMethodInvocation(
                         tree, preparedStatementExecuteQuery, processingEnv)) {
-                    // get type annotation from PreparedStatement and transfer it to the result set
+                    // get type annotation from PreparedStatement and transfer it to the ResultSet
                     AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
                     if (receiverType.hasAnnotation(Sql.class)) {
                         AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
@@ -406,10 +409,11 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                                 AnnotationUtils.getElementValue(
                                         sqlAnnotation, sqlColumnElement, String.class, null);
                         type.replaceAnnotation(createSqlAnnotation(null, out, file, line, column));
-                    } else {
-                        checker.reportWarning(
-                                tree,
-                                "could not get result type annotation from PreparedStatement");
+                    } else if (receiverType.hasAnnotation(SqlUnsupported.class)) {
+                        // Transfer @SqlUnsupported from PreparedStatement to ResultSet
+                        AnnotationMirror sqlAnnotation =
+                                receiverType.getAnnotation(SqlUnsupported.class);
+                        type.replaceAnnotation(sqlAnnotation);
                     }
                 }
             }
@@ -433,8 +437,11 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                                 stmt,
                                 getInElement(annotation).size(),
                                 isPreparedStatement);
+
+                        return;
                     }
                 }
+                type.replaceAnnotation(SQLUNSUPPORTED);
             }
         }
 
