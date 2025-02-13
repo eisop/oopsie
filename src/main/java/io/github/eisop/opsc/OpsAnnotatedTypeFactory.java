@@ -75,8 +75,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
     private final ExecutableElement preparedStatementExecuteQuery =
             TreeUtils.getMethod("java.sql.PreparedStatement", "executeQuery", 0, processingEnv);
-    private final ExecutableElement statementExecuteQuery =
-            TreeUtils.getMethod("java.sql.Statement", "executeQuery", 1, processingEnv);
+    private final List<ExecutableElement> statementExecuteMethods;
 
     private SchemaInfo calciteSchemaInfo;
 
@@ -96,6 +95,14 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 TreeUtils.getMethods("java.sql.Connection", "prepareStatement", 3, processingEnv));
         connectionPrepareStatementMethods.addAll(
                 TreeUtils.getMethods("java.sql.Connection", "prepareStatement", 4, processingEnv));
+
+        statementExecuteMethods = TreeUtils.getMethods("java.sql.Statement", "execute", 1, processingEnv);
+        statementExecuteMethods.addAll(TreeUtils.getMethods("java.sql.Statement", "execute", 2, processingEnv));
+        statementExecuteMethods.addAll(TreeUtils.getMethods("java.sql.Statement", "executeLargeUpdate", 1, processingEnv));
+        statementExecuteMethods.addAll(TreeUtils.getMethods("java.sql.Statement", "executeLargeUpdate", 2, processingEnv));
+        statementExecuteMethods.addAll(TreeUtils.getMethods("java.sql.Statement", "executeQuery", 1, processingEnv));
+        statementExecuteMethods.addAll(TreeUtils.getMethods("java.sql.Statement", "executeUpdate", 1, processingEnv));
+        statementExecuteMethods.addAll(TreeUtils.getMethods("java.sql.Statement", "executeUpdate", 2, processingEnv));
 
         initSchemaInfo(checker);
 
@@ -382,9 +389,9 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
          */
         @Override
         public Void visitMethodInvocation(MethodInvocationTree tree, AnnotatedTypeMirror type) {
-            if (isPreparedStatementMethodInvocation(tree)) {
+            if (isConnectionPrepareStatementMethodInvocation(tree)) {
                 annotateStatement(tree, type, true);
-            } else if (TreeUtils.isMethodInvocation(tree, statementExecuteQuery, processingEnv)) {
+            } else if (isStatementExecuteMethodInvocation(tree)) {
                 annotateStatement(tree, type, false);
             } else if (TreeUtils.isMethodInvocation(
                     tree, preparedStatementExecuteQuery, processingEnv)) {
@@ -421,27 +428,38 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         private void annotateStatement(
                 MethodInvocationTree tree, AnnotatedTypeMirror type, boolean isPreparedStatement) {
             ExpressionTree arg = tree.getArguments().get(0);
-            if (!type.hasAnnotationRelaxed(SQL)) {
-                String stmt = retrieveStringValue(arg, isPreparedStatement);
-                if (stmt != null) {
-                    AnnotationMirror annotation =
-                            buildSqlAnnotation(stmt, tree, isPreparedStatement);
-                    if (annotation != null) {
-                        type.replaceAnnotation(annotation);
+            String stmt = retrieveStringValue(arg, isPreparedStatement);
+            if (stmt != null) {
+                AnnotationMirror annotation =
+                        buildSqlAnnotation(stmt, tree, isPreparedStatement);
+                if (annotation != null) {
+                    type.replaceAnnotation(annotation);
 
-                        logger.supportedStatement(
-                                root,
-                                trees.getSourcePositions().getStartPosition(root, tree),
-                                stmt,
-                                getInElement(annotation).size(),
-                                isPreparedStatement);
-                    }
+                    logger.supportedStatement(
+                            root,
+                            trees.getSourcePositions().getStartPosition(root, tree),
+                            stmt,
+                            getInElement(annotation).size(),
+                            isPreparedStatement);
                 }
             }
         }
 
-        private boolean isPreparedStatementMethodInvocation(MethodInvocationTree tree) {
+        private boolean isConnectionPrepareStatementMethodInvocation(MethodInvocationTree tree) {
+            int argSize = tree.getArguments().size();
+            if (argSize < 1 || argSize > 4) {
+                return false;
+            }
             return connectionPrepareStatementMethods.stream()
+                    .anyMatch(m -> TreeUtils.isMethodInvocation(tree, m, processingEnv));
+        }
+
+        private boolean isStatementExecuteMethodInvocation(MethodInvocationTree tree) {
+            int argSize = tree.getArguments().size();
+            if (argSize < 1 || argSize > 2) {
+                return false;
+            }
+            return statementExecuteMethods.stream()
                     .anyMatch(m -> TreeUtils.isMethodInvocation(tree, m, processingEnv));
         }
 
