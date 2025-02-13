@@ -75,10 +75,12 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     "org.checkerframework.common.value.qual.StringVal", "value", 0, processingEnv);
 
     private final List<ExecutableElement> connectionPrepareStatementMethods;
-
-    private final ExecutableElement preparedStatementExecuteQuery =
-            TreeUtils.getMethod("java.sql.PreparedStatement", "executeQuery", 0, processingEnv);
     private final List<ExecutableElement> statementExecuteMethods;
+//
+//    private final ExecutableElement preparedStatementExecuteQuery =
+//            TreeUtils.getMethod("java.sql.PreparedStatement", "executeQuery", 0, processingEnv);
+    private final List<ExecutableElement> statementToResultSetMethods;
+
 
     private SchemaInfo calciteSchemaInfo;
 
@@ -106,6 +108,9 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         statementExecuteMethods.addAll(TreeUtils.getMethods("java.sql.Statement", "executeQuery", 1, processingEnv));
         statementExecuteMethods.addAll(TreeUtils.getMethods("java.sql.Statement", "executeUpdate", 1, processingEnv));
         statementExecuteMethods.addAll(TreeUtils.getMethods("java.sql.Statement", "executeUpdate", 2, processingEnv));
+
+        statementToResultSetMethods = TreeUtils.getMethods("java.sql.Statement", "executeQuery", 1, processingEnv);
+        statementToResultSetMethods.addAll(TreeUtils.getMethods("java.sql.Statement", "getResultSet", 0, processingEnv));
 
         initSchemaInfo(checker);
 
@@ -396,8 +401,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 annotateStatement(tree, type, true);
             } else if (isStatementExecuteMethodInvocation(tree)) {
                 annotateStatement(tree, type, false);
-            } else if (TreeUtils.isMethodInvocation(
-                    tree, preparedStatementExecuteQuery, processingEnv)) {
+            } else if (isStatementToResultSetMethodInvocation(tree)) {
                 // get type annotation from PreparedStatement and transfer it to the result set
                 AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
                 if (receiverType.hasAnnotation(Sql.class)) {
@@ -466,6 +470,15 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 return false;
             }
             return statementExecuteMethods.stream()
+                    .anyMatch(m -> TreeUtils.isMethodInvocation(tree, m, processingEnv));
+        }
+
+        private boolean isStatementToResultSetMethodInvocation(MethodInvocationTree tree) {
+            int argSize = tree.getArguments().size();
+            if (argSize > 1) {
+                return false;
+            }
+            return statementToResultSetMethods.stream()
                     .anyMatch(m -> TreeUtils.isMethodInvocation(tree, m, processingEnv));
         }
 
