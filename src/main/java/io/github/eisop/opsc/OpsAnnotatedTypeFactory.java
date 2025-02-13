@@ -72,11 +72,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     "org.checkerframework.common.value.qual.StringVal", "value", 0, processingEnv);
 
     private final List<ExecutableElement> connectionPrepareStatementMethods;
-
-    private final ExecutableElement preparedStatementExecuteQuery =
-            TreeUtils.getMethod("java.sql.PreparedStatement", "executeQuery", 0, processingEnv);
-    private final ExecutableElement statementExecuteQuery =
-            TreeUtils.getMethod("java.sql.Statement", "executeQuery", 1, processingEnv);
+    private final List<ExecutableElement> statementExecuteMethods;
+    private final List<ExecutableElement> statementToResultSetMethods;
 
     private SchemaInfo calciteSchemaInfo;
 
@@ -96,6 +93,26 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 TreeUtils.getMethods("java.sql.Connection", "prepareStatement", 3, processingEnv));
         connectionPrepareStatementMethods.addAll(
                 TreeUtils.getMethods("java.sql.Connection", "prepareStatement", 4, processingEnv));
+
+        statementExecuteMethods =
+                TreeUtils.getMethods("java.sql.Statement", "execute", 1, processingEnv);
+        statementExecuteMethods.addAll(
+                TreeUtils.getMethods("java.sql.Statement", "execute", 2, processingEnv));
+        statementExecuteMethods.addAll(
+                TreeUtils.getMethods("java.sql.Statement", "executeLargeUpdate", 1, processingEnv));
+        statementExecuteMethods.addAll(
+                TreeUtils.getMethods("java.sql.Statement", "executeLargeUpdate", 2, processingEnv));
+        statementExecuteMethods.addAll(
+                TreeUtils.getMethods("java.sql.Statement", "executeQuery", 1, processingEnv));
+        statementExecuteMethods.addAll(
+                TreeUtils.getMethods("java.sql.Statement", "executeUpdate", 1, processingEnv));
+        statementExecuteMethods.addAll(
+                TreeUtils.getMethods("java.sql.Statement", "executeUpdate", 2, processingEnv));
+
+        statementToResultSetMethods =
+                TreeUtils.getMethods("java.sql.Statement", "executeQuery", 1, processingEnv);
+        statementToResultSetMethods.addAll(
+                TreeUtils.getMethods("java.sql.Statement", "getResultSet", 0, processingEnv));
 
         initSchemaInfo(checker);
 
@@ -382,39 +399,36 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
          */
         @Override
         public Void visitMethodInvocation(MethodInvocationTree tree, AnnotatedTypeMirror type) {
-            if (isPreparedStatementMethodInvocation(tree)) {
+            if (isConnectionPrepareStatementMethodInvocation(tree)) {
                 annotateStatement(tree, type, true);
-            } else if (TreeUtils.isMethodInvocation(tree, statementExecuteQuery, processingEnv)) {
+            } else if (isStatementExecuteMethodInvocation(tree)) {
                 annotateStatement(tree, type, false);
-            } else {
-                if (TreeUtils.isMethodInvocation(
-                        tree, preparedStatementExecuteQuery, processingEnv)) {
-                    // get type annotation from PreparedStatement and transfer it to the ResultSet
-                    AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
-                    if (receiverType.hasAnnotation(Sql.class)) {
-                        AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
-                        List<String> out =
-                                AnnotationUtils.getElementValueArray(
-                                        sqlAnnotation,
-                                        sqlOutElement,
-                                        String.class,
-                                        Collections.emptyList());
-                        String file =
-                                AnnotationUtils.getElementValue(
-                                        sqlAnnotation, sqlFileElement, String.class, null);
-                        String line =
-                                AnnotationUtils.getElementValue(
-                                        sqlAnnotation, sqlLineElement, String.class, null);
-                        String column =
-                                AnnotationUtils.getElementValue(
-                                        sqlAnnotation, sqlColumnElement, String.class, null);
-                        type.replaceAnnotation(createSqlAnnotation(null, out, file, line, column));
-                    } else if (receiverType.hasAnnotation(SqlUnsupported.class)) {
-                        // Transfer @SqlUnsupported from PreparedStatement to ResultSet
-                        AnnotationMirror sqlAnnotation =
-                                receiverType.getAnnotation(SqlUnsupported.class);
-                        type.replaceAnnotation(sqlAnnotation);
-                    }
+            } else if (isStatementToResultSetMethodInvocation(tree)) {
+                // get type annotation from PreparedStatement and transfer it to the ResultSet
+                AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
+                if (receiverType.hasAnnotation(Sql.class)) {
+                    AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
+                    List<String> out =
+                            AnnotationUtils.getElementValueArray(
+                                    sqlAnnotation,
+                                    sqlOutElement,
+                                    String.class,
+                                    Collections.emptyList());
+                    String file =
+                            AnnotationUtils.getElementValue(
+                                    sqlAnnotation, sqlFileElement, String.class, null);
+                    String line =
+                            AnnotationUtils.getElementValue(
+                                    sqlAnnotation, sqlLineElement, String.class, null);
+                    String column =
+                            AnnotationUtils.getElementValue(
+                                    sqlAnnotation, sqlColumnElement, String.class, null);
+                    type.replaceAnnotation(createSqlAnnotation(null, out, file, line, column));
+                } else if (receiverType.hasAnnotation(SqlUnsupported.class)) {
+                    // Transfer @SqlUnsupported from PreparedStatement to ResultSet
+                    AnnotationMirror sqlAnnotation =
+                            receiverType.getAnnotation(SqlUnsupported.class);
+                    type.replaceAnnotation(sqlAnnotation);
                 }
             }
             return super.visitMethodInvocation(tree, type);
@@ -445,8 +459,26 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             }
         }
 
-        private boolean isPreparedStatementMethodInvocation(MethodInvocationTree tree) {
+        private boolean isConnectionPrepareStatementMethodInvocation(MethodInvocationTree tree) {
             return connectionPrepareStatementMethods.stream()
+                    .anyMatch(m -> TreeUtils.isMethodInvocation(tree, m, processingEnv));
+        }
+
+        private boolean isStatementExecuteMethodInvocation(MethodInvocationTree tree) {
+            int argSize = tree.getArguments().size();
+            if (argSize < 1 || argSize > 2) {
+                return false;
+            }
+            return statementExecuteMethods.stream()
+                    .anyMatch(m -> TreeUtils.isMethodInvocation(tree, m, processingEnv));
+        }
+
+        private boolean isStatementToResultSetMethodInvocation(MethodInvocationTree tree) {
+            int argSize = tree.getArguments().size();
+            if (argSize > 1) {
+                return false;
+            }
+            return statementToResultSetMethods.stream()
                     .anyMatch(m -> TreeUtils.isMethodInvocation(tree, m, processingEnv));
         }
 
