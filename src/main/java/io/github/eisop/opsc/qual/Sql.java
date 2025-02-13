@@ -9,7 +9,7 @@ import org.checkerframework.framework.qual.SubtypeOf;
 /** The Sql annotation to express input and output types. */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.TYPE_USE, ElementType.TYPE_PARAMETER})
-@SubtypeOf({SqlUnknown.class})
+@SubtypeOf({SqlUnsupported.class})
 public @interface Sql {
     /** The input types for the SQL query. */
     String[] in() default {};

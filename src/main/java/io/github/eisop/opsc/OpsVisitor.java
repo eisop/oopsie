@@ -6,6 +6,7 @@ import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
 import io.github.eisop.opsc.log.OpsLogger;
 import io.github.eisop.opsc.qual.Sql;
+import io.github.eisop.opsc.qual.SqlUnsupported;
 import java.util.*;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
@@ -119,6 +120,12 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
             throw new TypeSystemError("Could not find receiver of method invocation");
         }
 
+        if (isNonLocal(receiverType)) {
+            checker.reportWarning(tree, "nonlocal.prepared.statement");
+            logNonlocal(tree, "nonlocal.prepared.statement", "method=" + method.getSimpleName());
+            return;
+        }
+
         if (receiverType.hasAnnotation(Sql.class)) {
             AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
             ExpressionTree indexTree = tree.getArguments().get(0);
@@ -144,9 +151,6 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                             tree, method.getSimpleName().toString(), in.get(psIndex), sqlAnnotation);
                 }
             }
-        } else {
-            checker.reportWarning(tree, "parameter.preparedStatement.untyped");
-            logUntyped(tree, "parameter.preparedStatement.untyped", "method name: " + method.getSimpleName());
         }
     }
 
@@ -182,6 +186,12 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
             throw new TypeSystemError("Could not find receiver of method invocation");
         }
 
+        if (isNonLocal(receiverType)) {
+            checker.reportWarning(tree, "nonlocal.result.set");
+            logNonlocal(tree, "nonlocal.result.set", "method=" + method.getSimpleName());
+            return;
+        }
+
         if (receiverType.hasAnnotation(Sql.class)) {
             AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
             ExpressionTree indexTree = tree.getArguments().get(0);
@@ -190,9 +200,6 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                 int index = (int) literal.getValue() - 1; // ResultSet columns are 1-indexed
                 checkGetResult(tree, method.getSimpleName().toString(), sqlAnnotation, index);
             }
-        } else {
-            checker.reportWarning(tree, "getter.resultSet.untyped");
-            logUntyped(tree, "getter.resultSet.untyped", "method name: " + method.getSimpleName());
         }
     }
 
@@ -200,6 +207,12 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
         AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
         if (receiverType == null) {
             throw new TypeSystemError("Could not find receiver of method invocation");
+        }
+
+        if (isNonLocal(receiverType)) {
+            checker.reportWarning(tree, "nonlocal.result.set");
+            logNonlocal(tree, "nonlocal.result.set", "method=" + method.getSimpleName());
+            return;
         }
 
         if (receiverType.hasAnnotation(Sql.class)) {
@@ -234,9 +247,6 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                             sqlAnnotation);
                 }
             }
-        } else {
-            checker.reportWarning(tree, "getter.resultSet.untyped");
-            logUntyped(tree, "getter.resultSet.untyped", "method name: " + method.getSimpleName());
         }
     }
 
@@ -280,6 +290,10 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                 logOk(tree, "column.get", sqlAnnotation);
             }
         }
+    }
+
+    private boolean isNonLocal(AnnotatedTypeMirror type) {
+        return !(type.hasAnnotation(Sql.class) || type.hasAnnotation(SqlUnsupported.class));
     }
 
     private boolean columnNamesMatch(String ann, String other) {
@@ -355,8 +369,8 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                 key);
     }
 
-    private void logUntyped(MethodInvocationTree tree, String key, String details) {
-        logger.errorRelatedToStatement(
+    private void logNonlocal(MethodInvocationTree tree, String key, String details) {
+        logger.warningRelatedToStatement(
                 root,
                 trees.getSourcePositions().getStartPosition(root, tree),
                 "",
