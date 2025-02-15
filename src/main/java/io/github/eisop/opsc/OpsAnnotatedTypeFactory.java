@@ -72,8 +72,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     "org.checkerframework.common.value.qual.StringVal", "value", 0, processingEnv);
 
     private final List<ExecutableElement> connectionPrepareStatementMethods;
-    private final List<ExecutableElement> statementExecuteMethods;
     private final List<ExecutableElement> statementToResultSetMethods;
+
+    private final ExecutableElement statementExecuteQuery =
+            TreeUtils.getMethod("java.sql.Statement", "executeQuery", 1, processingEnv);
 
     private SchemaInfo calciteSchemaInfo;
 
@@ -94,23 +96,9 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         connectionPrepareStatementMethods.addAll(
                 TreeUtils.getMethods("java.sql.Connection", "prepareStatement", 4, processingEnv));
 
-        statementExecuteMethods =
-                TreeUtils.getMethods("java.sql.Statement", "execute", 1, processingEnv);
-        statementExecuteMethods.addAll(
-                TreeUtils.getMethods("java.sql.Statement", "execute", 2, processingEnv));
-        statementExecuteMethods.addAll(
-                TreeUtils.getMethods("java.sql.Statement", "executeLargeUpdate", 1, processingEnv));
-        statementExecuteMethods.addAll(
-                TreeUtils.getMethods("java.sql.Statement", "executeLargeUpdate", 2, processingEnv));
-        statementExecuteMethods.addAll(
-                TreeUtils.getMethods("java.sql.Statement", "executeQuery", 1, processingEnv));
-        statementExecuteMethods.addAll(
-                TreeUtils.getMethods("java.sql.Statement", "executeUpdate", 1, processingEnv));
-        statementExecuteMethods.addAll(
-                TreeUtils.getMethods("java.sql.Statement", "executeUpdate", 2, processingEnv));
-
         statementToResultSetMethods =
-                TreeUtils.getMethods("java.sql.Statement", "executeQuery", 1, processingEnv);
+                TreeUtils.getMethods(
+                        "java.sql.PreparedStatement", "executeQuery", 0, processingEnv);
         statementToResultSetMethods.addAll(
                 TreeUtils.getMethods("java.sql.Statement", "getResultSet", 0, processingEnv));
 
@@ -399,10 +387,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
          */
         @Override
         public Void visitMethodInvocation(MethodInvocationTree tree, AnnotatedTypeMirror type) {
-            if (isConnectionPrepareStatementMethodInvocation(tree)) {
+            if (isConnectionPrepareStatementMethodInvocation(tree)
+                    || TreeUtils.isMethodInvocation(tree, statementExecuteQuery, processingEnv)) {
+                // Analyse the statement and annotate the returned type
                 annotateStatement(tree, type, true);
-            } else if (isStatementExecuteMethodInvocation(tree)) {
-                annotateStatement(tree, type, false);
             } else if (isStatementToResultSetMethodInvocation(tree)) {
                 // get type annotation from PreparedStatement and transfer it to the ResultSet
                 AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
@@ -437,39 +425,21 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         private void annotateStatement(
                 MethodInvocationTree tree, AnnotatedTypeMirror type, boolean isPreparedStatement) {
             ExpressionTree arg = tree.getArguments().get(0);
-            if (!type.hasAnnotationRelaxed(SQL)) {
-                String stmt = retrieveStringValue(arg, isPreparedStatement);
-                if (stmt != null) {
-                    AnnotationMirror annotation =
-                            buildSqlAnnotation(stmt, tree, isPreparedStatement);
-                    if (annotation != null) {
-                        type.replaceAnnotation(annotation);
-
-                        logger.supportedStatement(
-                                getRoot(),
-                                trees.getSourcePositions().getStartPosition(getRoot(), tree),
-                                stmt,
-                                getInElement(annotation).size(),
-                                isPreparedStatement);
-
-                        return;
-                    }
+            String stmt = retrieveStringValue(arg, isPreparedStatement);
+            if (stmt != null) {
+                AnnotationMirror annotation = buildSqlAnnotation(stmt, tree, isPreparedStatement);
+                if (annotation != null) {
+                    type.replaceAnnotation(annotation);
+                    logSupportedStatement(
+                            tree, stmt, getInElement(annotation).size(), isPreparedStatement);
+                    return;
                 }
-                type.replaceAnnotation(SQLUNSUPPORTED);
             }
+            type.replaceAnnotation(SQLUNSUPPORTED);
         }
 
         private boolean isConnectionPrepareStatementMethodInvocation(MethodInvocationTree tree) {
             return connectionPrepareStatementMethods.stream()
-                    .anyMatch(m -> TreeUtils.isMethodInvocation(tree, m, processingEnv));
-        }
-
-        private boolean isStatementExecuteMethodInvocation(MethodInvocationTree tree) {
-            int argSize = tree.getArguments().size();
-            if (argSize < 1 || argSize > 2) {
-                return false;
-            }
-            return statementExecuteMethods.stream()
                     .anyMatch(m -> TreeUtils.isMethodInvocation(tree, m, processingEnv));
         }
 
@@ -481,197 +451,6 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             return statementToResultSetMethods.stream()
                     .anyMatch(m -> TreeUtils.isMethodInvocation(tree, m, processingEnv));
         }
-
-        /**
-         * Determines result and placeholder types of the SQL statement and builds a
-         * corresponding @Sql annotation.
-         *
-         * <p>Hack: Because Calcite doesn't support statements like 'SELECT ?', use JDBCSchemaInfo
-         * as a fallback if
-         *
-         * @return the @Sql annotation or null if the types could not be determined
-         */
-        private @Nullable AnnotationMirror buildSqlAnnotation(
-                @NonNull String stmt, MethodInvocationTree tree, boolean isPreparedStatement) {
-            // get placeholder types of prepared statement
-            List<String> in;
-            try {
-                in = getInType(stmt, calciteSchemaInfo);
-            } catch (OpsDatabaseException calciteException) {
-                // Retry with fallback JDBCSchemaInfo
-                try {
-                    in = getInType(stmt, jdbcSchemaInfo);
-                    checker.reportWarning(
-                            tree,
-                            "determine.in.type.failed.first.try",
-                            calciteException.getMessage(),
-                            stmt);
-                } catch (OpsDatabaseException jdbcException) {
-                    checker.reportError(
-                            tree,
-                            "determine.in.type.failed.final",
-                            calciteException.getMessage() + "\nJDBC: " + jdbcException.getMessage(),
-                            stmt);
-                    logger.unsupportedPreparedStatement(
-                            getRoot(),
-                            trees.getSourcePositions().getStartPosition(getRoot(), tree),
-                            calciteException.getMessage()
-                                    + "--- JDBC: "
-                                    + jdbcException.getMessage(),
-                            stmt,
-                            isPreparedStatement);
-                    return null;
-                }
-                logger.simpleStatementEntry(
-                        OpsLogEntryKind.USING_FALLBACK,
-                        getRoot(),
-                        trees.getSourcePositions().getStartPosition(getRoot(), tree),
-                        null,
-                        isPreparedStatement);
-            }
-
-            // get result type of prepared statement
-            List<String> out;
-            try {
-                out = getOutType(stmt, calciteSchemaInfo);
-            } catch (OpsDatabaseException calciteException) {
-                // Retry with fallback JDBCSchemaInfo
-                try {
-                    out = getOutType(stmt, jdbcSchemaInfo);
-                    checker.reportWarning(
-                            tree,
-                            "determine.out.type.failed.first.try",
-                            calciteException.getMessage(),
-                            stmt);
-                } catch (OpsDatabaseException jdbcException) {
-                    checker.reportError(
-                            tree,
-                            "determine.out.type.failed.final",
-                            jdbcException.getMessage(),
-                            stmt);
-                    logger.unsupportedPreparedStatement(
-                            getRoot(),
-                            trees.getSourcePositions().getStartPosition(getRoot(), tree),
-                            calciteException.getMessage()
-                                    + "--- JDBC: "
-                                    + jdbcException.getMessage(),
-                            stmt,
-                            isPreparedStatement);
-                    return null;
-                }
-                logger.simpleStatementEntry(
-                        OpsLogEntryKind.USING_FALLBACK,
-                        getRoot(),
-                        trees.getSourcePositions().getStartPosition(getRoot(), tree),
-                        null,
-                        isPreparedStatement);
-            }
-
-            String file = null;
-            String line = null;
-            String column = null;
-            if (getRoot() != null) {
-                file = logger.sanitizeFileName(getRoot().getSourceFile().getName());
-                LineMap lineMap = getRoot().getLineMap();
-                long loc = trees.getSourcePositions().getStartPosition(getRoot(), tree);
-                line = String.valueOf(lineMap.getLineNumber(loc));
-                column = String.valueOf(lineMap.getColumnNumber(loc));
-            }
-
-            return createSqlAnnotation(in, out, file, line, column);
-        }
-
-        private @Nullable String retrieveStringValue(
-                ExpressionTree stringExpression, boolean isPreparedStatement) {
-            if (stringExpression.getKind() == ExpressionTree.Kind.STRING_LITERAL) {
-                return (String) ((LiteralTree) stringExpression).getValue();
-            }
-
-            AnnotationMirror stringValAnnoMirror = getStringValAnnoMirror(stringExpression);
-            if (stringValAnnoMirror == null) {
-                logger.simpleStatementEntry(
-                        OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
-                        getRoot(),
-                        trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
-                        "",
-                        isPreparedStatement);
-                return null;
-            }
-
-            List<String> values =
-                    AnnotationUtils.getElementValueArray(
-                            stringValAnnoMirror,
-                            stringValValueELement,
-                            String.class,
-                            Collections.emptyList());
-
-            if (values.isEmpty()) {
-                checker.reportWarning(stringExpression, "statement.string.retrieval.failed");
-                logger.simpleStatementEntry(
-                        OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
-                        getRoot(),
-                        trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
-                        "",
-                        isPreparedStatement);
-                return null;
-            }
-
-            if (values.size() == 1) {
-                return values.get(0);
-            }
-
-            if (checker.getBooleanOption("enableSqlStringHeuristic")) {
-                checker.reportWarning(
-                        stringExpression,
-                        "statement.multiple.string.values.continuing",
-                        values.toString());
-                logger.simpleStatementEntry(
-                        OpsLogEntryKind.USING_SQL_STRING_HEURISTIC,
-                        getRoot(),
-                        trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
-                        null,
-                        isPreparedStatement);
-                return values.get(0);
-            }
-
-            checker.reportWarning(
-                    stringExpression, "statement.multiple.string.values", values.toString());
-            logger.simpleStatementEntry(
-                    OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
-                    getRoot(),
-                    trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
-                    "statement string could evaluate to multiple string values",
-                    isPreparedStatement);
-            return null;
-        }
-
-        private AnnotationMirror getStringValAnnoMirror(final ExpressionTree valueExp) {
-            ValueAnnotatedTypeFactory valueAnnotatedTypeFactory =
-                    getTypeFactoryOfSubchecker(ValueChecker.class);
-            if (valueAnnotatedTypeFactory == null) {
-                throw new TypeSystemError("Missing subchecker ValueChecker");
-            }
-            AnnotatedTypeMirror valueType = valueAnnotatedTypeFactory.getAnnotatedType(valueExp);
-            return valueType.getAnnotation(StringVal.class);
-        }
-
-        private @Nullable List<String> getOutType(String stmt, SchemaInfo schemaInfo)
-                throws OpsDatabaseException {
-            List<String> rt = schemaInfo.getResultTypeOf(stmt);
-            if (rt == null || rt.isEmpty()) {
-                return null;
-            }
-            return rt;
-        }
-
-        private @Nullable List<String> getInType(String stmt, SchemaInfo schemaInfo)
-                throws OpsDatabaseException {
-            List<String> pt = schemaInfo.getPlaceholderTypesOf(stmt);
-            if (pt == null || pt.isEmpty()) {
-                return null;
-            }
-            return pt;
-        }
     }
 
     private List<String> getInElement(AnnotationMirror a1) {
@@ -682,5 +461,199 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     private List<String> getOutElement(AnnotationMirror a1) {
         return AnnotationUtils.getElementValueArray(
                 a1, sqlOutElement, String.class, Collections.emptyList());
+    }
+
+    /**
+     * Determines result and placeholder types of the SQL statement and builds a corresponding @Sql
+     * annotation.
+     *
+     * <p>Hack: Because Calcite doesn't support statements like 'SELECT ?', use JDBCSchemaInfo as a
+     * fallback if
+     *
+     * @return the @Sql annotation or null if the types could not be determined
+     */
+    protected @Nullable AnnotationMirror buildSqlAnnotation(
+            @NonNull String stmt, MethodInvocationTree tree, boolean isPreparedStatement) {
+        // get placeholder types of prepared statement
+        List<String> in;
+        try {
+            in = getInType(stmt, calciteSchemaInfo);
+        } catch (OpsDatabaseException calciteException) {
+            // Retry with fallback JDBCSchemaInfo
+            try {
+                in = getInType(stmt, jdbcSchemaInfo);
+                checker.reportWarning(
+                        tree,
+                        "determine.in.type.failed.first.try",
+                        calciteException.getMessage(),
+                        stmt);
+            } catch (OpsDatabaseException jdbcException) {
+                checker.reportError(
+                        tree,
+                        "determine.in.type.failed.final",
+                        calciteException.getMessage() + "\nJDBC: " + jdbcException.getMessage(),
+                        stmt);
+                logger.unsupportedPreparedStatement(
+                        getRoot(),
+                        trees.getSourcePositions().getStartPosition(getRoot(), tree),
+                        calciteException.getMessage() + "--- JDBC: " + jdbcException.getMessage(),
+                        stmt,
+                        isPreparedStatement);
+                return null;
+            }
+            logger.simpleStatementEntry(
+                    OpsLogEntryKind.USING_FALLBACK,
+                    getRoot(),
+                    trees.getSourcePositions().getStartPosition(getRoot(), tree),
+                    null,
+                    isPreparedStatement);
+        }
+
+        // get result type of prepared statement
+        List<String> out;
+        try {
+            out = getOutType(stmt, calciteSchemaInfo);
+        } catch (OpsDatabaseException calciteException) {
+            // Retry with fallback JDBCSchemaInfo
+            try {
+                out = getOutType(stmt, jdbcSchemaInfo);
+                checker.reportWarning(
+                        tree,
+                        "determine.out.type.failed.first.try",
+                        calciteException.getMessage(),
+                        stmt);
+            } catch (OpsDatabaseException jdbcException) {
+                checker.reportError(
+                        tree, "determine.out.type.failed.final", jdbcException.getMessage(), stmt);
+                logger.unsupportedPreparedStatement(
+                        getRoot(),
+                        trees.getSourcePositions().getStartPosition(getRoot(), tree),
+                        calciteException.getMessage() + "--- JDBC: " + jdbcException.getMessage(),
+                        stmt,
+                        isPreparedStatement);
+                return null;
+            }
+            logger.simpleStatementEntry(
+                    OpsLogEntryKind.USING_FALLBACK,
+                    getRoot(),
+                    trees.getSourcePositions().getStartPosition(getRoot(), tree),
+                    null,
+                    isPreparedStatement);
+        }
+
+        String file = null;
+        String line = null;
+        String column = null;
+        if (getRoot() != null) {
+            file = logger.sanitizeFileName(getRoot().getSourceFile().getName());
+            LineMap lineMap = getRoot().getLineMap();
+            long loc = trees.getSourcePositions().getStartPosition(getRoot(), tree);
+            line = String.valueOf(lineMap.getLineNumber(loc));
+            column = String.valueOf(lineMap.getColumnNumber(loc));
+        }
+
+        return createSqlAnnotation(in, out, file, line, column);
+    }
+
+    private @Nullable List<String> getOutType(String stmt, SchemaInfo schemaInfo)
+            throws OpsDatabaseException {
+        List<String> rt = schemaInfo.getResultTypeOf(stmt);
+        if (rt == null || rt.isEmpty()) {
+            return null;
+        }
+        return rt;
+    }
+
+    private @Nullable List<String> getInType(String stmt, SchemaInfo schemaInfo)
+            throws OpsDatabaseException {
+        List<String> pt = schemaInfo.getPlaceholderTypesOf(stmt);
+        if (pt == null || pt.isEmpty()) {
+            return null;
+        }
+        return pt;
+    }
+
+    protected @Nullable String retrieveStringValue(
+            ExpressionTree stringExpression, boolean isPreparedStatement) {
+        if (stringExpression.getKind() == ExpressionTree.Kind.STRING_LITERAL) {
+            return (String) ((LiteralTree) stringExpression).getValue();
+        }
+
+        AnnotationMirror stringValAnnoMirror = getStringValAnnoMirror(stringExpression);
+        if (stringValAnnoMirror == null) {
+            logger.simpleStatementEntry(
+                    OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
+                    getRoot(),
+                    trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
+                    "",
+                    isPreparedStatement);
+            return null;
+        }
+
+        List<String> values =
+                AnnotationUtils.getElementValueArray(
+                        stringValAnnoMirror,
+                        stringValValueELement,
+                        String.class,
+                        Collections.emptyList());
+
+        if (values.isEmpty()) {
+            checker.reportWarning(stringExpression, "statement.string.retrieval.failed");
+            logger.simpleStatementEntry(
+                    OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
+                    getRoot(),
+                    trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
+                    "",
+                    isPreparedStatement);
+            return null;
+        }
+
+        if (values.size() == 1) {
+            return values.get(0);
+        }
+
+        if (checker.getBooleanOption("enableSqlStringHeuristic")) {
+            checker.reportWarning(
+                    stringExpression,
+                    "statement.multiple.string.values.continuing",
+                    values.toString());
+            logger.simpleStatementEntry(
+                    OpsLogEntryKind.USING_SQL_STRING_HEURISTIC,
+                    getRoot(),
+                    trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
+                    null,
+                    isPreparedStatement);
+            return values.get(0);
+        }
+
+        checker.reportWarning(
+                stringExpression, "statement.multiple.string.values", values.toString());
+        logger.simpleStatementEntry(
+                OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
+                getRoot(),
+                trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
+                "statement string could evaluate to multiple string values",
+                isPreparedStatement);
+        return null;
+    }
+
+    private AnnotationMirror getStringValAnnoMirror(final ExpressionTree valueExp) {
+        ValueAnnotatedTypeFactory valueAnnotatedTypeFactory =
+                getTypeFactoryOfSubchecker(ValueChecker.class);
+        if (valueAnnotatedTypeFactory == null) {
+            throw new TypeSystemError("Missing subchecker ValueChecker");
+        }
+        AnnotatedTypeMirror valueType = valueAnnotatedTypeFactory.getAnnotatedType(valueExp);
+        return valueType.getAnnotation(StringVal.class);
+    }
+
+    protected void logSupportedStatement(
+            MethodInvocationTree tree, String stmt, int nParameters, boolean isPreparedStatement) {
+        logger.supportedStatement(
+                getRoot(),
+                trees.getSourcePositions().getStartPosition(getRoot(), tree),
+                stmt,
+                nParameters,
+                isPreparedStatement);
     }
 }
