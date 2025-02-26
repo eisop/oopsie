@@ -387,10 +387,12 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
          */
         @Override
         public Void visitMethodInvocation(MethodInvocationTree tree, AnnotatedTypeMirror type) {
-            if (isConnectionPrepareStatementMethodInvocation(tree)
-                    || TreeUtils.isMethodInvocation(tree, statementExecuteQuery, processingEnv)) {
+            if (isConnectionPrepareStatementMethodInvocation(tree)) {
                 // Analyse the statement and annotate the returned type
                 annotateStatement(tree, type, true);
+            } else if (TreeUtils.isMethodInvocation(tree, statementExecuteQuery, processingEnv)) {
+                // Analyse the statement and annotate the returned type
+                annotateStatement(tree, type, false);
             } else if (isStatementToResultSetMethodInvocation(tree)) {
                 // get type annotation from PreparedStatement and transfer it to the ResultSet
                 AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
