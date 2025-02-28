@@ -399,7 +399,12 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             } else if (isStatementToResultSetMethodInvocation(tree)) {
                 // get type annotation from PreparedStatement and transfer it to the result set
                 AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
-                if (receiverType.hasAnnotation(Sql.class)) {
+                if (receiverType.hasAnnotation(SqlUnsupported.class)) {
+                    // Transfer @SqlUnsupported from PreparedStatement to ResultSet
+                    AnnotationMirror sqlAnnotation =
+                            receiverType.getAnnotation(SqlUnsupported.class);
+                    type.replaceAnnotation(sqlAnnotation);
+                } else if (receiverType.hasAnnotation(Sql.class)) {
                     AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
                     List<String> out =
                             AnnotationUtils.getElementValueArray(
@@ -417,11 +422,6 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                             AnnotationUtils.getElementValue(
                                     sqlAnnotation, sqlColumnElement, String.class, null);
                     type.replaceAnnotation(createSqlAnnotation(null, out, file, line, column));
-                } else if (receiverType.hasAnnotation(SqlUnsupported.class)) {
-                    // Transfer @SqlUnsupported from PreparedStatement to ResultSet
-                    AnnotationMirror sqlAnnotation =
-                            receiverType.getAnnotation(SqlUnsupported.class);
-                    type.replaceAnnotation(sqlAnnotation);
                 }
             }
             return super.visitMethodInvocation(tree, type);
