@@ -73,6 +73,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
     private final List<ExecutableElement> connectionPrepareStatementMethods;
     private final List<ExecutableElement> statementToResultSetMethods;
+    private final List<ExecutableElement> sqlUnsupportedMethods;
 
     private final ExecutableElement statementExecuteQuery =
             TreeUtils.getMethod("java.sql.Statement", "executeQuery", 1, processingEnv);
@@ -102,19 +103,18 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         statementToResultSetMethods.addAll(
                 TreeUtils.getMethods("java.sql.Statement", "getResultSet", 0, processingEnv));
 
+        sqlUnsupportedMethods =
+                TreeUtils.getMethods("java.sql.Connection", "prepareCall", 1, processingEnv);
+        sqlUnsupportedMethods.addAll(
+                TreeUtils.getMethods("java.sql.Connection", "prepareCall", 3, processingEnv));
+        sqlUnsupportedMethods.addAll(
+                TreeUtils.getMethods("java.sql.Connection", "prepareCall", 4, processingEnv));
+        sqlUnsupportedMethods.addAll(
+                TreeUtils.getMethods("java.sql.Statement", "getGeneratedKeys", 0, processingEnv));
+
         initSchemaInfo(checker);
 
         this.postInit();
-    }
-
-    static String getType(String annotationString) {
-        // todo improve: e.g. with class for OPSC type
-        String[] tokens = annotationString.split(" ", -1);
-        if (tokens.length >= 2 && !tokens[tokens.length - 2].startsWith("@")) {
-            return tokens[tokens.length - 2];
-        } else {
-            return tokens[tokens.length - 1];
-        }
     }
 
     static @Nullable String getName(String annotationString) {
@@ -387,6 +387,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
          */
         @Override
         public Void visitMethodInvocation(MethodInvocationTree tree, AnnotatedTypeMirror type) {
+            if (tree.getArguments().size() > 4) return super.visitMethodInvocation(tree, type);
+
             if (isConnectionPrepareStatementMethodInvocation(tree)) {
                 // Analyse the statement and annotate the returned type
                 annotateStatement(tree, type, true);
@@ -420,6 +422,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                                     sqlAnnotation, sqlColumnElement, String.class, null);
                     type.replaceAnnotation(createSqlAnnotation(null, out, file, line, column));
                 }
+            } else if (isSqlUnsupportedMethodInvocation(tree)) {
+                type.replaceAnnotation(SQLUNSUPPORTED);
             }
             return super.visitMethodInvocation(tree, type);
         }
@@ -451,6 +455,15 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 return false;
             }
             return statementToResultSetMethods.stream()
+                    .anyMatch(m -> TreeUtils.isMethodInvocation(tree, m, processingEnv));
+        }
+
+        private boolean isSqlUnsupportedMethodInvocation(MethodInvocationTree tree) {
+            int argSize = tree.getArguments().size();
+            if (argSize == 2 || argSize > 4) {
+                return false;
+            }
+            return sqlUnsupportedMethods.stream()
                     .anyMatch(m -> TreeUtils.isMethodInvocation(tree, m, processingEnv));
         }
     }
