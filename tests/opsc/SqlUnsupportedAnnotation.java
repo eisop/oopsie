@@ -69,4 +69,28 @@ class SqlUnsupportedAnnotation {
         // No further warnings for unsupported SQL statements (@SqlUnsupported)
         rs.getInt("column_name");
     }
+
+    public void ignorePrepareCall() throws SQLException {
+        CallableStatement stmt = conn.prepareCall("{call get_genre(?)}");
+        stmt.setInt(245, 1);
+        ResultSet rs = stmt.executeQuery();
+        rs.getString(4444);
+    }
+
+    public void ignoreGetGeneratedKeys() throws SQLException {
+        Statement stmt = conn.createStatement();
+        stmt.execute("INSERT INTO genre (genreid, name) VALUES (1, 'scary industrial hip hop')");
+
+        PreparedStatement ps =
+                conn.prepareStatement("INSERT INTO genre (genreid, name) VALUES (?, ?)");
+        ps.setInt(1, 1);
+        ps.setString(2, "scary industrial hip hop");
+
+        ResultSet rs1 = stmt.getGeneratedKeys();
+        ResultSet rs2 = ps.getGeneratedKeys();
+
+        // No warnings for getGeneratedKeys
+        rs1.getInt(4535);
+        rs2.getInt(1337);
+    }
 }
