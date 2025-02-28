@@ -12,5 +12,5 @@ import org.checkerframework.framework.qual.SubtypeOf;
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.TYPE_USE, ElementType.TYPE_PARAMETER})
-@SubtypeOf({SqlUnknown.class})
+@SubtypeOf({Sql.class})
 public @interface SqlUnsupported {}
