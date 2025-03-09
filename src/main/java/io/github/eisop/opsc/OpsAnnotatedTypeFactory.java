@@ -18,9 +18,10 @@ import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.util.Elements;
@@ -57,10 +58,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             AnnotationBuilder.fromClass(elements, SqlUnknown.class);
     protected final AnnotationMirror SQLBOTTOM =
             AnnotationBuilder.fromClass(elements, SqlBottom.class);
-
     protected final ExecutableElement sqlInElement =
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "in", 0, processingEnv);
-
     protected final ExecutableElement sqlOutElement =
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "out", 0, processingEnv);
     protected final ExecutableElement sqlFileElement =
@@ -394,10 +393,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
             if (isConnectionPrepareStatementMethodInvocation(tree)) {
                 // Analyse the statement and annotate the returned type
-                annotateStatement(tree, type, true);
+                type.replaceAnnotation(annotateStatement(tree, true));
             } else if (TreeUtils.isMethodInvocation(tree, statementExecuteQuery, processingEnv)) {
                 // Analyse the statement and annotate the returned type
-                annotateStatement(tree, type, false);
+                type.replaceAnnotation(annotateStatement(tree, false));
             } else if (isStatementToResultSetMethodInvocation(tree)) {
                 // get type annotation from PreparedStatement and transfer it to the result set
                 AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
@@ -429,22 +428,6 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 type.replaceAnnotation(SQLUNSUPPORTED);
             }
             return super.visitMethodInvocation(tree, type);
-        }
-
-        private void annotateStatement(
-                MethodInvocationTree tree, AnnotatedTypeMirror type, boolean isPreparedStatement) {
-            ExpressionTree arg = tree.getArguments().get(0);
-            String stmt = retrieveStringValue(arg, isPreparedStatement);
-            if (stmt != null) {
-                AnnotationMirror annotation = buildSqlAnnotation(stmt, tree, isPreparedStatement);
-                if (annotation != null) {
-                    type.replaceAnnotation(annotation);
-                    logSupportedStatement(
-                            tree, stmt, getInElement(annotation).size(), isPreparedStatement);
-                    return;
-                }
-            }
-            type.replaceAnnotation(SQLUNSUPPORTED);
         }
 
         private boolean isConnectionPrepareStatementMethodInvocation(MethodInvocationTree tree) {
@@ -486,6 +469,62 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     }
 
     /**
+     * Returns @Sql annotation for a declaration call, or @SqlUnsupported if not extractable or not
+     * parsable. Success or errors are logged and appropriate warnings emitted.
+     */
+    protected AnnotationMirror annotateStatement(
+            MethodInvocationTree tree, boolean isPreparedStatement) {
+        ExpressionTree arg = tree.getArguments().get(0);
+        List<String> stmts = retrieveStringValue(arg, isPreparedStatement);
+
+        if (stmts == null) {
+            // if stmts == null retrieveStringValue already reported an error
+            return SQLUNSUPPORTED;
+        }
+
+        // If multiple strings are possible, determine types for all of them and if they are the
+        // same for
+        // all strings, continue.
+
+        // determine types for the first string, with warnings flag activated
+        List<AnnotationMirror> annos = new ArrayList<>();
+        annos.add(buildSqlAnnotation(stmts.get(0), tree, isPreparedStatement, true));
+
+        // add all others with warnings flag deactivated (to avoid multiple warnings)
+        annos.addAll(
+                stmts.stream()
+                        .skip(1)
+                        .map(s -> buildSqlAnnotation(s, tree, isPreparedStatement, false))
+                        .collect(Collectors.toList()));
+
+        if (annos.stream().anyMatch(Objects::isNull)) {
+            return SQLUNSUPPORTED;
+        }
+
+        // warn if the annotations are not equal
+        if (annos.size() > 1
+                && !annos.stream().allMatch(a -> sqlAnnotationsEqual(a, annos.get(0)))) {
+            checker.reportWarning(arg, "statement.multiple.string.values", stmts.toString());
+            logger.simpleStatementEntry(
+                    OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
+                    root,
+                    trees.getSourcePositions().getStartPosition(root, arg),
+                    "statement string could evaluate to multiple string values",
+                    isPreparedStatement);
+            return SQLUNSUPPORTED;
+        }
+
+        AnnotationMirror annotation = annos.get(0);
+        if (annotation != null) {
+            logSupportedStatement(
+                    tree, stmts.get(0), getInElement(annotation).size(), isPreparedStatement);
+            return annotation;
+        }
+
+        return SQLUNSUPPORTED;
+    }
+
+    /**
      * Determines result and placeholder types of the SQL statement and builds a corresponding @Sql
      * annotation.
      *
@@ -494,8 +533,11 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
      *
      * @return the @Sql annotation or null if the types could not be determined
      */
-    protected @Nullable AnnotationMirror buildSqlAnnotation(
-            @NonNull String stmt, MethodInvocationTree tree, boolean isPreparedStatement) {
+    private @Nullable AnnotationMirror buildSqlAnnotation(
+            @NonNull String stmt,
+            MethodInvocationTree tree,
+            boolean isPreparedStatement,
+            boolean warnAndLog) {
         // get placeholder types of prepared statement
         List<String> in;
         try {
@@ -504,34 +546,36 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             // Retry with fallback JDBCSchemaInfo
             try {
                 in = getInType(stmt, jdbcSchemaInfo);
-                if (in == null) {
-                    throw new OpsDatabaseException("JDBC failed");
-                }
-                checker.reportWarning(
-                        tree,
-                        "determine.in.type.failed.first.try",
-                        calciteException.getMessage(),
-                        stmt);
-                } catch (OpsDatabaseException jdbcException) {
-                    checker.reportError(
+                if (warnAndLog) {
+                    checker.reportWarning(
                             tree,
-                            "determine.in.type.failed.final",
-                            calciteException.getMessage() + "\nJDBC: " + jdbcException.getMessage(),
+                            "determine.in.type.failed.first.try",
+                            calciteException.getMessage(),
                             stmt);
-                    logger.unsupportedPreparedStatement(
-                            root,
+                }
+            } catch (OpsDatabaseException jdbcException) {
+                if (!warnAndLog) return null;
+                checker.reportError(
+                        tree,
+                        "determine.in.type.failed.final",
+                        calciteException.getMessage() + "\nJDBC: " + jdbcException.getMessage(),
+                        stmt);
+                logger.unsupportedPreparedStatement(
+                        root,
                         trees.getSourcePositions().getStartPosition(root, tree),
                         calciteException.getMessage() + "--- JDBC: " + jdbcException.getMessage(),
                         stmt,
                         isPreparedStatement);
                 return null;
             }
-            logger.simpleStatementEntry(
-                    OpsLogEntryKind.USING_FALLBACK,
-                    root,
-                    trees.getSourcePositions().getStartPosition(root, tree),
-                    null,
-                    isPreparedStatement);
+            if (warnAndLog) {
+                logger.simpleStatementEntry(
+                        OpsLogEntryKind.USING_FALLBACK,
+                        root,
+                        trees.getSourcePositions().getStartPosition(root, tree),
+                        null,
+                        isPreparedStatement);
+            }
         }
 
         // get result type of prepared statement
@@ -542,12 +586,15 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             // Retry with fallback JDBCSchemaInfo
             try {
                 out = getOutType(stmt, jdbcSchemaInfo);
-                checker.reportWarning(
-                        tree,
-                        "determine.out.type.failed.first.try",
-                        calciteException.getMessage(),
-                        stmt);
+                if (warnAndLog) {
+                    checker.reportWarning(
+                            tree,
+                            "determine.out.type.failed.first.try",
+                            calciteException.getMessage(),
+                            stmt);
+                }
             } catch (OpsDatabaseException jdbcException) {
+                if (!warnAndLog) return null;
                 checker.reportError(
                         tree, "determine.out.type.failed.final", jdbcException.getMessage(), stmt);
                 logger.unsupportedPreparedStatement(
@@ -558,12 +605,14 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         isPreparedStatement);
                 return null;
             }
-            logger.simpleStatementEntry(
-                    OpsLogEntryKind.USING_FALLBACK,
-                    root,
-                    trees.getSourcePositions().getStartPosition(root, tree),
-                    null,
-                    isPreparedStatement);
+            if (warnAndLog) {
+                logger.simpleStatementEntry(
+                        OpsLogEntryKind.USING_FALLBACK,
+                        root,
+                        trees.getSourcePositions().getStartPosition(root, tree),
+                        null,
+                        isPreparedStatement);
+            }
         }
 
         String file = null;
@@ -598,14 +647,34 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         return pt;
     }
 
-    protected @Nullable String retrieveStringValue(
+    protected boolean sqlAnnotationsEqual(AnnotationMirror a1, AnnotationMirror a2) {
+        // compare in and out elements
+        return a1 == a2
+                || (getInElement(a1).equals(getInElement(a2))
+                        && getOutElement(a1).equals(getOutElement(a2)));
+    }
+
+    /**
+     * Retrieves the string value from the given expression tree. If the expression is a string
+     * literal, it returns the literal value. If the expression has a `@StringVal` annotation, it
+     * returns the values from the annotation. If the string value cannot be determined, it logs the
+     * issue and returns null.
+     *
+     * @param stringExpression the expression tree representing the string
+     * @param isPreparedStatement whether the string is part of a prepared statement
+     * @return a list of string values or null if the value cannot be determined
+     */
+    private @Nullable List<String> retrieveStringValue(
             ExpressionTree stringExpression, boolean isPreparedStatement) {
         if (stringExpression.getKind() == ExpressionTree.Kind.STRING_LITERAL) {
-            return (String) ((LiteralTree) stringExpression).getValue();
+            List<String> strings = new ArrayList<>();
+            strings.add((String) ((LiteralTree) stringExpression).getValue());
+            return strings;
         }
 
         AnnotationMirror stringValAnnoMirror = getStringValAnnoMirror(stringExpression);
         if (stringValAnnoMirror == null) {
+            checker.reportWarning(stringExpression, "statement.string.retrieval.failed");
             logger.simpleStatementEntry(
                     OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
                     root,
@@ -634,10 +703,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         }
 
         if (values.size() == 1) {
-            return values.get(0);
+            return values;
         }
 
-            if (checker.getBooleanOption("enableSqlStringHeuristic") && values.size() > 1) {
+        if (checker.getBooleanOption("enableSqlStringHeuristic")) { // todo: remove this option?
             checker.reportWarning(
                     stringExpression,
                     "statement.multiple.string.values.continuing",
@@ -648,20 +717,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     trees.getSourcePositions().getStartPosition(root, stringExpression),
                     null,
                     isPreparedStatement);
-            // try with longest in this case
-            return values.stream()
-                    .max(Comparator.comparingInt(String::length))
-                    .orElse(null);
+            return values.subList(0, 1);
         }
 
-            checker.reportWarning(stringExpression, "statement.multiple.string.values", values.toString());
-            logger.simpleStatementEntry(
-                    OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
-                    root,
-                trees.getSourcePositions().getStartPosition(root, stringExpression),
-                "statement string could evaluate to multiple string values",
-                isPreparedStatement);
-        return null;
+        return values;
     }
 
     private AnnotationMirror getStringValAnnoMirror(final ExpressionTree valueExp) {

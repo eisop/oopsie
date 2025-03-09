@@ -1,6 +1,5 @@
 package io.github.eisop.opsc;
 
-import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -23,7 +22,9 @@ public class OpsTransfer extends CFTransfer {
 
     private final OpsAnnotatedTypeFactory aTypeFactory;
     private final ProcessingEnvironment processingEnv;
+
     private final List<ExecutableElement> statementExecuteMethods;
+    private final List<ExecutableElement> connectionPrepareStatementMethods;
 
     /** Create the transfer function for the OPSC. */
     public OpsTransfer(CFAbstractAnalysis<CFValue, CFStore, CFTransfer> analysis) {
@@ -44,6 +45,15 @@ public class OpsTransfer extends CFTransfer {
                 TreeUtils.getMethods("java.sql.Statement", "executeUpdate", 1, processingEnv));
         statementExecuteMethods.addAll(
                 TreeUtils.getMethods("java.sql.Statement", "executeUpdate", 2, processingEnv));
+
+        connectionPrepareStatementMethods =
+                TreeUtils.getMethods("java.sql.Connection", "prepareStatement", 1, processingEnv);
+        connectionPrepareStatementMethods.addAll(
+                TreeUtils.getMethods("java.sql.Connection", "prepareStatement", 2, processingEnv));
+        connectionPrepareStatementMethods.addAll(
+                TreeUtils.getMethods("java.sql.Connection", "prepareStatement", 3, processingEnv));
+        connectionPrepareStatementMethods.addAll(
+                TreeUtils.getMethods("java.sql.Connection", "prepareStatement", 4, processingEnv));
     }
 
     private void insertAnnotation(
@@ -72,7 +82,7 @@ public class OpsTransfer extends CFTransfer {
 
         // annotate the receiver with a Sql or SqlUnsupported annotation
         Node receiver = n.getTarget().getReceiver();
-        AnnotationMirror sqlAnnotation = buildSqlAnnotation(tree);
+        AnnotationMirror sqlAnnotation = aTypeFactory.annotateStatement(tree, false);
         insertAnnotation(sqlAnnotation, result, receiver);
         return result;
     }
@@ -84,18 +94,5 @@ public class OpsTransfer extends CFTransfer {
         }
         return statementExecuteMethods.stream()
                 .anyMatch(m -> TreeUtils.isMethodInvocation(tree, m, processingEnv));
-    }
-
-    private AnnotationMirror buildSqlAnnotation(MethodInvocationTree tree) {
-        ExpressionTree argTree = tree.getArguments().get(0);
-        String stmt = aTypeFactory.retrieveStringValue(argTree, false);
-        if (stmt != null) {
-            AnnotationMirror annotation = aTypeFactory.buildSqlAnnotation(stmt, tree, false);
-            if (annotation != null) {
-                aTypeFactory.logSupportedStatement(tree, stmt, 0, false);
-                return annotation;
-            }
-        }
-        return aTypeFactory.SQLUNSUPPORTED;
     }
 }
