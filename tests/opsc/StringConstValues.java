@@ -105,4 +105,25 @@ public class StringConstValues {
                 // :: error: (assignment.type.incompatible)
                 conn.prepareStatement(sql);
     }
+
+    void notExtractable(boolean filter) throws SQLException {
+        String sql = "SELECT * FROM INVOICE";
+        if (filter) {
+            sql += " adding something?";
+        }
+        PreparedStatement ps = conn.prepareStatement(sql);
+    }
+
+    public void mixInsertAndUpdate(boolean newInstance) throws SQLException {
+        String stmt = "";
+        if (newInstance) {
+            stmt = "INSERT INTO genre (genreid, name) VALUES (?, ?)";
+        } else {
+            stmt = "UPDATE genre SET genreid = ? WHERE name = ?";
+        }
+
+        PreparedStatement ps = conn.prepareStatement(stmt);
+        ps.setInt(1, 1);
+        ps.setString(2, "scary industrial hip hop");
+    }
 }
