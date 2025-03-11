@@ -38,12 +38,15 @@ public record OpscType(
     }
 
     @Pure
-    public boolean dataTypeMatches(OpscType other, boolean ignoreCase) {
-        if (ignoreCase) {
-            return columnDataType.equalsIgnoreCase(other.columnDataType);
-        } else {
-            return columnDataType.equals(other.columnDataType);
+    public boolean dataTypeMatches(OpscType other) {
+        if ((columnDataType.equalsIgnoreCase("NUMERIC")
+                        && other.columnDataType.equalsIgnoreCase("DECIMAL"))
+                || (columnDataType.equalsIgnoreCase("DECIMAL")
+                        && other.columnDataType.equalsIgnoreCase("NUMERIC"))) {
+            return true;
         }
+
+        return columnDataType.equalsIgnoreCase(other.columnDataType);
     }
 
     @Override
@@ -56,19 +59,18 @@ public record OpscType(
         }
 
         if (columnName == null) {
-            return equalsIgnoringName(other, true) && other.columnName == null;
+            return equalsIgnoringName(other) && other.columnName == null;
         }
 
-        return dataTypeMatches(other, true)
+        return dataTypeMatches(other)
                 && columnAnnotations.equals(other.columnAnnotations)
                 && other.columnName != null
                 && columnName.equalsIgnoreCase(other.columnName);
     }
 
     @Pure
-    public boolean equalsIgnoringName(OpscType other, boolean ignoreCase) {
-        return dataTypeMatches(other, ignoreCase)
-                && columnAnnotations.equals(other.columnAnnotations);
+    public boolean equalsIgnoringName(OpscType other) {
+        return dataTypeMatches(other) && columnAnnotations.equals(other.columnAnnotations);
     }
 
     @Override

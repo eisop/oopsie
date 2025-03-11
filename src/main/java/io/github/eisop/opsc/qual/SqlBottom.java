@@ -16,5 +16,5 @@ import org.checkerframework.framework.qual.TypeUseLocation;
 @SubtypeOf({Sql.class})
 @InvisibleQualifier
 @TargetLocations({TypeUseLocation.LOWER_BOUND, TypeUseLocation.UPPER_BOUND})
-@DefaultFor(value = {TypeUseLocation.LOWER_BOUND})
+@DefaultFor(value = {TypeUseLocation.IMPLICIT_LOWER_BOUND})
 public @interface SqlBottom {}

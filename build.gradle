@@ -3,7 +3,7 @@ plugins {
     // https://github.com/tbroyer/gradle-errorprone-plugin
     id("net.ltgt.errorprone").version("4.1.0")
     id("maven-publish")
-    id("com.diffplug.spotless").version("6.25.0")
+    id("com.diffplug.spotless").version("7.0.2")
     // https://docs.gradle.org/current/userguide/eclipse_plugin.html
     id("eclipse")
     id("idea")
@@ -25,7 +25,7 @@ group = "io.github.eisop"
 version = "0.0.1-SNAPSHOT"
 
 ext.versions= [
-    checkerFramework: "3.42.0-eisop4",
+    checkerFramework: "3.42.0-eisop5",
 ]
 
 dependencies {
@@ -33,12 +33,12 @@ dependencies {
     compileOnly("io.github.eisop:checker:${versions.checkerFramework}")
 
     implementation("org.apache.calcite:calcite-core:1.37.0")
-    implementation("org.postgresql:postgresql:42.7.4")
+    implementation("org.postgresql:postgresql:42.7.5")
 
     errorprone("com.google.errorprone:error_prone_core:2.36.0")
 
-    implementation("com.google.guava:guava:33.3.1-jre")
-    implementation("org.apache.commons:commons-csv:1.12.0")
+    implementation("com.google.guava:guava:33.4.0-jre")
+    implementation("org.apache.commons:commons-csv:1.13.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("io.github.eisop:checker:${versions.checkerFramework}")
@@ -141,7 +141,7 @@ tasks.withType(Test) {
         showStackTraces = false
         showStandardStreams = true
         events "failed"
-        exceptionFormat "full"
+        exceptionFormat = "full"
     }
 }
 
@@ -185,7 +185,7 @@ spotless {
 
     format "misc", {
         target("*.md", "*.tex", ".gitignore", "Makefile")
-        indentWithSpaces(2)
+        leadingTabsToSpaces(2)
         trimTrailingWhitespace()
         // endWithNewline() // Don't want to end empty files with a newline
     }
@@ -193,7 +193,7 @@ spotless {
     groovyGradle {
         target("**/*.gradle")
         greclipse()  // which formatter Spotless should use to format .gradle files.
-        indentWithSpaces(4)
+        leadingTabsToSpaces(4)
         trimTrailingWhitespace()
         // endWithNewline() // Don't want to end empty files with a newline
     }
