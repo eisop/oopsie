@@ -1,6 +1,11 @@
 package io.github.eisop.opsc;
 
-import com.sun.source.tree.*;
+import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.LineMap;
+import com.sun.source.tree.LiteralTree;
+import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.Tree;
 import io.github.eisop.opsc.db.CalciteSchemaInfo;
 import io.github.eisop.opsc.db.JDBCSchemaInfo;
 import io.github.eisop.opsc.db.SchemaInfo;
@@ -174,6 +179,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         private final QualifierKind SQL_KIND;
         private final QualifierKind SQLBOTTOM_KIND;
 
+        // Calls to `getQualifierKind` are safe, as the `super` call already initialized everything
+        // necessary.
+        // TODO: Remove once https://github.com/eisop/checker-framework/issues/1143 is fixed.
+        @SuppressWarnings("nullness:method.invocation.invalid")
         private OpsQualifierHierarchy(
                 Collection<Class<? extends Annotation>> qualifierClasses, Elements elements) {
             super(qualifierClasses, elements, OpsAnnotatedTypeFactory.this);
