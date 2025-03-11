@@ -125,5 +125,10 @@ public class StringConstValues {
         PreparedStatement ps = conn.prepareStatement(stmt);
         ps.setInt(1, 1);
         ps.setString(2, "scary industrial hip hop");
+
+        // :: error: (parameter.type.incompatible)
+        ps.setInt(2, 1);
+        // :: error: (parameter.index.out.of.bounds)
+        ps.setString(3, "gnx");
     }
 }
