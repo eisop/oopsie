@@ -111,28 +111,28 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
             throw new TypeSystemError("Could not find receiver of method invocation");
         }
 
-        if (receiverType.hasAnnotation(Sql.class)) {
-            AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
-            ExpressionTree indexTree = tree.getArguments().get(0);
-            if (indexTree.getKind() == Tree.Kind.INT_LITERAL) {
-                LiteralTree literal = (LiteralTree) indexTree;
-                int index =
-                        (int) literal.getValue() - 1; // PreparedStatement parameters are 1-indexed
-                List<String> in =
-                        AnnotationUtils.getElementValueArray(
-                                sqlAnnotation, sqlInElement, String.class, Collections.emptyList());
-                if (index >= in.size()) {
-                    checker.reportError(
-                            tree, "parameter.index.out.of.bounds", index + 1, in.size());
-                    logError(
-                            tree,
-                            "parameter.index.out.of.bounds",
-                            "index=" + index + ", size=" + in.size(),
-                            sqlAnnotation);
-                } else {
-                    checkParameterType(
-                            tree, method.getSimpleName().toString(), in.get(index), sqlAnnotation);
-                }
+        AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
+        if (sqlAnnotation == null) {
+            return;
+        }
+
+        ExpressionTree indexTree = tree.getArguments().get(0);
+        if (indexTree.getKind() == Tree.Kind.INT_LITERAL) {
+            LiteralTree literal = (LiteralTree) indexTree;
+            int index = (int) literal.getValue() - 1; // PreparedStatement parameters are 1-indexed
+            List<String> in =
+                    AnnotationUtils.getElementValueArray(
+                            sqlAnnotation, sqlInElement, String.class, Collections.emptyList());
+            if (index >= in.size()) {
+                checker.reportError(tree, "parameter.index.out.of.bounds", index + 1, in.size());
+                logError(
+                        tree,
+                        "parameter.index.out.of.bounds",
+                        "index=" + index + ", size=" + in.size(),
+                        sqlAnnotation);
+            } else {
+                checkParameterType(
+                        tree, method.getSimpleName().toString(), in.get(index), sqlAnnotation);
             }
         }
     }
@@ -174,14 +174,16 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
             throw new TypeSystemError("Could not find receiver of method invocation");
         }
 
-        if (receiverType.hasAnnotation(Sql.class)) {
-            AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
-            ExpressionTree indexTree = tree.getArguments().get(0);
-            if (indexTree.getKind() == Tree.Kind.INT_LITERAL) {
-                LiteralTree literal = (LiteralTree) indexTree;
-                int index = (int) literal.getValue() - 1; // ResultSet columns are 1-indexed
-                checkGetResult(tree, method.getSimpleName().toString(), sqlAnnotation, index);
-            }
+        AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
+        if (sqlAnnotation == null) {
+            return;
+        }
+
+        ExpressionTree indexTree = tree.getArguments().get(0);
+        if (indexTree.getKind() == Tree.Kind.INT_LITERAL) {
+            LiteralTree literal = (LiteralTree) indexTree;
+            int index = (int) literal.getValue() - 1; // ResultSet columns are 1-indexed
+            checkGetResult(tree, method.getSimpleName().toString(), sqlAnnotation, index);
         }
     }
 
@@ -191,39 +193,38 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
             throw new TypeSystemError("Could not find receiver of method invocation");
         }
 
-        if (receiverType.hasAnnotation(Sql.class)) {
-            AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
-            ExpressionTree indexTree = tree.getArguments().get(0);
-            if (indexTree.getKind() == Tree.Kind.STRING_LITERAL) {
-                LiteralTree literal = (LiteralTree) indexTree;
-                String columnName = (String) literal.getValue();
-                List<String> out =
-                        AnnotationUtils.getElementValueArray(
-                                sqlAnnotation,
-                                sqlOutElement,
-                                String.class,
-                                Collections.emptyList());
-                out.stream()
-                        .filter(s -> columnNamesMatch(s, columnName))
-                        .findFirst()
-                        .ifPresentOrElse(
-                                s -> {
-                                    int index = out.indexOf(s);
-                                    checkGetResult(
-                                            tree,
-                                            method.getSimpleName().toString(),
-                                            sqlAnnotation,
-                                            index);
-                                },
-                                () -> {
-                                    checker.reportError(tree, "column.name.not.found", columnName);
-                                    logError(
-                                            tree,
-                                            "column.name.not.found",
-                                            "name=" + columnName,
-                                            sqlAnnotation);
-                                });
-            }
+        AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
+        if (sqlAnnotation == null) {
+            return;
+        }
+
+        ExpressionTree indexTree = tree.getArguments().get(0);
+        if (indexTree.getKind() == Tree.Kind.STRING_LITERAL) {
+            LiteralTree literal = (LiteralTree) indexTree;
+            String columnName = (String) literal.getValue();
+            List<String> out =
+                    AnnotationUtils.getElementValueArray(
+                            sqlAnnotation, sqlOutElement, String.class, Collections.emptyList());
+            out.stream()
+                    .filter(s -> columnNamesMatch(s, columnName))
+                    .findFirst()
+                    .ifPresentOrElse(
+                            s -> {
+                                int index = out.indexOf(s);
+                                checkGetResult(
+                                        tree,
+                                        method.getSimpleName().toString(),
+                                        sqlAnnotation,
+                                        index);
+                            },
+                            () -> {
+                                checker.reportError(tree, "column.name.not.found", columnName);
+                                logError(
+                                        tree,
+                                        "column.name.not.found",
+                                        "name=" + columnName,
+                                        sqlAnnotation);
+                            });
         }
     }
 

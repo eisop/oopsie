@@ -13,11 +13,13 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Set;
 import javax.annotation.processing.SupportedOptions;
+import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.common.value.ValueChecker;
 import org.checkerframework.javacutil.TypeSystemError;
 import org.checkerframework.javacutil.UserError;
+import org.jspecify.annotations.Nullable;
 
 /** The main checker class for the Optional Prepared Statement Checker (OPSC). */
 @SupportedOptions({"dbUrl", "dbUser", "dbPassword", "enableSqlStringHeuristic", "opsLogDir"})
@@ -25,58 +27,13 @@ public class OpsChecker extends BaseTypeChecker {
 
     private static final String LOG_FILE_NAME_PATTERN = "yyyyMMdd-HHmmss'-opslog'";
 
-    protected OpsLogger logger;
+    protected @Nullable OpsLogger logger;
 
     protected String projectRoot = "";
 
     protected TypeMapping typeMapping;
 
-    @Override
-    public void typeProcessingOver() {
-        super.typeProcessingOver();
-    }
-
-    @Override
-    public void initChecker() {
-        String logDir;
-        if (hasOption("opsLogDir")) {
-            logDir = getOption("opsLogDir");
-        } else {
-            projectRoot = getProjectRoot();
-            logDir = Paths.get(projectRoot, "opslog/").toString();
-        }
-
-        if (logDir == null) {
-            throw new UserError(
-                    "Unable to determine the log directory. Please provide it with -AopsLogDir.");
-        }
-
-        String timeStamp =
-                DateTimeFormatter.ofPattern(LOG_FILE_NAME_PATTERN)
-                        .format(LocalDateTime.now(ZoneId.systemDefault()));
-        Path timeStampedLogDir = Paths.get(logDir, timeStamp);
-
-        try {
-            Files.createDirectories(timeStampedLogDir);
-        } catch (IOException e) {
-            throw new UserError(
-                    "Could not create log directory: "
-                            + logDir
-                            + ". Consider choosing an alternative directory using -AopsLogDir",
-                    e);
-        }
-
-        try {
-            logger =
-                    new OpsLogger(
-                            timeStampedLogDir.resolve("statements.csv"),
-                            timeStampedLogDir.resolve("bindings.csv"),
-                            projectRoot);
-        } catch (IOException e) {
-            throw new UserError(
-                    "Could not create logger. Check the path provided with -AopsLogDir", e);
-        }
-
+    public OpsChecker() {
         // Load the type mapping file from resources and initialize the type mapping
         URL typeMappingPath = getClass().getResource("/type_mapping.csv");
         if (typeMappingPath == null) {
@@ -84,8 +41,11 @@ public class OpsChecker extends BaseTypeChecker {
         }
 
         typeMapping = new TypeMapping(typeMappingPath);
+    }
 
-        super.initChecker();
+    @Override
+    public void typeProcessingOver() {
+        super.typeProcessingOver();
     }
 
     private String getProjectRoot() {
@@ -125,7 +85,9 @@ public class OpsChecker extends BaseTypeChecker {
     @Override
     protected void shutdownHook() {
         try {
-            logger.close();
+            if (logger != null) {
+                logger.close();
+            }
         } catch (IOException e) {
             throw new TypeSystemError("Could not close logger: ", e.getMessage());
         }
@@ -140,7 +102,55 @@ public class OpsChecker extends BaseTypeChecker {
         return checkers;
     }
 
+    @EnsuresNonNull("logger")
+    private void initLogger() {
+        String logDir;
+        if (hasOption("opsLogDir")) {
+            logDir = getOption("opsLogDir");
+        } else {
+            projectRoot = getProjectRoot();
+            logDir = Paths.get(projectRoot, "opslog/").toString();
+        }
+
+        if (logDir == null) {
+            throw new UserError(
+                    "Unable to determine the log directory. Please provide it with -AopsLogDir.");
+        }
+
+        String timeStamp =
+                DateTimeFormatter.ofPattern(LOG_FILE_NAME_PATTERN)
+                        .format(LocalDateTime.now(ZoneId.systemDefault()));
+        Path timeStampedLogDir = Paths.get(logDir, timeStamp);
+
+        try {
+            Files.createDirectories(timeStampedLogDir);
+        } catch (IOException e) {
+            throw new UserError(
+                    "Could not create log directory: "
+                            + logDir
+                            + ". Consider choosing an alternative directory using -AopsLogDir",
+                    e);
+        }
+
+        try {
+            logger =
+                    new OpsLogger(
+                            timeStampedLogDir.resolve("statements.csv"),
+                            timeStampedLogDir.resolve("bindings.csv"),
+                            projectRoot);
+        } catch (IOException e) {
+            throw new UserError(
+                    "Could not create logger. Check the path provided with -AopsLogDir", e);
+        }
+    }
+
     protected OpsLogger getLogger() {
+        if (logger != null) {
+            return logger;
+        }
+
+        initLogger();
+
         return logger;
     }
 
