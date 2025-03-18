@@ -32,6 +32,11 @@ dependencies {
     implementation("io.github.eisop:checker-qual:${versions.checkerFramework}")
     compileOnly("io.github.eisop:checker:${versions.checkerFramework}")
 
+    compileOnly("io.github.eisop:checker-qual:${versions.checkerFramework}")
+    testCompileOnly("io.github.eisop:checker-qual:${versions.checkerFramework}")
+    checkerFramework("io.github.eisop:checker-qual:${versions.checkerFramework}")
+    checkerFramework("io.github.eisop:checker:${versions.checkerFramework}")
+
     implementation("org.apache.calcite:calcite-core:1.37.0")
     implementation("org.postgresql:postgresql:42.7.5")
 
