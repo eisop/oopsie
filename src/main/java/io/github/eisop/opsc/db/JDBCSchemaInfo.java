@@ -94,7 +94,11 @@ public class JDBCSchemaInfo implements SchemaInfo {
             throws OpsDatabaseException {
         try {
             String jdbcType = JDBCUtil.jdbcTypeNameFromOrdinal(md.getColumnType(index));
-            return getTypeWithAnnotations(jdbcType, md.isNullable(index), md.getPrecision(index));
+            return getTypeWithAnnotations(
+                    jdbcType,
+                    md.isNullable(index),
+                    md.getPrecision(index),
+                    md.getColumnName(index));
         } catch (SQLException e) {
             throw new OpsDatabaseException(e);
         }
@@ -104,13 +108,15 @@ public class JDBCSchemaInfo implements SchemaInfo {
             throws OpsDatabaseException {
         try {
             String jdbcType = JDBCUtil.jdbcTypeNameFromOrdinal(md.getParameterType(index));
-            return getTypeWithAnnotations(jdbcType, md.isNullable(index), md.getPrecision(index));
+            return getTypeWithAnnotations(
+                    jdbcType, md.isNullable(index), md.getPrecision(index), "");
         } catch (SQLException e) {
             throw new OpsDatabaseException(e);
         }
     }
 
-    private String getTypeWithAnnotations(String className, int nullability, int precision) {
+    private String getTypeWithAnnotations(
+            String className, int nullability, int precision, String name) {
         String anno =
                 switch (nullability) {
                     case ParameterMetaData.parameterNoNulls -> "@NonNull ";
@@ -127,6 +133,7 @@ public class JDBCSchemaInfo implements SchemaInfo {
                 anno += "@MaxLength(" + precision + ") ";
             }
         }
-        return anno + className;
+        name = name == null || name.isEmpty() ? "" : " " + name;
+        return anno + className + name;
     }
 }

@@ -32,6 +32,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
 import org.apache.calcite.sql.type.SqlTypeFamily;
+import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.tools.Planner;
@@ -47,7 +48,10 @@ public class CalciteSchemaInfo implements SchemaInfo {
     private final SchemaPlus rootSchema;
 
     SqlParser.Config parserConfig =
-            SqlParser.config().withCaseSensitive(false).withQuoting(Quoting.DOUBLE_QUOTE);
+            SqlParser.config()
+                    .withCaseSensitive(false)
+                    .withQuoting(Quoting.DOUBLE_QUOTE)
+                    .withConformance(SqlConformanceEnum.BABEL);
 
     public CalciteSchemaInfo(
             String databaseUrl, @Nullable String username, @Nullable String password)
