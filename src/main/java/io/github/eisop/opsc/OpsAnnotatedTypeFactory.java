@@ -511,8 +511,13 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
         AnnotationMirror annotation = annos.get(0);
         if (annotation != null) {
+            String details = annos.get(0).toString();
             logSupportedStatement(
-                    tree, stmts.get(0), getInElement(annotation).size(), isPreparedStatement);
+                    tree,
+                    details,
+                    stmts.get(0),
+                    getInElement(annotation).size(),
+                    isPreparedStatement);
             return annotation;
         }
 
@@ -568,7 +573,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         OpsLogEntryKind.USING_FALLBACK,
                         getRoot(),
                         trees.getSourcePositions().getStartPosition(getRoot(), tree),
-                        null,
+                        calciteException.getMessage(),
                         isPreparedStatement);
             }
         }
@@ -605,7 +610,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         OpsLogEntryKind.USING_FALLBACK,
                         getRoot(),
                         trees.getSourcePositions().getStartPosition(getRoot(), tree),
-                        null,
+                        calciteException.getMessage(),
                         isPreparedStatement);
             }
         }
@@ -727,10 +732,15 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     }
 
     protected void logSupportedStatement(
-            MethodInvocationTree tree, String stmt, int nParameters, boolean isPreparedStatement) {
+            MethodInvocationTree tree,
+            String details,
+            String stmt,
+            int nParameters,
+            boolean isPreparedStatement) {
         logger.supportedStatement(
                 getRoot(),
                 trees.getSourcePositions().getStartPosition(getRoot(), tree),
+                details,
                 stmt,
                 nParameters,
                 isPreparedStatement);
