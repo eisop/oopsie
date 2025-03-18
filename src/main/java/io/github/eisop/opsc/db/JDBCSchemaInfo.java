@@ -9,8 +9,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.Objects;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.checkerframework.javacutil.TypeSystemError;
+import org.jspecify.annotations.Nullable;
 
 public class JDBCSchemaInfo implements SchemaInfo {
 
@@ -29,19 +29,13 @@ public class JDBCSchemaInfo implements SchemaInfo {
         try {
             Class.forName("org.postgresql.Driver");
         } catch (ClassNotFoundException e) {
-            throw new TypeSystemError(e.getMessage());
+            throw new TypeSystemError("PostgreSQL JDBC driver not found: %s", e.getMessage());
         }
 
-        try {
-            testConnection();
-        } catch (SQLException e) {
-            throw new OpsDatabaseException(e);
-        }
-    }
-
-    private void testConnection() throws SQLException {
         try (Connection conn = DriverManager.getConnection(databaseUrl, username, password)) {
             conn.createStatement();
+        } catch (SQLException e) {
+            throw new OpsDatabaseException(e);
         }
     }
 

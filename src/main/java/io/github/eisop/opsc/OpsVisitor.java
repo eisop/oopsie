@@ -120,6 +120,10 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
 
         if (receiverType.hasAnnotation(Sql.class)) {
             AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
+            if (sqlAnnotation == null) {
+                return;
+            }
+
             ExpressionTree indexTree = tree.getArguments().get(0);
             if (indexTree.getKind() == Tree.Kind.INT_LITERAL) {
                 LiteralTree literal = (LiteralTree) indexTree;
@@ -189,6 +193,10 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
 
         if (receiverType.hasAnnotation(Sql.class)) {
             AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
+            if (sqlAnnotation == null) {
+                return;
+            }
+
             ExpressionTree indexTree = tree.getArguments().get(0);
             if (indexTree.getKind() == Tree.Kind.INT_LITERAL) {
                 LiteralTree literal = (LiteralTree) indexTree;
@@ -212,6 +220,10 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
 
         if (receiverType.hasAnnotation(Sql.class)) {
             AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
+            if (sqlAnnotation == null) {
+                return;
+            }
+
             ExpressionTree indexTree = tree.getArguments().get(0);
             if (indexTree.getKind() == Tree.Kind.STRING_LITERAL) {
                 LiteralTree literal = (LiteralTree) indexTree;

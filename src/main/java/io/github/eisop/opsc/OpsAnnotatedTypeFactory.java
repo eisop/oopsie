@@ -1,9 +1,11 @@
 package io.github.eisop.opsc;
 
+import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LineMap;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.Tree;
 import io.github.eisop.opsc.db.CalciteSchemaInfo;
 import io.github.eisop.opsc.db.JDBCSchemaInfo;
 import io.github.eisop.opsc.db.SchemaInfo;
@@ -24,8 +26,8 @@ import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.util.Elements;
-import org.checkerframework.checker.nullness.qual.NonNull;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.checkerframework.checker.initialization.qual.UnderInitialization;
+import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.value.ValueAnnotatedTypeFactory;
@@ -47,6 +49,7 @@ import org.checkerframework.javacutil.AnnotationUtils;
 import org.checkerframework.javacutil.TreeUtils;
 import org.checkerframework.javacutil.TypeSystemError;
 import org.checkerframework.javacutil.UserError;
+import org.jspecify.annotations.Nullable;
 
 public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
@@ -61,14 +64,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "in", 0, processingEnv);
     protected final ExecutableElement sqlOutElement =
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "out", 0, processingEnv);
-    protected final ExecutableElement sqlFileElement =
-            TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "file", 0, processingEnv);
-    protected final ExecutableElement sqlLineElement =
-            TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "line", 0, processingEnv);
-    protected final ExecutableElement sqlColumnElement =
-            TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "column", 0, processingEnv);
     private final OpsLogger logger = ((OpsChecker) checker).getLogger();
-    private final ExecutableElement stringValValueELement =
+    private final ExecutableElement stringValValueElement =
             TreeUtils.getMethod(
                     "org.checkerframework.common.value.qual.StringVal", "value", 0, processingEnv);
 
@@ -128,24 +125,25 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         }
     }
 
-    private void initSchemaInfo(BaseTypeChecker checker) {
+    @EnsuresNonNull({"calciteSchemaInfo", "jdbcSchemaInfo"})
+    private void initSchemaInfo(
+            @UnderInitialization OpsAnnotatedTypeFactory this, BaseTypeChecker checker) {
         if (checker.getOption("dbUrl") == null) {
             throw new UserError("Database URL not specified");
-        } else {
-            try {
-                calciteSchemaInfo =
-                        new CalciteSchemaInfo(
-                                checker.getOption("dbUrl"),
-                                checker.getOption("dbUser"),
-                                checker.getOption("dbPassword"));
-                jdbcSchemaInfo =
-                        new JDBCSchemaInfo(
-                                checker.getOption("dbUrl"),
-                                checker.getOption("dbUser"),
-                                checker.getOption("dbPassword"));
-            } catch (OpsDatabaseException e) {
-                throw new UserError("Could not connect to database: %s", e.getMessage());
-            }
+        }
+        try {
+            calciteSchemaInfo =
+                    new CalciteSchemaInfo(
+                            checker.getOption("dbUrl"),
+                            checker.getOption("dbUser"),
+                            checker.getOption("dbPassword"));
+            jdbcSchemaInfo =
+                    new JDBCSchemaInfo(
+                            checker.getOption("dbUrl"),
+                            checker.getOption("dbUser"),
+                            checker.getOption("dbPassword"));
+        } catch (OpsDatabaseException e) {
+            throw new UserError("Could not connect to database: %s", e.getMessage());
         }
     }
 
@@ -171,7 +169,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     }
 
     /** Returns a new SQL annotation with the given in and out types. */
-    private @NonNull AnnotationMirror createSqlAnnotation(
+    private AnnotationMirror createSqlAnnotation(
             @Nullable List<String> in,
             @Nullable List<String> out,
             @Nullable String file,
@@ -190,6 +188,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         private final QualifierKind SQL_KIND;
         private final QualifierKind SQLBOTTOM_KIND;
 
+        // Calls to `getQualifierKind` are safe, as the `super` call already initialized everything
+        // necessary.
+        // TODO: Remove once https://github.com/eisop/checker-framework/issues/1143 is fixed.
+        @SuppressWarnings("nullness:method.invocation.invalid")
         private OpsQualifierHierarchy(
                 Collection<Class<? extends Annotation>> qualifierClasses, Elements elements) {
             super(qualifierClasses, elements, OpsAnnotatedTypeFactory.this);
@@ -550,7 +552,9 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     checker.reportWarning(
                             tree,
                             "determine.in.type.failed.first.try",
-                            calciteException.getMessage(),
+                            calciteException.getMessage() == null
+                                    ? ""
+                                    : calciteException.getMessage(),
                             stmt);
                 }
             } catch (OpsDatabaseException jdbcException) {
@@ -590,16 +594,21 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     checker.reportWarning(
                             tree,
                             "determine.out.type.failed.first.try",
-                            calciteException.getMessage(),
+                            calciteException.getMessage() == null
+                                    ? ""
+                                    : calciteException.getMessage(),
                             stmt);
                 }
             } catch (OpsDatabaseException jdbcException) {
                 if (!warnAndLog) return null;
                 checker.reportError(
-                        tree, "determine.out.type.failed.final", jdbcException.getMessage(), stmt);
+                        tree,
+                        "determine.out.type.failed.final",
+                        jdbcException.getMessage()== null ? "" : jdbcException.getMessage(),
+                        stmt);
                 logger.unsupportedPreparedStatement(
                         getRoot(),
-                        trees.getSourcePositions().getStartPosition(getRoot(), tree),
+                        getStartPosition(tree),
                         calciteException.getMessage() + "--- JDBC: " + jdbcException.getMessage(),
                         stmt,
                         isPreparedStatement);
@@ -609,7 +618,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 logger.simpleStatementEntry(
                         OpsLogEntryKind.USING_FALLBACK,
                         getRoot(),
-                        trees.getSourcePositions().getStartPosition(getRoot(), tree),
+                        getStartPosition(tree),
                         calciteException.getMessage(),
                         isPreparedStatement);
             }
@@ -618,10 +627,11 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         String file = null;
         String line = null;
         String column = null;
-        if (getRoot() != null) {
-            file = logger.sanitizeFileName(getRoot().getSourceFile().getName());
-            LineMap lineMap = getRoot().getLineMap();
-            long loc = trees.getSourcePositions().getStartPosition(getRoot(), tree);
+        CompilationUnitTree root = getRoot();
+        if (root != null) {
+            file = logger.sanitizeFileName(root.getSourceFile().getName());
+            LineMap lineMap = root.getLineMap();
+            long loc = trees.getSourcePositions().getStartPosition(root, tree);
             line = String.valueOf(lineMap.getLineNumber(loc));
             column = String.valueOf(lineMap.getColumnNumber(loc));
         }
@@ -651,24 +661,22 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         // compare in and out elements
         return a1 == a2
                 || (getInElement(a1).equals(getInElement(a2))
-                        && getOutElement(a1).equals(getOutElement(a2)));
+                && getOutElement(a1).equals(getOutElement(a2)));
     }
 
-    /**
-     * Retrieves the string value from the given expression tree. If the expression is a string
-     * literal, it returns the literal value. If the expression has a `@StringVal` annotation, it
-     * returns the values from the annotation. If the string value cannot be determined, it logs the
-     * issue and returns null.
-     *
-     * @param stringExpression the expression tree representing the string
-     * @param isPreparedStatement whether the string is part of a prepared statement
-     * @return a list of string values or null if the value cannot be determined
-     */
-    private @Nullable List<String> retrieveStringValue(
-            ExpressionTree stringExpression, boolean isPreparedStatement) {
-        if (stringExpression.getKind() == ExpressionTree.Kind.STRING_LITERAL) {
-            return List.of((String) ((LiteralTree) stringExpression).getValue());
+    private long getStartPosition(Tree tree) {
+        CompilationUnitTree root = getRoot();
+        if (root == null) {
+            return -1;
         }
+        return trees.getSourcePositions().getStartPosition(root, tree);
+    }
+
+        private @Nullable List<String> retrieveStringValue(
+                ExpressionTree stringExpression, boolean isPreparedStatement) {
+            if (stringExpression.getKind() == ExpressionTree.Kind.STRING_LITERAL) {
+                return List.of((String) ((LiteralTree) stringExpression).getValue());
+            }
 
         AnnotationMirror stringValAnnoMirror = getStringValAnnoMirror(stringExpression);
         if (stringValAnnoMirror == null) {
@@ -676,7 +684,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             logger.simpleStatementEntry(
                     OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
                     getRoot(),
-                    trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
+                    getStartPosition( stringExpression),
                     "",
                     isPreparedStatement);
             return null;
@@ -685,7 +693,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         List<String> values =
                 AnnotationUtils.getElementValueArray(
                         stringValAnnoMirror,
-                        stringValValueELement,
+                        stringValValueElement,
                         String.class,
                         Collections.emptyList());
 
@@ -694,7 +702,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             logger.simpleStatementEntry(
                     OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
                     getRoot(),
-                    trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
+                    getStartPosition( stringExpression),
                     "",
                     isPreparedStatement);
             return null;
@@ -712,7 +720,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             logger.simpleStatementEntry(
                     OpsLogEntryKind.USING_SQL_STRING_HEURISTIC,
                     getRoot(),
-                    trees.getSourcePositions().getStartPosition(getRoot(), stringExpression),
+                    getStartPosition( stringExpression),
                     null,
                     isPreparedStatement);
             return values.subList(0, 1);
@@ -721,7 +729,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         return values;
     }
 
-    private AnnotationMirror getStringValAnnoMirror(final ExpressionTree valueExp) {
+    private @Nullable AnnotationMirror getStringValAnnoMirror(final ExpressionTree valueExp) {
         ValueAnnotatedTypeFactory valueAnnotatedTypeFactory =
                 getTypeFactoryOfSubchecker(ValueChecker.class);
         if (valueAnnotatedTypeFactory == null) {
@@ -739,7 +747,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             boolean isPreparedStatement) {
         logger.supportedStatement(
                 getRoot(),
-                trees.getSourcePositions().getStartPosition(getRoot(), tree),
+                getStartPosition(tree),
                 details,
                 stmt,
                 nParameters,

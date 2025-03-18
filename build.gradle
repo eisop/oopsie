@@ -8,7 +8,8 @@ plugins {
     id("eclipse")
     id("idea")
     // To show task list as a tree, run: ./gradlew <taskname> taskTree
-    id("com.dorongold.task-tree").version("4.0.0")
+    id("com.dorongold.task-tree").version("4.0.1")
+    id("org.checkerframework").version("0.6.52")
 }
 
 repositories {
@@ -24,12 +25,17 @@ group = "io.github.eisop"
 version = "0.0.1-SNAPSHOT"
 
 ext.versions= [
-    checkerFramework: "3.42.0-eisop5",
+    checkerFramework: "3.49.1-eisop1",
 ]
 
 dependencies {
     implementation("io.github.eisop:checker-qual:${versions.checkerFramework}")
     compileOnly("io.github.eisop:checker:${versions.checkerFramework}")
+
+    compileOnly("io.github.eisop:checker-qual:${versions.checkerFramework}")
+    testCompileOnly("io.github.eisop:checker-qual:${versions.checkerFramework}")
+    checkerFramework("io.github.eisop:checker-qual:${versions.checkerFramework}")
+    checkerFramework("io.github.eisop:checker:${versions.checkerFramework}")
 
     implementation("org.apache.calcite:calcite-core:1.37.0")
     implementation("org.postgresql:postgresql:42.7.5")
@@ -42,6 +48,8 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("io.github.eisop:checker:${versions.checkerFramework}")
     testImplementation("io.github.eisop:framework-test:${versions.checkerFramework}")
+
+    implementation("org.jspecify:jspecify:1.0.0")
 }
 
 sourceSets {
@@ -68,7 +76,10 @@ java {
 }
 
 tasks.withType(JavaCompile).all {
-    options.compilerArgs.addAll(["-Werror", "-Xlint:all"])
+    options.compilerArgs.addAll([
+        "-Werror",
+        "-Xlint:all,-processing"
+    ])
     options.compilerArgs.addAll(
             [
                 "api",
@@ -84,6 +95,36 @@ tasks.withType(JavaCompile).all {
                 "util",
             ].collect { "--add-exports=jdk.compiler/com.sun.tools.javac.$it=ALL-UNNAMED" })
 }
+
+// EISOP Checker Framework pluggable type-checking
+
+apply plugin: 'org.checkerframework'
+
+dependencies {
+    compileOnly("io.github.eisop:checker-qual:${versions.checkerFramework}")
+    testCompileOnly("io.github.eisop:checker-qual:${versions.checkerFramework}")
+    checkerFramework("io.github.eisop:checker:${versions.checkerFramework}")
+
+    // dependency for Calcite, not sure why it's needed here
+    compileOnly("org.immutables:value:2.10.1")
+}
+
+checkerFramework {
+    checkers = [
+        'org.checkerframework.checker.nullness.NullnessChecker',
+    ]
+    extraJavacArgs = [
+        '-Werror',
+        '-AcheckPurityAnnotations',
+        '-ArequirePrefixInWarningSuppressions',
+        '-AwarnRedundantAnnotations',
+        '-AwarnUnneededSuppressions',
+        '-AnoJreVersionCheck',
+        '-Aversion',
+        "-Astubs=${file('src/main/java/io/github/eisop/opsc/db/jdbc.astub')}"
+    ]
+}
+
 
 test {
     inputs.files("tests/opsc")

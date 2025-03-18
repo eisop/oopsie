@@ -38,8 +38,8 @@ import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.tools.Planner;
 import org.apache.calcite.tools.RelConversionException;
 import org.apache.calcite.tools.ValidationException;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.checkerframework.javacutil.TypeSystemError;
+import org.jspecify.annotations.Nullable;
 
 public class CalciteSchemaInfo implements SchemaInfo {
 
@@ -62,7 +62,7 @@ public class CalciteSchemaInfo implements SchemaInfo {
             Class.forName("org.apache.calcite.jdbc.Driver");
             Class.forName("org.postgresql.Driver");
         } catch (ClassNotFoundException e) {
-            throw new TypeSystemError(e.getMessage());
+            throw new TypeSystemError("Could not load JDBC driver: %s", e.getMessage());
         }
 
         try {
@@ -191,10 +191,14 @@ public class CalciteSchemaInfo implements SchemaInfo {
     }
 
     private RelNode parseSql(String stmt) throws OpsDatabaseException {
+        SchemaPlus subSchema = rootSchema.getSubSchema(SUB_SCHEMA_NAME);
+        if (subSchema == null) {
+            throw new OpsDatabaseException("Could not find sub-schema: " + SUB_SCHEMA_NAME);
+        }
         FrameworkConfig frameworkConfig =
                 Frameworks.newConfigBuilder()
                         .parserConfig(parserConfig)
-                        .defaultSchema(rootSchema.getSubSchema(SUB_SCHEMA_NAME))
+                        .defaultSchema(subSchema)
                         .build();
 
         RelNode tree;
@@ -227,8 +231,7 @@ public class CalciteSchemaInfo implements SchemaInfo {
                 anno += "@MaxLength(" + maxLength + ") ";
             }
         }
-        name = name != null ? " " + name : "";
-        return anno + typeName + name;
+        return anno + typeName + " " + name;
     }
 
     private static String getJDBCTypeName(RelDataType relType) {
