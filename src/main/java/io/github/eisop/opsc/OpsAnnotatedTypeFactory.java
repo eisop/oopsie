@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
@@ -408,11 +407,11 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 // get type annotation from PreparedStatement and transfer it to the ResultSet
                 AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
                 if (receiverType == null) {
-                    throw new TypeSystemError(
-                            "could not get receiver type of PreparedStatement");
+                    throw new TypeSystemError("could not get receiver type of PreparedStatement");
                 }
 
-                AnnotationMirror sqlUnsupportedAnnotation = receiverType.getAnnotation(SqlUnsupported.class);
+                AnnotationMirror sqlUnsupportedAnnotation =
+                        receiverType.getAnnotation(SqlUnsupported.class);
                 AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
 
                 if (sqlUnsupportedAnnotation != null) {
@@ -527,11 +526,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         AnnotationMirror annotation = annos.get(0);
         String details = annos.get(0).toString();
         logSupportedStatement(
-                tree,
-                details,
-                stmts.get(0),
-                getInElement(annotation).size(),
-                isPreparedStatement);
+                tree, details, stmts.get(0), getInElement(annotation).size(), isPreparedStatement);
         return annotation;
     }
 
@@ -613,7 +608,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 checker.reportError(
                         tree,
                         "determine.out.type.failed.final",
-                        jdbcException.getMessage()== null ? "" : jdbcException.getMessage(),
+                        jdbcException.getMessage() == null ? "" : jdbcException.getMessage(),
                         stmt);
                 logger.unsupportedPreparedStatement(
                         getRoot(),
@@ -670,7 +665,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         // compare in and out elements
         return a1 == a2
                 || (getInElement(a1).equals(getInElement(a2))
-                && getOutElement(a1).equals(getOutElement(a2)));
+                        && getOutElement(a1).equals(getOutElement(a2)));
     }
 
     private long getStartPosition(Tree tree) {
@@ -681,11 +676,11 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         return trees.getSourcePositions().getStartPosition(root, tree);
     }
 
-        private @Nullable List<String> retrieveStringValue(
-                ExpressionTree stringExpression, boolean isPreparedStatement) {
-            if (stringExpression.getKind() == ExpressionTree.Kind.STRING_LITERAL) {
-                return List.of((String) ((LiteralTree) stringExpression).getValue());
-            }
+    private @Nullable List<String> retrieveStringValue(
+            ExpressionTree stringExpression, boolean isPreparedStatement) {
+        if (stringExpression.getKind() == ExpressionTree.Kind.STRING_LITERAL) {
+            return List.of((String) ((LiteralTree) stringExpression).getValue());
+        }
 
         AnnotationMirror stringValAnnoMirror = getStringValAnnoMirror(stringExpression);
         if (stringValAnnoMirror == null) {
@@ -693,7 +688,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             logger.simpleStatementEntry(
                     OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
                     getRoot(),
-                    getStartPosition( stringExpression),
+                    getStartPosition(stringExpression),
                     "",
                     isPreparedStatement);
             return null;
@@ -711,7 +706,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             logger.simpleStatementEntry(
                     OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
                     getRoot(),
-                    getStartPosition( stringExpression),
+                    getStartPosition(stringExpression),
                     "",
                     isPreparedStatement);
             return null;
@@ -729,7 +724,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             logger.simpleStatementEntry(
                     OpsLogEntryKind.USING_SQL_STRING_HEURISTIC,
                     getRoot(),
-                    getStartPosition( stringExpression),
+                    getStartPosition(stringExpression),
                     null,
                     isPreparedStatement);
             return values.subList(0, 1);
@@ -755,11 +750,6 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             int nParameters,
             boolean isPreparedStatement) {
         logger.supportedStatement(
-                getRoot(),
-                getStartPosition(tree),
-                details,
-                stmt,
-                nParameters,
-                isPreparedStatement);
+                getRoot(), getStartPosition(tree), details, stmt, nParameters, isPreparedStatement);
     }
 }
