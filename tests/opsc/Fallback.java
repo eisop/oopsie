@@ -12,10 +12,7 @@ public class Fallback {
     }
 
     public void keywords() throws SQLException {
-        PreparedStatement ps =
-                // :: warning: (determine.in.type.failed.first.try)
-                // :: warning: (determine.out.type.failed.first.try)
-                conn.prepareStatement("SELECT * FROM Invoice WHERE 1 != 2");
+        PreparedStatement ps = conn.prepareStatement("SELECT * FROM Invoice WHERE 1 != 2");
         ResultSet rs = ps.executeQuery();
         int invoiceId = rs.getInt("InvoiceId");
         int customerId = rs.getInt("CustomerId");
