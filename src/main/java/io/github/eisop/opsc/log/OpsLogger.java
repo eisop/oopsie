@@ -47,6 +47,7 @@ public class OpsLogger implements Closeable {
     public void supportedStatement(
             CompilationUnitTree tree,
             long start,
+            String details,
             String statementString,
             Integer numberOfParameters,
             boolean isPreparedStatement) {
@@ -54,7 +55,7 @@ public class OpsLogger implements Closeable {
                 OpsLogEntryKind.SUPPORTED_PREPARED_STATEMENT,
                 tree,
                 start,
-                null,
+                details,
                 statementString,
                 numberOfParameters,
                 isPreparedStatement);
