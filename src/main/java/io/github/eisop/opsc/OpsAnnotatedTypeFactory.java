@@ -73,7 +73,6 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     private final ExecutableElement stringValValueElement =
             TreeUtils.getMethod(
                     "org.checkerframework.common.value.qual.StringVal", "value", 0, processingEnv);
-
     private final List<ExecutableElement> connectionPrepareStatementMethods;
     private final List<ExecutableElement> statementToResultSetMethods;
     private final List<ExecutableElement> sqlUnsupportedMethods;
@@ -191,6 +190,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
     private final class OpsQualifierHierarchy extends MostlyNoElementQualifierHierarchy {
         private final QualifierKind SQL_KIND;
+        private final QualifierKind SQLUNSUPPORTED_KIND;
         private final QualifierKind SQLBOTTOM_KIND;
 
         // Calls to `getQualifierKind` are safe, as the `super` call already initialized everything
@@ -201,6 +201,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 Collection<Class<? extends Annotation>> qualifierClasses, Elements elements) {
             super(qualifierClasses, elements, OpsAnnotatedTypeFactory.this);
             SQL_KIND = getQualifierKind(SQL);
+            SQLUNSUPPORTED_KIND = getQualifierKind(SQLUNSUPPORTED);
             SQLBOTTOM_KIND = getQualifierKind(SQLBOTTOM);
         }
 
@@ -349,6 +350,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
                     return createSqlAnnotation(in1, outLub, null, null, null);
                 }
+            } else if (qualifierKind1 == SQL_KIND && qualifierKind2 == SQLUNSUPPORTED_KIND) {
+                return a1;
+            } else if (qualifierKind1 == SQLUNSUPPORTED_KIND && qualifierKind2 == SQL_KIND) {
+                return a2;
             } else if (qualifierKind1 == SQL_KIND && qualifierKind2 == SQLBOTTOM_KIND) {
                 return a1;
             } else if (qualifierKind1 == SQLBOTTOM_KIND && qualifierKind2 == SQL_KIND) {
@@ -375,6 +380,9 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 } else {
                     return SQLBOTTOM;
                 }
+            } else if ((qualifierKind1 == SQL_KIND && qualifierKind2 == SQLUNSUPPORTED_KIND)
+                    || (qualifierKind1 == SQLUNSUPPORTED_KIND && qualifierKind2 == SQL_KIND)) {
+                return SQLUNSUPPORTED;
             } else if ((qualifierKind1 == SQLBOTTOM_KIND && qualifierKind2 == SQL_KIND)
                     || (qualifierKind1 == SQL_KIND && qualifierKind2 == SQLBOTTOM_KIND)) {
                 return SQLBOTTOM;

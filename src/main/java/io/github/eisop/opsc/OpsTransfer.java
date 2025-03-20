@@ -24,7 +24,6 @@ public class OpsTransfer extends CFTransfer {
     private final ProcessingEnvironment processingEnv;
 
     private final List<ExecutableElement> statementExecuteMethods;
-    private final List<ExecutableElement> connectionPrepareStatementMethods;
 
     /** Create the transfer function for the OPSC. */
     public OpsTransfer(CFAbstractAnalysis<CFValue, CFStore, CFTransfer> analysis) {
@@ -45,15 +44,6 @@ public class OpsTransfer extends CFTransfer {
                 TreeUtils.getMethods("java.sql.Statement", "executeUpdate", 1, processingEnv));
         statementExecuteMethods.addAll(
                 TreeUtils.getMethods("java.sql.Statement", "executeUpdate", 2, processingEnv));
-
-        connectionPrepareStatementMethods =
-                TreeUtils.getMethods("java.sql.Connection", "prepareStatement", 1, processingEnv);
-        connectionPrepareStatementMethods.addAll(
-                TreeUtils.getMethods("java.sql.Connection", "prepareStatement", 2, processingEnv));
-        connectionPrepareStatementMethods.addAll(
-                TreeUtils.getMethods("java.sql.Connection", "prepareStatement", 3, processingEnv));
-        connectionPrepareStatementMethods.addAll(
-                TreeUtils.getMethods("java.sql.Connection", "prepareStatement", 4, processingEnv));
     }
 
     private void insertAnnotation(
