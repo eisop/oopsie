@@ -42,7 +42,7 @@ dependencies {
 
     errorprone("com.google.errorprone:error_prone_core:2.36.0")
 
-    implementation("com.google.guava:guava:33.4.0-jre")
+    implementation("com.google.guava:guava:33.4.5-jre")
     implementation("org.apache.commons:commons-csv:1.13.0")
 
     testImplementation("junit:junit:4.13.2")
