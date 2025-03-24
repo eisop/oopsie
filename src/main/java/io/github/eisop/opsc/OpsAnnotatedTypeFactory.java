@@ -1,9 +1,6 @@
 package io.github.eisop.opsc;
 
-import com.sun.source.tree.ExpressionTree;
-import com.sun.source.tree.LineMap;
-import com.sun.source.tree.LiteralTree;
-import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.*;
 import io.github.eisop.opsc.db.CalciteSchemaInfo;
 import io.github.eisop.opsc.db.JDBCSchemaInfo;
 import io.github.eisop.opsc.db.SchemaInfo;
@@ -19,9 +16,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.util.Elements;
@@ -69,7 +64,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     protected final ExecutableElement sqlColumnElement =
             TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "column", 0, processingEnv);
     private final OpsLogger logger = ((OpsChecker) checker).getLogger();
-    private final ExecutableElement stringValValueELement =
+    private final ExecutableElement stringValValueElement =
             TreeUtils.getMethod(
                     "org.checkerframework.common.value.qual.StringVal", "value", 0, processingEnv);
     private final List<ExecutableElement> connectionPrepareStatementMethods;
@@ -244,7 +239,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 OpscType sup = OpscType.fromAnnotationString(superOut.get(i));
 
                 // Check if the types are equal
-                if (!sub.dataTypeMatches(sup, true)) {
+                if (!sub.dataTypeMatches(sup)) {
                     return false;
                 }
 
@@ -334,7 +329,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         if (out1Type.equals(out2Type)) {
                             outLub.add(out1.get(i));
                         } else {
-                            if (out1Type.equalsIgnoringName(out2Type, true)) {
+                            if (out1Type.equalsIgnoringName(out2Type)) {
                                 outLub.add(out1.get(i));
                             } else {
                                 break;
@@ -406,15 +401,20 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 // Analyse the statement and annotate the returned type
                 type.replaceAnnotation(annotateStatement(tree, false));
             } else if (isStatementToResultSetMethodInvocation(tree)) {
-                // get type annotation from PreparedStatement and transfer it to the result set
+                // get type annotation from PreparedStatement and transfer it to the ResultSet
                 AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
-                if (receiverType.hasAnnotation(SqlUnsupported.class)) {
+                if (receiverType == null) {
+                    throw new TypeSystemError("could not get receiver type of PreparedStatement");
+                }
+
+                AnnotationMirror sqlUnsupportedAnnotation =
+                        receiverType.getAnnotation(SqlUnsupported.class);
+                AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
+
+                if (sqlUnsupportedAnnotation != null) {
                     // Transfer @SqlUnsupported from PreparedStatement to ResultSet
-                    AnnotationMirror sqlAnnotation =
-                            receiverType.getAnnotation(SqlUnsupported.class);
-                    type.replaceAnnotation(sqlAnnotation);
-                } else if (receiverType.hasAnnotation(Sql.class)) {
-                    AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
+                    type.replaceAnnotation(sqlUnsupportedAnnotation);
+                } else if (sqlAnnotation != null) {
                     List<String> out =
                             AnnotationUtils.getElementValueArray(
                                     sqlAnnotation,
@@ -439,10 +439,6 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         }
 
         private boolean isConnectionPrepareStatementMethodInvocation(MethodInvocationTree tree) {
-            int argSize = tree.getArguments().size();
-            if (argSize < 1 || argSize > 4) {
-                return false;
-            }
             return connectionPrepareStatementMethods.stream()
                     .anyMatch(m -> TreeUtils.isMethodInvocation(tree, m, processingEnv));
         }
@@ -496,16 +492,18 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
         // determine types for the first string, with warnings flag activated
         List<AnnotationMirror> annos = new ArrayList<>();
-        annos.add(buildSqlAnnotation(stmts.get(0), tree, isPreparedStatement, true));
 
-        // add all others with warnings flag deactivated (to avoid multiple warnings)
-        annos.addAll(
-                stmts.stream()
-                        .skip(1)
-                        .map(s -> buildSqlAnnotation(s, tree, isPreparedStatement, false))
-                        .collect(Collectors.toList()));
+        boolean first = true;
+        for (String stmt : stmts) {
+            AnnotationMirror anno = buildSqlAnnotation(stmt, tree, isPreparedStatement, first);
+            if (anno == null) {
+                return SQLUNSUPPORTED;
+            }
+            annos.add(anno);
+            first = false;
+        }
 
-        if (annos.stream().anyMatch(Objects::isNull)) {
+        if (annos.isEmpty()) {
             return SQLUNSUPPORTED;
         }
 
@@ -516,25 +514,17 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             logger.simpleStatementEntry(
                     OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
                     root,
-                    trees.getSourcePositions().getStartPosition(root, arg),
+                    getStartPosition(arg),
                     "statement string could evaluate to multiple string values",
                     isPreparedStatement);
             return SQLUNSUPPORTED;
         }
 
         AnnotationMirror annotation = annos.get(0);
-        if (annotation != null) {
-            String details = annos.get(0).toString();
-            logSupportedStatement(
-                    tree,
-                    details,
-                    stmts.get(0),
-                    getInElement(annotation).size(),
-                    isPreparedStatement);
-            return annotation;
-        }
-
-        return SQLUNSUPPORTED;
+        String details = annos.get(0).toString();
+        logSupportedStatement(
+                tree, details, stmts.get(0), getInElement(annotation).size(), isPreparedStatement);
+        return annotation;
     }
 
     /**
@@ -563,7 +553,9 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     checker.reportWarning(
                             tree,
                             "determine.in.type.failed.first.try",
-                            calciteException.getMessage(),
+                            calciteException.getMessage() == null
+                                    ? ""
+                                    : calciteException.getMessage(),
                             stmt);
                 }
             } catch (OpsDatabaseException jdbcException) {
@@ -575,7 +567,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         stmt);
                 logger.unsupportedPreparedStatement(
                         root,
-                        trees.getSourcePositions().getStartPosition(root, tree),
+                        getStartPosition(tree),
                         calciteException.getMessage() + "--- JDBC: " + jdbcException.getMessage(),
                         stmt,
                         isPreparedStatement);
@@ -585,7 +577,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 logger.simpleStatementEntry(
                         OpsLogEntryKind.USING_FALLBACK,
                         root,
-                        trees.getSourcePositions().getStartPosition(root, tree),
+                        getStartPosition(tree),
                         calciteException.getMessage(),
                         isPreparedStatement);
             }
@@ -603,16 +595,21 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     checker.reportWarning(
                             tree,
                             "determine.out.type.failed.first.try",
-                            calciteException.getMessage(),
+                            calciteException.getMessage() == null
+                                    ? ""
+                                    : calciteException.getMessage(),
                             stmt);
                 }
             } catch (OpsDatabaseException jdbcException) {
                 if (!warnAndLog) return null;
                 checker.reportError(
-                        tree, "determine.out.type.failed.final", jdbcException.getMessage(), stmt);
+                        tree,
+                        "determine.out.type.failed.final",
+                        jdbcException.getMessage() == null ? "" : jdbcException.getMessage(),
+                        stmt);
                 logger.unsupportedPreparedStatement(
                         root,
-                        trees.getSourcePositions().getStartPosition(root, tree),
+                        getStartPosition(tree),
                         calciteException.getMessage() + "--- JDBC: " + jdbcException.getMessage(),
                         stmt,
                         isPreparedStatement);
@@ -622,7 +619,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                 logger.simpleStatementEntry(
                         OpsLogEntryKind.USING_FALLBACK,
                         root,
-                        trees.getSourcePositions().getStartPosition(root, tree),
+                        getStartPosition(tree),
                         calciteException.getMessage(),
                         isPreparedStatement);
             }
@@ -667,22 +664,17 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                         && getOutElement(a1).equals(getOutElement(a2)));
     }
 
-    /**
-     * Retrieves the string value from the given expression tree. If the expression is a string
-     * literal, it returns the literal value. If the expression has a `@StringVal` annotation, it
-     * returns the values from the annotation. If the string value cannot be determined, it logs the
-     * issue and returns null.
-     *
-     * @param stringExpression the expression tree representing the string
-     * @param isPreparedStatement whether the string is part of a prepared statement
-     * @return a list of string values or null if the value cannot be determined
-     */
+    private long getStartPosition(Tree tree) {
+        if (root == null) {
+            return -1;
+        }
+        return trees.getSourcePositions().getStartPosition(root, tree);
+    }
+
     private @Nullable List<String> retrieveStringValue(
             ExpressionTree stringExpression, boolean isPreparedStatement) {
         if (stringExpression.getKind() == ExpressionTree.Kind.STRING_LITERAL) {
-            List<String> strings = new ArrayList<>();
-            strings.add((String) ((LiteralTree) stringExpression).getValue());
-            return strings;
+            return Collections.singletonList((String) ((LiteralTree) stringExpression).getValue());
         }
 
         AnnotationMirror stringValAnnoMirror = getStringValAnnoMirror(stringExpression);
@@ -691,7 +683,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             logger.simpleStatementEntry(
                     OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
                     root,
-                    trees.getSourcePositions().getStartPosition(root, stringExpression),
+                    getStartPosition(stringExpression),
                     "",
                     isPreparedStatement);
             return null;
@@ -700,7 +692,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         List<String> values =
                 AnnotationUtils.getElementValueArray(
                         stringValAnnoMirror,
-                        stringValValueELement,
+                        stringValValueElement,
                         String.class,
                         Collections.emptyList());
 
@@ -709,7 +701,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             logger.simpleStatementEntry(
                     OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
                     root,
-                    trees.getSourcePositions().getStartPosition(root, stringExpression),
+                    getStartPosition(stringExpression),
                     "",
                     isPreparedStatement);
             return null;
@@ -727,7 +719,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             logger.simpleStatementEntry(
                     OpsLogEntryKind.USING_SQL_STRING_HEURISTIC,
                     root,
-                    trees.getSourcePositions().getStartPosition(root, stringExpression),
+                    getStartPosition(stringExpression),
                     null,
                     isPreparedStatement);
             return values.subList(0, 1);
@@ -753,11 +745,6 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             int nParameters,
             boolean isPreparedStatement) {
         logger.supportedStatement(
-                root,
-                trees.getSourcePositions().getStartPosition(root, tree),
-                details,
-                stmt,
-                nParameters,
-                isPreparedStatement);
+                root, getStartPosition(tree), details, stmt, nParameters, isPreparedStatement);
     }
 }

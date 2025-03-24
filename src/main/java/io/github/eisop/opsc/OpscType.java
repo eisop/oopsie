@@ -53,12 +53,8 @@ public final class OpscType {
         return new OpscType(columnDataType, columnAnnotations, columnName);
     }
 
-    public boolean dataTypeMatches(OpscType other, boolean ignoreCase) {
-        if (ignoreCase) {
-            return columnDataType.equalsIgnoreCase(other.columnDataType);
-        } else {
-            return columnDataType.equals(other.columnDataType);
-        }
+    public boolean dataTypeMatches(OpscType other) {
+        return columnDataType.equalsIgnoreCase(other.columnDataType);
     }
 
     @Override
@@ -72,18 +68,17 @@ public final class OpscType {
         }
 
         if (columnName == null) {
-            return equalsIgnoringName(other, true) && other.columnName == null;
+            return equalsIgnoringName(other) && other.columnName == null;
         }
 
-        return dataTypeMatches(other, true)
+        return dataTypeMatches(other)
                && columnAnnotations.equals(other.columnAnnotations)
                && other.columnName != null
                && columnName.equalsIgnoreCase(other.columnName);
     }
 
-    public boolean equalsIgnoringName(OpscType other, boolean ignoreCase) {
-        return dataTypeMatches(other, ignoreCase)
-               && columnAnnotations.equals(other.columnAnnotations);
+    public boolean equalsIgnoringName(OpscType other) {
+        return dataTypeMatches(other) && columnAnnotations.equals(other.columnAnnotations);
     }
 
     @Override
