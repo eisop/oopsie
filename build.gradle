@@ -9,7 +9,7 @@ plugins {
     id("idea")
     // To show task list as a tree, run: ./gradlew <taskname> taskTree
     id("com.dorongold.task-tree").version("4.0.1")
-    id("org.checkerframework").version("0.6.52")
+    id("org.checkerframework").version("0.6.53")
 }
 
 repositories {
