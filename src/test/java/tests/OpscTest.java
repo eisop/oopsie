@@ -21,11 +21,12 @@ public class OpscTest extends CheckerFrameworkPerDirectoryTest {
                 testFiles,
                 OpsChecker.class,
                 "opsc",
-                "-AnonNullStringsConcatenation=true",
                 "-AdbUrl=" + DB_URL_MYSQL,
                 "-AdbUser=" + DB_USER_MYSQL,
                 "-AdbPassword=" + DB_PASSWORD_MYSQL,
-                "-AenableSqlStringHeuristic=true");
+                "-AenableSqlStringHeuristic=true",
+                "-AnonNullStringsConcatenation=true",
+                "-Astubs=src/main/java/io/github/eisop/opsc/jdbc.astub");
     }
 
     @Parameters
