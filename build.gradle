@@ -9,7 +9,7 @@ plugins {
     id("idea")
     // To show task list as a tree, run: ./gradlew <taskname> taskTree
     id("com.dorongold.task-tree").version("4.0.1")
-    id("org.checkerframework").version("0.6.52")
+    id("org.checkerframework").version("0.6.53")
 }
 
 repositories {
@@ -42,7 +42,7 @@ dependencies {
 
     errorprone("com.google.errorprone:error_prone_core:2.37.0")
 
-    implementation("com.google.guava:guava:33.4.5-jre")
+    implementation("com.google.guava:guava:33.4.8-jre")
     implementation("org.apache.commons:commons-csv:1.14.0")
 
     testImplementation("junit:junit:4.13.2")
@@ -121,7 +121,7 @@ checkerFramework {
         '-AwarnUnneededSuppressions',
         '-AnoJreVersionCheck',
         '-Aversion',
-        "-Astubs=${file('src/main/java/io/github/eisop/opsc/db/jdbc.astub')}"
+        "-Astubs=${file('src/main/java/io/github/eisop/opsc/jdbc.astub')}"
     ]
 }
 
