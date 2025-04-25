@@ -1,7 +1,0 @@
-import org.jspecify.annotations.Nullable;
-
-package java.sql;
-
-public class DriverManager {
-    public static Connection getConnection(String url, @Nullable String user, @Nullable String password);
-}
