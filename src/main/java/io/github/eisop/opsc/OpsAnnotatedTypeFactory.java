@@ -78,6 +78,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             TreeUtils.getMethod(
                     "org.checkerframework.common.value.qual.StringVal", "value", 0, processingEnv);
 
+    private final List<ExecutableElement> sqlUnsupportedMethods;
+
     private SchemaInfo calciteSchemaInfo;
 
     // Used as fallback
@@ -86,6 +88,15 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     @SuppressWarnings("this-escape") // Call to postInit().
     public OpsAnnotatedTypeFactory(BaseTypeChecker checker) {
         super(checker);
+
+        sqlUnsupportedMethods =
+                TreeUtils.getMethods("java.sql.Connection", "prepareCall", 1, processingEnv);
+        sqlUnsupportedMethods.addAll(
+                TreeUtils.getMethods("java.sql.Connection", "prepareCall", 3, processingEnv));
+        sqlUnsupportedMethods.addAll(
+                TreeUtils.getMethods("java.sql.Connection", "prepareCall", 4, processingEnv));
+        sqlUnsupportedMethods.addAll(
+                TreeUtils.getMethods("java.sql.Statement", "getGeneratedKeys", 0, processingEnv));
 
         initSchemaInfo(checker);
 
@@ -383,6 +394,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             if (resultSetRetrievalAnno != null) {
                 handleResultSetRetrieval(tree, type);
                 return super.visitMethodInvocation(tree, type);
+            }
+
+            if (isSqlUnsupportedMethodInvocation(tree)) {
+                type.replaceAnnotation(SQLUNSUPPORTED);
             }
 
             return super.visitMethodInvocation(tree, type);
@@ -728,6 +743,15 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     root, getStartPosition(tree), details, stmt, nParameters, isPreparedStatement);
         }
 
+    }
+
+    private boolean isSqlUnsupportedMethodInvocation(MethodInvocationTree tree) {
+        int argSize = tree.getArguments().size();
+        if (argSize == 2 || argSize > 4) {
+            return false;
+        }
+        return sqlUnsupportedMethods.stream()
+                .anyMatch(m -> TreeUtils.isMethodInvocation(tree, m, processingEnv));
     }
 
     private List<String> getInElement(AnnotationMirror a1) {
