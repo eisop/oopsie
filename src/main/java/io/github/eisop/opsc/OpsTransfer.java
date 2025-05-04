@@ -1,8 +1,7 @@
 package io.github.eisop.opsc;
 
 import com.sun.source.tree.MethodInvocationTree;
-import java.util.List;
-import javax.annotation.processing.ProcessingEnvironment;
+import io.github.eisop.opsc.qual.CreatesSqlStatement;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import org.checkerframework.dataflow.analysis.TransferInput;
@@ -16,34 +15,18 @@ import org.checkerframework.framework.flow.CFTransfer;
 import org.checkerframework.framework.flow.CFValue;
 import org.checkerframework.javacutil.TreeUtils;
 import org.checkerframework.javacutil.TypeSystemError;
+import org.jspecify.annotations.Nullable;
 
 /** The transfer function for OPSC. */
 public class OpsTransfer extends CFTransfer {
 
     private final OpsAnnotatedTypeFactory aTypeFactory;
-    private final ProcessingEnvironment processingEnv;
-
-    private final List<ExecutableElement> statementExecuteMethods;
 
     /** Create the transfer function for the OPSC. */
     public OpsTransfer(CFAbstractAnalysis<CFValue, CFStore, CFTransfer> analysis) {
         super(analysis);
 
         aTypeFactory = (OpsAnnotatedTypeFactory) analysis.getTypeFactory();
-        processingEnv = aTypeFactory.getProcessingEnv();
-
-        statementExecuteMethods =
-                TreeUtils.getMethods("java.sql.Statement", "execute", 1, processingEnv);
-        statementExecuteMethods.addAll(
-                TreeUtils.getMethods("java.sql.Statement", "execute", 2, processingEnv));
-        statementExecuteMethods.addAll(
-                TreeUtils.getMethods("java.sql.Statement", "executeLargeUpdate", 1, processingEnv));
-        statementExecuteMethods.addAll(
-                TreeUtils.getMethods("java.sql.Statement", "executeLargeUpdate", 2, processingEnv));
-        statementExecuteMethods.addAll(
-                TreeUtils.getMethods("java.sql.Statement", "executeUpdate", 1, processingEnv));
-        statementExecuteMethods.addAll(
-                TreeUtils.getMethods("java.sql.Statement", "executeUpdate", 2, processingEnv));
     }
 
     private void insertAnnotation(
@@ -66,23 +49,28 @@ public class OpsTransfer extends CFTransfer {
             throw new TypeSystemError("MethodInvocationNode has null tree: " + n);
         }
 
-        if (!isStatementExecuteMethodInvocation(tree)) {
+        AnnotationMirror createsSqlStatementAnno = getCreatesSqlStatementAnno(tree);
+        if (createsSqlStatementAnno == null) {
+            return result;
+        }
+
+        // We are looking for methods where the receiver should be annotated
+        // and assume this is the case for methods with a primitive or void return type
+        if (!(n.getType().getKind().isPrimitive()
+                || n.getType().getKind() == javax.lang.model.type.TypeKind.VOID)) {
             return result;
         }
 
         // annotate the receiver with a Sql or SqlUnsupported annotation
         Node receiver = n.getTarget().getReceiver();
-        AnnotationMirror sqlAnnotation = aTypeFactory.annotateStatement(tree, false);
+        AnnotationMirror sqlAnnotation =
+                aTypeFactory.annotateStatement(tree, createsSqlStatementAnno);
         insertAnnotation(sqlAnnotation, result, receiver);
         return result;
     }
 
-    private boolean isStatementExecuteMethodInvocation(MethodInvocationTree tree) {
-        int argSize = tree.getArguments().size();
-        if (argSize < 1 || argSize > 2) {
-            return false;
-        }
-        return statementExecuteMethods.stream()
-                .anyMatch(m -> TreeUtils.isMethodInvocation(tree, m, processingEnv));
+    private @Nullable AnnotationMirror getCreatesSqlStatementAnno(MethodInvocationTree invocation) {
+        ExecutableElement method = TreeUtils.elementFromUse(invocation);
+        return aTypeFactory.getDeclAnnotation(method, CreatesSqlStatement.class);
     }
 }
