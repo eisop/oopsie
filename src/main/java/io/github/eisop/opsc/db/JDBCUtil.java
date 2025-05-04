@@ -10,87 +10,47 @@ public final class JDBCUtil {
     }
 
     public static String jdbcTypeNameFromOrdinal(int ordinal) {
-        switch (ordinal) {
-            case Types.BIT:
-                return "BIT";
-            case Types.TINYINT:
-                return "TINYINT";
-            case Types.SMALLINT:
-                return "SMALLINT";
-            case Types.INTEGER:
-                return "INTEGER";
-            case Types.BIGINT:
-                return "BIGINT";
-            case Types.FLOAT:
-                return "FLOAT";
-            case Types.REAL:
-                return "REAL";
-            case Types.DOUBLE:
-                return "DOUBLE";
-            case Types.NUMERIC:
-                return "NUMERIC";
-            case Types.DECIMAL:
-                return "DECIMAL";
-            case Types.CHAR:
-                return "CHAR";
-            case Types.VARCHAR:
-                return "VARCHAR";
-            case Types.LONGVARCHAR:
-                return "LONGVARCHAR";
-            case Types.DATE:
-                return "DATE";
-            case Types.TIME:
-                return "TIME";
-            case Types.TIMESTAMP:
-                return "TIMESTAMP";
-            case Types.BINARY:
-                return "BINARY";
-            case Types.VARBINARY:
-                return "VARBINARY";
-            case Types.LONGVARBINARY:
-                return "LONGVARBINARY";
-            case Types.NULL:
-                return "NULL";
-            case Types.OTHER:
-                return "OTHER";
-            case Types.JAVA_OBJECT:
-                return "JAVA_OBJECT";
-            case Types.DISTINCT:
-                return "DISTINCT";
-            case Types.STRUCT:
-                return "STRUCT";
-            case Types.ARRAY:
-                return "ARRAY";
-            case Types.BLOB:
-                return "BLOB";
-            case Types.CLOB:
-                return "CLOB";
-            case Types.REF:
-                return "REF";
-            case Types.DATALINK:
-                return "DATALINK";
-            case Types.BOOLEAN:
-                return "BOOLEAN";
-            case Types.ROWID:
-                return "ROWID";
-            case Types.NCHAR:
-                return "NCHAR";
-            case Types.NVARCHAR:
-                return "NVARCHAR";
-            case Types.LONGNVARCHAR:
-                return "LONGNVARCHAR";
-            case Types.NCLOB:
-                return "NCLOB";
-            case Types.SQLXML:
-                return "SQLXML";
-            case Types.REF_CURSOR:
-                return "REF_CURSOR";
-            case Types.TIME_WITH_TIMEZONE:
-                return "TIME_WITH_TIMEZONE";
-            case Types.TIMESTAMP_WITH_TIMEZONE:
-                return "TIMESTAMP_WITH_TIMEZONE";
-            default:
-                throw new TypeSystemError("Unknown JDBC type");
-        }
+        return switch (ordinal) {
+            case Types.BIT -> "BIT";
+            case Types.TINYINT -> "TINYINT";
+            case Types.SMALLINT -> "SMALLINT";
+            case Types.INTEGER -> "INTEGER";
+            case Types.BIGINT -> "BIGINT";
+            case Types.FLOAT -> "FLOAT";
+            case Types.REAL -> "REAL";
+            case Types.DOUBLE -> "DOUBLE";
+            case Types.NUMERIC -> "NUMERIC";
+            case Types.DECIMAL -> "DECIMAL";
+            case Types.CHAR -> "CHAR";
+            case Types.VARCHAR -> "VARCHAR";
+            case Types.LONGVARCHAR -> "LONGVARCHAR";
+            case Types.DATE -> "DATE";
+            case Types.TIME -> "TIME";
+            case Types.TIMESTAMP -> "TIMESTAMP";
+            case Types.BINARY -> "BINARY";
+            case Types.VARBINARY -> "VARBINARY";
+            case Types.LONGVARBINARY -> "LONGVARBINARY";
+            case Types.NULL -> "NULL";
+            case Types.OTHER -> "OTHER";
+            case Types.JAVA_OBJECT -> "JAVA_OBJECT";
+            case Types.DISTINCT -> "DISTINCT";
+            case Types.STRUCT -> "STRUCT";
+            case Types.ARRAY -> "ARRAY";
+            case Types.BLOB -> "BLOB";
+            case Types.CLOB -> "CLOB";
+            case Types.REF -> "REF";
+            case Types.DATALINK -> "DATALINK";
+            case Types.BOOLEAN -> "BOOLEAN";
+            case Types.ROWID -> "ROWID";
+            case Types.NCHAR -> "NCHAR";
+            case Types.NVARCHAR -> "NVARCHAR";
+            case Types.LONGNVARCHAR -> "LONGNVARCHAR";
+            case Types.NCLOB -> "NCLOB";
+            case Types.SQLXML -> "SQLXML";
+            case Types.REF_CURSOR -> "REF_CURSOR";
+            case Types.TIME_WITH_TIMEZONE -> "TIME_WITH_TIMEZONE";
+            case Types.TIMESTAMP_WITH_TIMEZONE -> "TIMESTAMP_WITH_TIMEZONE";
+            default -> throw new TypeSystemError("Unknown JDBC type");
+        };
     }
 }

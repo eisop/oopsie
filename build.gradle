@@ -1,15 +1,15 @@
 plugins {
     id("java")
     // https://github.com/tbroyer/gradle-errorprone-plugin
-    id("net.ltgt.errorprone").version("4.1.0")
+    id("net.ltgt.errorprone").version("4.2.0")
     id("maven-publish")
-    id("com.diffplug.spotless").version("7.0.2")
+    id("com.diffplug.spotless").version("7.0.3")
     // https://docs.gradle.org/current/userguide/eclipse_plugin.html
     id("eclipse")
     id("idea")
     // To show task list as a tree, run: ./gradlew <taskname> taskTree
     id("com.dorongold.task-tree").version("4.0.1")
-    id("org.checkerframework").version("0.6.52")
+    id("org.checkerframework").version("0.6.53")
 }
 
 repositories {
@@ -40,10 +40,10 @@ dependencies {
     implementation("org.apache.calcite:calcite-core:1.37.0")
     implementation("org.postgresql:postgresql:42.7.5")
 
-    errorprone("com.google.errorprone:error_prone_core:2.36.0")
+    errorprone("com.google.errorprone:error_prone_core:2.38.0")
 
-    implementation("com.google.guava:guava:33.4.0-jre")
-    implementation("org.apache.commons:commons-csv:1.13.0")
+    implementation("com.google.guava:guava:33.4.8-jre")
+    implementation("org.apache.commons:commons-csv:1.14.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("io.github.eisop:checker:${versions.checkerFramework}")
@@ -121,7 +121,7 @@ checkerFramework {
         '-AwarnUnneededSuppressions',
         '-AnoJreVersionCheck',
         '-Aversion',
-        "-Astubs=${file('src/main/java/io/github/eisop/opsc/db/jdbc.astub')}"
+        "-Astubs=${file('src/main/java/io/github/eisop/opsc/jdbc.astub')}"
     ]
 }
 
