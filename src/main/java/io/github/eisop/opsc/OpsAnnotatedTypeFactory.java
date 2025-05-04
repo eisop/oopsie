@@ -459,8 +459,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
      * parsable. Success or errors are logged and appropriate warnings emitted.
      */
     protected AnnotationMirror annotateStatement(
-            MethodInvocationTree tree,
-            AnnotationMirror methodAnnotation) {
+            MethodInvocationTree tree, AnnotationMirror methodAnnotation) {
         boolean isPreparedStatement =
                 AnnotationUtils.getElementValueBoolean(
                         methodAnnotation, isPreparedStatementElement, true);
