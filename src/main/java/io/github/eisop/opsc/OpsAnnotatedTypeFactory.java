@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.util.Elements;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
@@ -394,18 +395,18 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             if (tree.getArguments().size() > 4) return super.visitMethodInvocation(tree, type);
 
             AnnotationMirror createsSqlStatementAnno = getCreatesSqlStatementAnno(tree);
-            if (createsSqlStatementAnno != null) {
+            if (createsSqlStatementAnno != null && !isEnclosingMethodAnnotated(tree)) {
                 type.replaceAnnotation(annotateStatement(tree, createsSqlStatementAnno));
                 return super.visitMethodInvocation(tree, type);
             }
 
             AnnotationMirror resultSetRetrievalAnno = getResultSetRetrievalAnno(tree);
-            if (resultSetRetrievalAnno != null) {
+            if (resultSetRetrievalAnno != null && !isEnclosingMethodAnnotated(tree)) {
                 handleResultSetRetrieval(tree, type);
                 return super.visitMethodInvocation(tree, type);
             }
 
-            if (isSqlUnsupportedMethodInvocation(tree)) {
+            if (isSqlUnsupportedMethodInvocation(tree) && !isEnclosingMethodAnnotated(tree)) {
                 type.replaceAnnotation(SQLUNSUPPORTED);
             }
 
@@ -651,6 +652,15 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         }
 
         return createSqlAnnotation(in, out, file, line, column);
+    }
+
+    protected boolean isEnclosingMethodAnnotated(MethodInvocationTree tree) {
+        Tree enclosingClassOrMethod = getEnclosingClassOrMethod(tree);
+        if (enclosingClassOrMethod == null) return false;
+        Element element = TreeUtils.elementFromTree(enclosingClassOrMethod);
+        if (element == null) return false;
+        return element.getAnnotation(CreatesSqlStatement.class) != null
+                || element.getAnnotation(RetrievesSqlResultSet.class) != null;
     }
 
     private @Nullable List<String> getOutType(String stmt, SchemaInfo schemaInfo)
