@@ -120,8 +120,7 @@ checkerFramework {
         '-AwarnRedundantAnnotations',
         '-AwarnUnneededSuppressions',
         '-AnoJreVersionCheck',
-        '-Aversion',
-        "-Astubs=${file('src/main/java/io/github/eisop/opsc/jdbc.astub')}"
+        '-Aversion'
     ]
 }
 
