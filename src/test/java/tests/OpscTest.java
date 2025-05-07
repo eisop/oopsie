@@ -23,8 +23,7 @@ public class OpscTest extends CheckerFrameworkPerDirectoryTest {
                 "-AdbUser=" + DB_USER,
                 "-AdbPassword=" + DB_PASSWORD,
                 "-AenableSqlStringHeuristic=false",
-                "-AnonNullStringsConcatenation=true",
-                "-Astubs=src/main/java/io/github/eisop/opsc/jdbc.astub");
+                "-AnonNullStringsConcatenation=true");
     }
 
     @Parameters
