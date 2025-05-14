@@ -1,5 +1,3 @@
-// NOT IMPLEMENTED FOR JAVA 8
-
 import java.math.BigDecimal;
 import java.sql.*;
 
@@ -27,4 +25,29 @@ class ColumnNames {
         int billingPostalCode = rs.getInt("BillingPostalCode"); // actually varchar
     }
 
+    void namedColumnsWithoutCalcite(Connection conn) throws SQLException {
+        // force fallback JDBCSchemaInfo, with "SELECT ?" which is not supported by Calcite
+
+        // sadly this doesn't work because the Postgres driver doesn't provide the column names
+        // :: warning: (determine.in.type.failed.first.try)
+        // :: warning: (determine.out.type.failed.first.try)
+        PreparedStatement ps = conn.prepareStatement("SELECT ?; SELECT * FROM Invoice");
+        ResultSet rs = ps.executeQuery();
+
+        // :: error: (column.name.not.found)
+        int invoiceId = rs.getInt("InvoiceId"); // this should work
+
+        // :: error: (column.name.not.found)
+        int billingPostalCode = rs.getInt("BillingPostalCode"); // actually varchar
+    }
+
+    void namedColumnNoLiteral(Connection conn) throws SQLException {
+        String columnName = "InvoiceId";
+        PreparedStatement ps = conn.prepareStatement("SELECT * FROM Invoice");
+        ResultSet rs = ps.executeQuery();
+
+        int invoiceId = rs.getInt(columnName);
+        // :: error: (column.type.incompatible)
+        Date invoiceDate = rs.getDate(columnName);
+    }
 }

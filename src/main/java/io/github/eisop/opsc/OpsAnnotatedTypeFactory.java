@@ -65,7 +65,9 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     protected final ExecutableElement isPreparedStatementElement = TreeUtils.getMethod("io.github.eisop.opsc.qual.CreatesSqlStatement", "preparedStatement", 0, processingEnv);
     protected final ExecutableElement statementStringParameterElement = TreeUtils.getMethod("io.github.eisop.opsc.qual.CreatesSqlStatement", "statementStringParameter", 0, processingEnv);
     private final OpsLogger logger = ((OpsChecker) checker).getLogger();
-    private final ExecutableElement stringValValueElement = TreeUtils.getMethod("org.checkerframework.common.value.qual.StringVal", "value", 0, processingEnv);
+    protected final ExecutableElement stringValValueElement =
+            TreeUtils.getMethod(
+                    "org.checkerframework.common.value.qual.StringVal", "value", 0, processingEnv);
 
     private final List<ExecutableElement> sqlUnsupportedMethods;
 
@@ -570,7 +572,8 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
             return null;
         }
 
-        List<String> values = AnnotationUtils.getElementValueArray(stringValAnnoMirror, stringValValueElement, String.class, Collections.emptyList());
+        List<String> values =
+                OpsUtils.retrieveStringValues(stringValAnnoMirror, stringValValueElement);
 
         if (values.isEmpty()) {
             checker.reportWarning(stringExpression, "statement.string.retrieval.failed");
@@ -591,8 +594,9 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         return values;
     }
 
-    private AnnotationMirror getStringValAnnoMirror(final ExpressionTree valueExp) {
-        ValueAnnotatedTypeFactory valueAnnotatedTypeFactory = getTypeFactoryOfSubchecker(ValueChecker.class);
+    protected @Nullable AnnotationMirror getStringValAnnoMirror(final ExpressionTree valueExp) {
+        ValueAnnotatedTypeFactory valueAnnotatedTypeFactory =
+                getTypeFactoryOfSubchecker(ValueChecker.class);
         if (valueAnnotatedTypeFactory == null) {
             throw new TypeSystemError("Missing subchecker ValueChecker");
         }

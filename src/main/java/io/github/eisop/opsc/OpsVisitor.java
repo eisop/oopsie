@@ -7,7 +7,11 @@ import com.sun.source.tree.Tree;
 import io.github.eisop.opsc.log.OpsLogger;
 import io.github.eisop.opsc.qual.Sql;
 import io.github.eisop.opsc.qual.SqlUnsupported;
-import java.util.*;
+
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
@@ -218,165 +222,173 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
         if (receiverType.hasAnnotation(Sql.class)) {
             AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
             ExpressionTree indexTree = tree.getArguments().get(0);
-            if (indexTree.getKind() == Tree.Kind.STRING_LITERAL) {
-                LiteralTree literal = (LiteralTree) indexTree;
-                String columnName = (String) literal.getValue();
-                List<String> out =
-                        AnnotationUtils.getElementValueArray(
-                                sqlAnnotation,
-                                sqlOutElement,
-                                String.class,
-                                Collections.emptyList());
-
-                Optional<String> matchedColumn = out.stream()
-                        .filter(s -> columnNamesMatch(s, columnName))
-                        .findFirst();
-                if (matchedColumn.isPresent()) {
-                    int index = out.indexOf(matchedColumn.get());
-                    checkGetResult(
-                            tree,
-                            method.getSimpleName().toString(),
-                            sqlAnnotation,
-                            index);
-                } else {
-                    checker.reportError(tree, "column.name.not.found", columnName);
-                    logError(
-                            tree,
-                            "column.name.not.found",
-                            "name=" + columnName,
-                            sqlAnnotation);
-                }
+            AnnotationMirror stringValAnno = atypeFactory.getStringValAnnoMirror(indexTree);
+            List<String> stringValues =
+                    OpsUtils.retrieveStringValues(
+                            stringValAnno, atypeFactory.stringValValueElement);
+            if (stringValues.size() != 1) {
+                checker.reportWarning(indexTree, "column.name.extraction.failed");
+                logWarning(tree, "column.name.extraction.failed", "", sqlAnnotation);
+                return;
             }
-        }
-    }
 
-    private void checkGetResult(
-            MethodInvocationTree tree,
-            String methodName,
-            AnnotationMirror sqlAnnotation,
-            int index) {
-        List<String> out =
-                AnnotationUtils.getElementValueArray(
-                        sqlAnnotation, sqlOutElement, String.class, Collections.emptyList());
-        if (index >= out.size()) {
-            checker.reportError(tree, "column.index.out.of.bounds", index + 1, out.size());
-            logError(
-                    tree,
-                    "column.index.out.of.bounds",
-                    "index=" + index + ", size=" + out.size(),
-                    sqlAnnotation);
-        } else {
-            OpsCheckResult result = typeMapping.checkCall(methodName, out.get(index));
-            if (result.getKind() == OpsCheckResultKind.ERROR) {
-                checker.reportError(tree, "column.type.incompatible", methodName, out.get(index));
+            String columnName = stringValues.get(0);
+            List<String> out =
+                    AnnotationUtils.getElementValueArray(
+                            sqlAnnotation,
+                            sqlOutElement,
+                            String.class,
+                            Collections.emptyList());
+
+            Optional<String> matchedColumn = out.stream()
+                    .filter(s -> columnNamesMatch(s, columnName))
+                    .findFirst();
+            if (matchedColumn.isPresent()) {
+                int index = out.indexOf(matchedColumn.get());
+                checkGetResult(
+                        tree,
+                        method.getSimpleName().toString(),
+                        sqlAnnotation,
+                        index);
+            } else {
+                checker.reportError(tree, "column.name.not.found", columnName);
                 logError(
                         tree,
-                        "column." + result.getDetails(),
-                        "expected=" + methodName + ", actual=" + out.get(index),
+                        "column.name.not.found",
+                        "name=" + columnName,
                         sqlAnnotation);
-            } else if (result.getKind() == OpsCheckResultKind.WARNING) {
-                checker.reportWarning(
-                        tree,
-                        "warning.column.types",
-                        methodName,
-                        out.get(index),
-                        result.getDetails());
-                logWarning(
-                        tree,
-                        "column." + result.getDetails(),
-                        "expected=" + methodName + ", actual=" + out.get(index),
-                        sqlAnnotation);
-            } else {
-                logOk(tree, "column.get", sqlAnnotation);
             }
         }
     }
+}
 
-    private boolean isNonLocal(AnnotatedTypeMirror type) {
-        return !(type.hasAnnotation(Sql.class) || type.hasAnnotation(SqlUnsupported.class));
-    }
-
-    private boolean columnNamesMatch(String ann, String other) {
-        String name = OpsAnnotatedTypeFactory.getName(ann);
-        return name != null && name.equalsIgnoreCase(other);
-    }
-
-    private int retrieveIntValue(ExpressionTree intExpression) {
-        if (intExpression.getKind() == ExpressionTree.Kind.INT_LITERAL) {
-            return (int) ((LiteralTree) intExpression).getValue();
+private void checkGetResult(
+        MethodInvocationTree tree,
+        String methodName,
+        AnnotationMirror sqlAnnotation,
+        int index) {
+    List<String> out =
+            AnnotationUtils.getElementValueArray(
+                    sqlAnnotation, sqlOutElement, String.class, Collections.emptyList());
+    if (index >= out.size()) {
+        checker.reportError(tree, "column.index.out.of.bounds", index + 1, out.size());
+        logError(
+                tree,
+                "column.index.out.of.bounds",
+                "index=" + index + ", size=" + out.size(),
+                sqlAnnotation);
+    } else {
+        OpsCheckResult result = typeMapping.checkCall(methodName, out.get(index));
+        if (result.getKind() == OpsCheckResultKind.ERROR) {
+            checker.reportError(tree, "column.type.incompatible", methodName, out.get(index));
+            logError(
+                    tree,
+                    "column." + result.getDetails(),
+                    "expected=" + methodName + ", actual=" + out.get(index),
+                    sqlAnnotation);
+        } else if (result.getKind() == OpsCheckResultKind.WARNING) {
+            checker.reportWarning(
+                    tree,
+                    "warning.column.types",
+                    methodName,
+                    out.get(index),
+                    result.getDetails());
+            logWarning(
+                    tree,
+                    "column." + result.getDetails(),
+                    "expected=" + methodName + ", actual=" + out.get(index),
+                    sqlAnnotation);
+        } else {
+            logOk(tree, "column.get", sqlAnnotation);
         }
+    }
+}
 
-        AnnotationMirror intValAnnoMirror = getIntValAnnoMirror(intExpression);
-        if (intValAnnoMirror == null) {
-            return -1;
-        }
+private boolean isNonLocal(AnnotatedTypeMirror type) {
+    return !(type.hasAnnotation(Sql.class) || type.hasAnnotation(SqlUnsupported.class));
+}
 
-        List<Long> values =
-                AnnotationUtils.getElementValueArray(
-                        intValAnnoMirror,
-                        intValValueElement,
-                        Long.class,
-                        Collections.emptyList());
+private boolean columnNamesMatch(String ann, String other) {
+    String name = OpsAnnotatedTypeFactory.getName(ann);
+    return name != null && name.equalsIgnoreCase(other);
+}
 
-        if (values.size() != 1) {
-            return -1;
-        }
-
-        return values.get(0).intValue();
+private int retrieveIntValue(ExpressionTree intExpression) {
+    if (intExpression.getKind() == ExpressionTree.Kind.INT_LITERAL) {
+        return (int) ((LiteralTree) intExpression).getValue();
     }
 
-    private AnnotationMirror getIntValAnnoMirror(final ExpressionTree valueExp) {
-        ValueAnnotatedTypeFactory valueAnnotatedTypeFactory =
-                getTypeFactory().getTypeFactoryOfSubchecker(ValueChecker.class);
-        if (valueAnnotatedTypeFactory == null) {
-            throw new TypeSystemError("Missing subchecker ValueChecker");
-        }
-        AnnotatedTypeMirror valueType = valueAnnotatedTypeFactory.getAnnotatedType(valueExp);
-        return valueType.getAnnotation(IntVal.class);
+    AnnotationMirror intValAnnoMirror = getIntValAnnoMirror(intExpression);
+    if (intValAnnoMirror == null) {
+        return -1;
     }
 
-    private void logError(
-            MethodInvocationTree tree, String key, String message, AnnotationMirror sql) {
-        logger.errorRelatedToStatement(
-                root,
-                trees.getSourcePositions().getStartPosition(root, tree),
-                AnnotationUtils.getElementValue(sql, sqlFileElement, String.class, ""),
-                AnnotationUtils.getElementValue(sql, sqlLineElement, String.class, ""),
-                AnnotationUtils.getElementValue(sql, sqlColumnElement, String.class, ""),
-                key,
-                message);
+    List<Long> values =
+            AnnotationUtils.getElementValueArray(
+                    intValAnnoMirror,
+                    intValValueElement,
+                    Long.class,
+                    Collections.emptyList());
+
+    if (values.size() != 1) {
+        return -1;
     }
 
-    private void logWarning(
-            MethodInvocationTree tree, String key, String message, AnnotationMirror sql) {
-        logger.warningRelatedToStatement(
-                root,
-                trees.getSourcePositions().getStartPosition(root, tree),
-                AnnotationUtils.getElementValue(sql, sqlFileElement, String.class, ""),
-                AnnotationUtils.getElementValue(sql, sqlLineElement, String.class, ""),
-                AnnotationUtils.getElementValue(sql, sqlColumnElement, String.class, ""),
-                key,
-                message);
-    }
+    return values.get(0).intValue();
+}
 
-    private void logOk(MethodInvocationTree tree, String key, AnnotationMirror sql) {
-        logger.ok(
-                root,
-                trees.getSourcePositions().getStartPosition(root, tree),
-                AnnotationUtils.getElementValue(sql, sqlFileElement, String.class, ""),
-                AnnotationUtils.getElementValue(sql, sqlLineElement, String.class, ""),
-                AnnotationUtils.getElementValue(sql, sqlColumnElement, String.class, ""),
-                key);
+private AnnotationMirror getIntValAnnoMirror(final ExpressionTree valueExp) {
+    ValueAnnotatedTypeFactory valueAnnotatedTypeFactory =
+            getTypeFactory().getTypeFactoryOfSubchecker(ValueChecker.class);
+    if (valueAnnotatedTypeFactory == null) {
+        throw new TypeSystemError("Missing subchecker ValueChecker");
     }
+    AnnotatedTypeMirror valueType = valueAnnotatedTypeFactory.getAnnotatedType(valueExp);
+    return valueType.getAnnotation(IntVal.class);
+}
 
-    private void logNonlocal(MethodInvocationTree tree, String key, String details) {
-        logger.warningRelatedToStatement(
-                root,
-                trees.getSourcePositions().getStartPosition(root, tree),
-                "",
-                "",
-                "",
-                key,
-                details);
-    }
+private void logError(
+        MethodInvocationTree tree, String key, String message, AnnotationMirror sql) {
+    logger.errorRelatedToStatement(
+            root,
+            trees.getSourcePositions().getStartPosition(root, tree),
+            AnnotationUtils.getElementValue(sql, sqlFileElement, String.class, ""),
+            AnnotationUtils.getElementValue(sql, sqlLineElement, String.class, ""),
+            AnnotationUtils.getElementValue(sql, sqlColumnElement, String.class, ""),
+            key,
+            message);
+}
+
+private void logWarning(
+        MethodInvocationTree tree, String key, String message, AnnotationMirror sql) {
+    logger.warningRelatedToStatement(
+            root,
+            trees.getSourcePositions().getStartPosition(root, tree),
+            AnnotationUtils.getElementValue(sql, sqlFileElement, String.class, ""),
+            AnnotationUtils.getElementValue(sql, sqlLineElement, String.class, ""),
+            AnnotationUtils.getElementValue(sql, sqlColumnElement, String.class, ""),
+            key,
+            message);
+}
+
+private void logOk(MethodInvocationTree tree, String key, AnnotationMirror sql) {
+    logger.ok(
+            root,
+            trees.getSourcePositions().getStartPosition(root, tree),
+            AnnotationUtils.getElementValue(sql, sqlFileElement, String.class, ""),
+            AnnotationUtils.getElementValue(sql, sqlLineElement, String.class, ""),
+            AnnotationUtils.getElementValue(sql, sqlColumnElement, String.class, ""),
+            key);
+}
+
+private void logNonlocal(MethodInvocationTree tree, String key, String details) {
+    logger.warningRelatedToStatement(
+            root,
+            trees.getSourcePositions().getStartPosition(root, tree),
+            "",
+            "",
+            "",
+            key,
+            details);
+}
 }
