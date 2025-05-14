@@ -79,7 +79,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     0,
                     processingEnv);
     private final OpsLogger logger = ((OpsChecker) checker).getLogger();
-    private final ExecutableElement stringValValueElement =
+    protected final ExecutableElement stringValValueElement =
             TreeUtils.getMethod(
                     "org.checkerframework.common.value.qual.StringVal", "value", 0, processingEnv);
 
@@ -715,11 +715,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         }
 
         List<String> values =
-                AnnotationUtils.getElementValueArray(
-                        stringValAnnoMirror,
-                        stringValValueElement,
-                        String.class,
-                        Collections.emptyList());
+                OpsUtils.retrieveStringValues(stringValAnnoMirror, stringValValueElement);
 
         if (values.isEmpty()) {
             checker.reportWarning(stringExpression, "statement.string.retrieval.failed");
@@ -753,7 +749,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         return values;
     }
 
-    private @Nullable AnnotationMirror getStringValAnnoMirror(final ExpressionTree valueExp) {
+    protected @Nullable AnnotationMirror getStringValAnnoMirror(final ExpressionTree valueExp) {
         ValueAnnotatedTypeFactory valueAnnotatedTypeFactory =
                 getTypeFactoryOfSubchecker(ValueChecker.class);
         if (valueAnnotatedTypeFactory == null) {

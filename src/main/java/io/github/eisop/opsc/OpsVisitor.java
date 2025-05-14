@@ -7,7 +7,10 @@ import com.sun.source.tree.Tree;
 import io.github.eisop.opsc.log.OpsLogger;
 import io.github.eisop.opsc.qual.Sql;
 import io.github.eisop.opsc.qual.SqlUnsupported;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
@@ -225,36 +228,40 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
             }
 
             ExpressionTree indexTree = tree.getArguments().get(0);
-            if (indexTree.getKind() == Tree.Kind.STRING_LITERAL) {
-                LiteralTree literal = (LiteralTree) indexTree;
-                String columnName = (String) literal.getValue();
-                List<String> out =
-                        AnnotationUtils.getElementValueArray(
-                                sqlAnnotation,
-                                sqlOutElement,
-                                String.class,
-                                Collections.emptyList());
-                out.stream()
-                        .filter(s -> columnNamesMatch(s, columnName))
-                        .findFirst()
-                        .ifPresentOrElse(
-                                s -> {
-                                    int index = out.indexOf(s);
-                                    checkGetResult(
-                                            tree,
-                                            method.getSimpleName().toString(),
-                                            sqlAnnotation,
-                                            index);
-                                },
-                                () -> {
-                                    checker.reportError(tree, "column.name.not.found", columnName);
-                                    logError(
-                                            tree,
-                                            "column.name.not.found",
-                                            "name=" + columnName,
-                                            sqlAnnotation);
-                                });
+            AnnotationMirror stringValAnno = atypeFactory.getStringValAnnoMirror(indexTree);
+            List<String> stringValues =
+                    OpsUtils.retrieveStringValues(
+                            stringValAnno, atypeFactory.stringValValueElement);
+            if (stringValues.size() != 1) {
+                checker.reportWarning(indexTree, "column.name.extraction.failed");
+                logWarning(tree, "column.name.extraction.failed", "", sqlAnnotation);
+                return;
             }
+
+            String columnName = stringValues.get(0);
+            List<String> out =
+                    AnnotationUtils.getElementValueArray(
+                            sqlAnnotation, sqlOutElement, String.class, Collections.emptyList());
+            out.stream()
+                    .filter(s -> columnNamesMatch(s, columnName))
+                    .findFirst()
+                    .ifPresentOrElse(
+                            s -> {
+                                int index = out.indexOf(s);
+                                checkGetResult(
+                                        tree,
+                                        method.getSimpleName().toString(),
+                                        sqlAnnotation,
+                                        index);
+                            },
+                            () -> {
+                                checker.reportError(tree, "column.name.not.found", columnName);
+                                logError(
+                                        tree,
+                                        "column.name.not.found",
+                                        "name=" + columnName,
+                                        sqlAnnotation);
+                            });
         }
     }
 
