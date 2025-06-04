@@ -11,27 +11,24 @@ import org.checkerframework.dataflow.analysis.TransferResult;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.dataflow.cfg.node.Node;
 import org.checkerframework.dataflow.expression.JavaExpression;
-import org.checkerframework.framework.flow.CFAbstractAnalysis;
-import org.checkerframework.framework.flow.CFStore;
-import org.checkerframework.framework.flow.CFTransfer;
-import org.checkerframework.framework.flow.CFValue;
+import org.checkerframework.framework.flow.CFAbstractTransfer;
 import org.checkerframework.javacutil.TreeUtils;
 import org.checkerframework.javacutil.TypeSystemError;
 
 /** The transfer function for OPSC. */
-public class OpsTransfer extends CFTransfer {
+public class OpsTransfer extends CFAbstractTransfer<OpsValue, OpsStore, OpsTransfer> {
 
     private final OpsAnnotatedTypeFactory aTypeFactory;
 
     /** Create the transfer function for the OPSC. */
-    public OpsTransfer(CFAbstractAnalysis<CFValue, CFStore, CFTransfer> analysis) {
+    public OpsTransfer(OpsAnalysis analysis) {
         super(analysis);
 
         aTypeFactory = (OpsAnnotatedTypeFactory) analysis.getTypeFactory();
     }
 
     private void insertAnnotation(
-            AnnotationMirror annotation, TransferResult<CFValue, CFStore> result, Node receiver) {
+            AnnotationMirror annotation, TransferResult<OpsValue, OpsStore> result, Node receiver) {
         if (result.containsTwoStores()) {
             result.getThenStore().insertValue(JavaExpression.fromNode(receiver), annotation);
             result.getElseStore().insertValue(JavaExpression.fromNode(receiver), annotation);
@@ -41,9 +38,9 @@ public class OpsTransfer extends CFTransfer {
     }
 
     @Override
-    public TransferResult<CFValue, CFStore> visitMethodInvocation(
-            MethodInvocationNode n, TransferInput<CFValue, CFStore> in) {
-        TransferResult<CFValue, CFStore> result = super.visitMethodInvocation(n, in);
+    public TransferResult<OpsValue, OpsStore> visitMethodInvocation(
+            MethodInvocationNode n, TransferInput<OpsValue, OpsStore> in) {
+        TransferResult<OpsValue, OpsStore> result = super.visitMethodInvocation(n, in);
 
         MethodInvocationTree tree = n.getTree();
         if (tree == null) {
