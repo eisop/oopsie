@@ -30,17 +30,14 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.util.Elements;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
-import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.value.ValueAnnotatedTypeFactory;
 import org.checkerframework.common.value.ValueChecker;
 import org.checkerframework.common.value.qual.StringVal;
 import org.checkerframework.framework.flow.CFAbstractAnalysis;
-import org.checkerframework.framework.flow.CFAnalysis;
-import org.checkerframework.framework.flow.CFStore;
-import org.checkerframework.framework.flow.CFTransfer;
-import org.checkerframework.framework.flow.CFValue;
+import org.checkerframework.framework.type.AnnotatedTypeFactory;
 import org.checkerframework.framework.type.AnnotatedTypeMirror;
+import org.checkerframework.framework.type.GenericAnnotatedTypeFactory;
 import org.checkerframework.framework.type.MostlyNoElementQualifierHierarchy;
 import org.checkerframework.framework.type.QualifierHierarchy;
 import org.checkerframework.framework.type.treeannotator.ListTreeAnnotator;
@@ -53,7 +50,8 @@ import org.checkerframework.javacutil.TypeSystemError;
 import org.checkerframework.javacutil.UserError;
 import org.jspecify.annotations.Nullable;
 
-public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
+public class OpsAnnotatedTypeFactory
+        extends GenericAnnotatedTypeFactory<OpsValue, OpsStore, OpsTransfer, OpsAnalysis> {
 
     protected final AnnotationMirror SQL = AnnotationBuilder.fromClass(elements, Sql.class);
     protected final AnnotationMirror SQLUNSUPPORTED =
@@ -79,15 +77,18 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
                     0,
                     processingEnv);
     private final OpsLogger logger = ((OpsChecker) checker).getLogger();
+
+    private final TypeMapping typeMapping = ((OpsChecker) checker).getTypeMapping();
+
     protected final ExecutableElement stringValValueElement =
             TreeUtils.getMethod(
                     "org.checkerframework.common.value.qual.StringVal", "value", 0, processingEnv);
-
     private final List<ExecutableElement> sqlUnsupportedMethods;
 
     private SchemaInfo calciteSchemaInfo;
 
     // Used as fallback
+
     private SchemaInfo jdbcSchemaInfo;
 
     @SuppressWarnings("this-escape") // Call to postInit().
@@ -106,6 +107,10 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         initSchemaInfo(checker);
 
         this.postInit();
+    }
+
+    public TypeMapping getTypeMapping() {
+        return typeMapping;
     }
 
     static @Nullable String getName(String annotationString) {
@@ -146,9 +151,14 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     }
 
     @Override
-    public CFTransfer createFlowTransferFunction(
-            CFAbstractAnalysis<CFValue, CFStore, CFTransfer> analysis) {
-        return new OpsTransfer((CFAnalysis) analysis);
+    protected OpsAnalysis createFlowAnalysis() {
+        return new OpsAnalysis(checker, this);
+    }
+
+    @Override
+    public OpsTransfer createFlowTransferFunction(
+            CFAbstractAnalysis<OpsValue, OpsStore, OpsTransfer> analysis) {
+        return new OpsTransfer((OpsAnalysis) analysis);
     }
 
     @Override
@@ -382,7 +392,7 @@ public class OpsAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     }
 
     private class OpsTreeAnnotator extends TreeAnnotator {
-        public OpsTreeAnnotator(BaseAnnotatedTypeFactory atypeFactory) {
+        public OpsTreeAnnotator(AnnotatedTypeFactory atypeFactory) {
             super(atypeFactory);
         }
 

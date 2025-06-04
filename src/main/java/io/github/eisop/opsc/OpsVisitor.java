@@ -43,24 +43,9 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
 
     public OpsVisitor(BaseTypeChecker checker) {
         super(checker);
-        for (String s : typeMapping.getSetMethodNames()) {
-            preparedStatementSetMethodTypes.addAll(
-                    TreeUtils.getMethods("java.sql.PreparedStatement", s, 2, processingEnv));
-        }
-        typeMapping
-                .getGetMethodNames()
-                .forEach(
-                        name -> {
-                            resultSetGetByIndexMethodTypes.add(
-                                    TreeUtils.getMethod(
-                                            "java.sql.ResultSet", name, processingEnv, "int"));
-                            resultSetGetByNameMethodTypes.add(
-                                    TreeUtils.getMethod(
-                                            "java.sql.ResultSet",
-                                            name,
-                                            processingEnv,
-                                            "java.lang.String"));
-                        });
+        preparedStatementSetMethodTypes.addAll(typeMapping.getSetterMethods(processingEnv));
+        resultSetGetByNameMethodTypes.addAll(typeMapping.getGetterByNameMethods(processingEnv));
+        resultSetGetByIndexMethodTypes.addAll(typeMapping.getGetterByIndexMethods(processingEnv));
     }
 
     @Override
