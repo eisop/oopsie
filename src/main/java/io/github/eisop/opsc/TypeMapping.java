@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ExecutableElement;
 import org.apache.commons.csv.CSVFormat;
@@ -68,7 +69,7 @@ public class TypeMapping {
     protected List<ExecutableElement> getGetterByIndexMethods(ProcessingEnvironment processingEnv) {
         return getMethodNames.stream()
                 .map(name -> TreeUtils.getMethod("java.sql.ResultSet", name, processingEnv, "int"))
-                .toList();
+                .collect(Collectors.toList());
     }
 
     protected List<ExecutableElement> getGetterByNameMethods(ProcessingEnvironment processingEnv) {
@@ -80,6 +81,6 @@ public class TypeMapping {
                                         name,
                                         processingEnv,
                                         "java.lang.String"))
-                .toList();
+                .collect(Collectors.toList());
     }
 }
