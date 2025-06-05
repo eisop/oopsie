@@ -6,7 +6,11 @@ import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
 import io.github.eisop.opsc.log.OpsLogger;
 import io.github.eisop.opsc.qual.Sql;
-import java.util.*;
+import io.github.eisop.opsc.qual.SqlUnsupported;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
@@ -39,24 +43,9 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
 
     public OpsVisitor(BaseTypeChecker checker) {
         super(checker);
-        for (String s : typeMapping.getSetMethodNames()) {
-            preparedStatementSetMethodTypes.addAll(
-                    TreeUtils.getMethods("java.sql.PreparedStatement", s, 2, processingEnv));
-        }
-        typeMapping
-                .getGetMethodNames()
-                .forEach(
-                        name -> {
-                            resultSetGetByIndexMethodTypes.add(
-                                    TreeUtils.getMethod(
-                                            "java.sql.ResultSet", name, processingEnv, "int"));
-                            resultSetGetByNameMethodTypes.add(
-                                    TreeUtils.getMethod(
-                                            "java.sql.ResultSet",
-                                            name,
-                                            processingEnv,
-                                            "java.lang.String"));
-                        });
+        preparedStatementSetMethodTypes.addAll(typeMapping.getSetterMethods(processingEnv));
+        resultSetGetByNameMethodTypes.addAll(typeMapping.getGetterByNameMethods(processingEnv));
+        resultSetGetByIndexMethodTypes.addAll(typeMapping.getGetterByIndexMethods(processingEnv));
     }
 
     @Override
@@ -111,28 +100,38 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
             throw new TypeSystemError("Could not find receiver of method invocation");
         }
 
-        AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
-        if (sqlAnnotation == null) {
+        if (isNonLocal(receiverType)) {
+            checker.reportWarning(tree, "nonlocal.prepared.statement");
+            logNonlocal(tree, "nonlocal.prepared.statement", "method=" + method.getSimpleName());
             return;
         }
 
-        ExpressionTree indexTree = tree.getArguments().get(0);
-        if (indexTree.getKind() == Tree.Kind.INT_LITERAL) {
-            LiteralTree literal = (LiteralTree) indexTree;
-            int index = (int) literal.getValue() - 1; // PreparedStatement parameters are 1-indexed
-            List<String> in =
-                    AnnotationUtils.getElementValueArray(
-                            sqlAnnotation, sqlInElement, String.class, Collections.emptyList());
-            if (index >= in.size()) {
-                checker.reportError(tree, "parameter.index.out.of.bounds", index + 1, in.size());
-                logError(
-                        tree,
-                        "parameter.index.out.of.bounds",
-                        "index=" + index + ", size=" + in.size(),
-                        sqlAnnotation);
-            } else {
-                checkParameterType(
-                        tree, method.getSimpleName().toString(), in.get(index), sqlAnnotation);
+        if (receiverType.hasAnnotation(Sql.class)) {
+            AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
+            if (sqlAnnotation == null) {
+                return;
+            }
+
+            ExpressionTree indexTree = tree.getArguments().get(0);
+            if (indexTree.getKind() == Tree.Kind.INT_LITERAL) {
+                LiteralTree literal = (LiteralTree) indexTree;
+                int index =
+                        (int) literal.getValue() - 1; // PreparedStatement parameters are 1-indexed
+                List<String> in =
+                        AnnotationUtils.getElementValueArray(
+                                sqlAnnotation, sqlInElement, String.class, Collections.emptyList());
+                if (index >= in.size()) {
+                    checker.reportError(
+                            tree, "parameter.index.out.of.bounds", index + 1, in.size());
+                    logError(
+                            tree,
+                            "parameter.index.out.of.bounds",
+                            "index=" + index + ", size=" + in.size(),
+                            sqlAnnotation);
+                } else {
+                    checkParameterType(
+                            tree, method.getSimpleName().toString(), in.get(index), sqlAnnotation);
+                }
             }
         }
     }
@@ -174,16 +173,24 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
             throw new TypeSystemError("Could not find receiver of method invocation");
         }
 
-        AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
-        if (sqlAnnotation == null) {
+        if (isNonLocal(receiverType)) {
+            checker.reportWarning(tree, "nonlocal.result.set");
+            logNonlocal(tree, "nonlocal.result.set", "method=" + method.getSimpleName());
             return;
         }
 
-        ExpressionTree indexTree = tree.getArguments().get(0);
-        if (indexTree.getKind() == Tree.Kind.INT_LITERAL) {
-            LiteralTree literal = (LiteralTree) indexTree;
-            int index = (int) literal.getValue() - 1; // ResultSet columns are 1-indexed
-            checkGetResult(tree, method.getSimpleName().toString(), sqlAnnotation, index);
+        if (receiverType.hasAnnotation(Sql.class)) {
+            AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
+            if (sqlAnnotation == null) {
+                return;
+            }
+
+            ExpressionTree indexTree = tree.getArguments().get(0);
+            if (indexTree.getKind() == Tree.Kind.INT_LITERAL) {
+                LiteralTree literal = (LiteralTree) indexTree;
+                int index = (int) literal.getValue() - 1; // ResultSet columns are 1-indexed
+                checkGetResult(tree, method.getSimpleName().toString(), sqlAnnotation, index);
+            }
         }
     }
 
@@ -193,15 +200,30 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
             throw new TypeSystemError("Could not find receiver of method invocation");
         }
 
-        AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
-        if (sqlAnnotation == null) {
+        if (isNonLocal(receiverType)) {
+            checker.reportWarning(tree, "nonlocal.result.set");
+            logNonlocal(tree, "nonlocal.result.set", "method=" + method.getSimpleName());
             return;
         }
 
-        ExpressionTree indexTree = tree.getArguments().get(0);
-        if (indexTree.getKind() == Tree.Kind.STRING_LITERAL) {
-            LiteralTree literal = (LiteralTree) indexTree;
-            String columnName = (String) literal.getValue();
+        if (receiverType.hasAnnotation(Sql.class)) {
+            AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
+            if (sqlAnnotation == null) {
+                return;
+            }
+
+            ExpressionTree indexTree = tree.getArguments().get(0);
+            AnnotationMirror stringValAnno = atypeFactory.getStringValAnnoMirror(indexTree);
+            List<String> stringValues =
+                    OpsUtils.retrieveStringValues(
+                            stringValAnno, atypeFactory.stringValValueElement);
+            if (stringValues.size() != 1) {
+                checker.reportWarning(indexTree, "column.name.extraction.failed");
+                logWarning(tree, "column.name.extraction.failed", "", sqlAnnotation);
+                return;
+            }
+
+            String columnName = stringValues.get(0);
             List<String> out =
                     AnnotationUtils.getElementValueArray(
                             sqlAnnotation, sqlOutElement, String.class, Collections.emptyList());
@@ -278,6 +300,10 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
         }
     }
 
+    private boolean isNonLocal(AnnotatedTypeMirror type) {
+        return !(type.hasAnnotation(Sql.class) || type.hasAnnotation(SqlUnsupported.class));
+    }
+
     private boolean columnNamesMatch(String ann, String other) {
         String name = OpsAnnotatedTypeFactory.getName(ann);
         return name != null && name.equalsIgnoreCase(other);
@@ -317,5 +343,16 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                 AnnotationUtils.getElementValue(sql, sqlColumnElement, String.class, ""),
                 key,
                 message);
+    }
+
+    private void logNonlocal(MethodInvocationTree tree, String key, String details) {
+        logger.warningRelatedToStatement(
+                root,
+                trees.getSourcePositions().getStartPosition(root, tree),
+                "",
+                "",
+                "",
+                key,
+                details);
     }
 }

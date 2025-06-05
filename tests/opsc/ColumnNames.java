@@ -40,4 +40,14 @@ class ColumnNames {
         // :: error: (column.name.not.found)
         int billingPostalCode = rs.getInt("BillingPostalCode"); // actually varchar
     }
+
+    void namedColumnNoLiteral(Connection conn) throws SQLException {
+        String columnName = "InvoiceId";
+        PreparedStatement ps = conn.prepareStatement("SELECT * FROM Invoice");
+        ResultSet rs = ps.executeQuery();
+
+        int invoiceId = rs.getInt(columnName);
+        // :: error: (column.type.incompatible)
+        Date invoiceDate = rs.getDate(columnName);
+    }
 }

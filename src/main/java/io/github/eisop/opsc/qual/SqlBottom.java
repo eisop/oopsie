@@ -13,7 +13,7 @@ import org.checkerframework.framework.qual.TypeUseLocation;
 /** The bottom type for the type hierarchy. */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.TYPE_USE, ElementType.TYPE_PARAMETER})
-@SubtypeOf({Sql.class})
+@SubtypeOf({SqlUnsupported.class})
 @InvisibleQualifier
 @TargetLocations({TypeUseLocation.LOWER_BOUND, TypeUseLocation.UPPER_BOUND})
 @DefaultFor(value = {TypeUseLocation.IMPLICIT_LOWER_BOUND})
