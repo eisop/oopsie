@@ -1,10 +1,8 @@
 package io.github.eisop.opsc;
 
-import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import io.github.eisop.opsc.log.OpsLogger;
 import java.io.IOException;
 import java.net.URL;
-import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -13,10 +11,14 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Set;
 import javax.annotation.processing.SupportedOptions;
+import javax.tools.Diagnostic;
+import javax.tools.FileObject;
+import javax.tools.StandardLocation;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.common.value.ValueChecker;
+import org.checkerframework.framework.source.DiagMessage;
 import org.checkerframework.framework.source.SourceChecker;
 import org.checkerframework.javacutil.TypeSystemError;
 import org.checkerframework.javacutil.UserError;
@@ -50,27 +52,34 @@ public class OpsChecker extends BaseTypeChecker {
     }
 
     private String getProjectRoot() {
-        JavacProcessingEnvironment javacProcessingEnvironment =
-                (JavacProcessingEnvironment) getProcessingEnvironment();
-        URLClassLoader processorClassLoader =
-                (URLClassLoader) javacProcessingEnvironment.getProcessorClassLoader();
+        try {
+            // Create a dummy resource to find the output directory
+            FileObject resource =
+                    getProcessingEnvironment()
+                            .getFiler()
+                            .createResource(
+                                    StandardLocation.CLASS_OUTPUT,
+                                    "",
+                                    "dummy" + System.currentTimeMillis());
+            Path projectPath = Paths.get(resource.toUri()).getParent();
+            resource.delete();
 
-        URL url = null;
-        for (URL u : processorClassLoader.getURLs()) {
-            String path = u.getFile();
-            if (path.matches(".*[/\\\\]build[/\\\\].*")
-                    && !path.matches(".*\\.(gradle|\\.m2)/.*")) {
-                url = u;
-                break;
+            // Traverse up to find the project root, marked by build.gradle, pom.xml, or .git
+            while (projectPath != null) {
+                if (Files.exists(projectPath.resolve("build.gradle"))
+                        || Files.exists(projectPath.resolve("build.gradle.kts"))
+                        || Files.exists(projectPath.resolve("pom.xml"))
+                        || Files.exists(projectPath.resolve(".git"))) {
+                    return projectPath.toString();
+                }
+                projectPath = projectPath.getParent();
             }
+        } catch (IOException e) {
+            throw new TypeSystemError("Could not determine project root: ", e.getMessage());
         }
 
-        if (url == null) {
-            return "";
-        }
-
-        // remove the last part of the path starting from "[/\\]build[/\\]" to get the root path
-        return url.getFile().replaceFirst("[/\\\\]build[/\\\\].*", "");
+        throw new TypeSystemError(
+                "Could not determine the path to the project root. Please provide a log directory using -AopsLogDir.");
     }
 
     @Override
@@ -132,6 +141,10 @@ public class OpsChecker extends BaseTypeChecker {
                             + ". Consider choosing an alternative directory using -AopsLogDir",
                     e);
         }
+
+        report(
+                null,
+                new DiagMessage(Diagnostic.Kind.NOTE, "Storing OPSC logs in " + timeStampedLogDir));
 
         try {
             logger =
