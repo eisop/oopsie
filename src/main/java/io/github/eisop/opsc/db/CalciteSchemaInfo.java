@@ -4,6 +4,7 @@ import static io.github.eisop.opsc.db.JDBCUtil.jdbcTypeNameFromOrdinal;
 
 import com.google.common.collect.ImmutableList;
 import io.github.eisop.opsc.exception.OpsDatabaseException;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -104,11 +105,41 @@ public class CalciteSchemaInfo implements SchemaInfo {
         return getTypesWithAnnotations(parseSql(stmt).getRowType());
     }
 
+    private RelNode parseSql(String stmt) throws OpsDatabaseException {
+        SchemaPlus subSchema = rootSchema.getSubSchema(SUB_SCHEMA_NAME);
+        if (subSchema == null) {
+            throw new OpsDatabaseException("Could not find sub-schema: " + SUB_SCHEMA_NAME);
+        }
+        FrameworkConfig frameworkConfig =
+                Frameworks.newConfigBuilder()
+                        .parserConfig(parserConfig)
+                        .defaultSchema(subSchema)
+                        .build();
+
+        RelNode tree;
+        try (Planner planner = Frameworks.getPlanner(frameworkConfig)) {
+            SqlNode parsed = planner.parse(stmt);
+            SqlNode validated = planner.validate(parsed);
+            tree = planner.rel(validated).rel;
+        } catch (ValidationException | SqlParseException | RelConversionException e) {
+            throw new OpsDatabaseException(e);
+        }
+        return tree;
+    }
+
     @Override
     public ImmutableList<String> getPlaceholderTypesOf(String stmt) throws OpsDatabaseException {
         stmt = trimStatement(stmt);
         RelNode tree = parseSql(stmt);
 
+        List<RexDynamicParam> params = findDynamicParams(tree);
+        return params.stream()
+                .sorted(Comparator.comparingInt(RexDynamicParam::getIndex))
+                .map(param -> getJDBCTypeName(param.getType()))
+                .collect(ImmutableList.toImmutableList());
+    }
+
+    private List<RexDynamicParam> findDynamicParams(RelNode tree) {
         List<RexDynamicParam> params = new ArrayList<>();
         tree.childrenAccept(
                 new RelVisitor() {
@@ -177,39 +208,13 @@ public class CalciteSchemaInfo implements SchemaInfo {
                         subQuery.rel.childrenAccept(this);
                     }
                 });
-
-        return params.stream()
-                .sorted(Comparator.comparingInt(RexDynamicParam::getIndex))
-                .map(param -> getJDBCTypeName(param.getType()))
-                .collect(ImmutableList.toImmutableList());
+        return params;
     }
 
     private static String trimStatement(String stmt) {
         // remove trailing semicolon (and any whitespace)
         stmt = stmt.stripTrailing().replaceAll(";$", "");
         return stmt;
-    }
-
-    private RelNode parseSql(String stmt) throws OpsDatabaseException {
-        SchemaPlus subSchema = rootSchema.getSubSchema(SUB_SCHEMA_NAME);
-        if (subSchema == null) {
-            throw new OpsDatabaseException("Could not find sub-schema: " + SUB_SCHEMA_NAME);
-        }
-        FrameworkConfig frameworkConfig =
-                Frameworks.newConfigBuilder()
-                        .parserConfig(parserConfig)
-                        .defaultSchema(subSchema)
-                        .build();
-
-        RelNode tree;
-        try (Planner planner = Frameworks.getPlanner(frameworkConfig)) {
-            SqlNode parsed = planner.parse(stmt);
-            SqlNode validated = planner.validate(parsed);
-            tree = planner.rel(validated).rel;
-        } catch (ValidationException | SqlParseException | RelConversionException e) {
-            throw new OpsDatabaseException(e);
-        }
-        return tree;
     }
 
     private ImmutableList<String> getTypesWithAnnotations(RelDataType relType) {
