@@ -12,7 +12,7 @@ class Unsupported {
 
     public void deitsch() throws SQLException {
         PreparedStatement ps =
-                // :: error: (determine.in.type.failed.final)
+                // :: warning: (statement.skipped)
                 conn.prepareStatement("ZEIG MA * AUS Invoice WO Total < 244.331");
     }
 }
