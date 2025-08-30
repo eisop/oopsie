@@ -4,7 +4,6 @@ import static io.github.eisop.opsc.db.JDBCUtil.jdbcTypeNameFromOrdinal;
 
 import com.google.common.collect.ImmutableList;
 import io.github.eisop.opsc.exception.OpsDatabaseException;
-
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
