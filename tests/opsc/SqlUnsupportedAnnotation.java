@@ -14,7 +14,7 @@ class SqlUnsupportedAnnotation {
 
     public void unsupportedStatement() throws SQLException {
         Statement stmt = conn.createStatement();
-        // :: error: (determine.in.type.failed.final)
+        // :: warning: (statement.skipped)
         ResultSet rs = stmt.executeQuery("This is not a valid SQL statement");
 
         // No further warnings for unsupported SQL statements (@SqlUnsupported)
@@ -22,7 +22,7 @@ class SqlUnsupportedAnnotation {
     }
 
     public void unsupportedPreparedStatement() throws SQLException {
-        // :: error: (determine.in.type.failed.final)
+        // :: warning: (statement.skipped)
         PreparedStatement ps = conn.prepareStatement("This is not a valid SQL statement");
 
         // No further warnings for unsupported SQL statements (@SqlUnsupported)
@@ -63,7 +63,7 @@ class SqlUnsupportedAnnotation {
 
     public void stmtGetResultSetUnsupported() throws SQLException {
         Statement stmt = conn.createStatement();
-        // :: error: (determine.in.type.failed.final)
+        // :: warning: (statement.skipped)
         @SqlUnsupported ResultSet rs = stmt.executeQuery("This is not a valid SQL statement");
 
         // No further warnings for unsupported SQL statements (@SqlUnsupported)

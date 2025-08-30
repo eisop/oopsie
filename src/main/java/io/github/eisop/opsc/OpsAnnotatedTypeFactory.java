@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -553,10 +554,12 @@ public class OpsAnnotatedTypeFactory
 
     /**
      * Determines result and placeholder types of the SQL statement and builds a corresponding @Sql
-     * annotation.
+     * annotation. If a statement is not supported or its types cannot be determined, the method
+     * returns null. This includes DDL statements, i.e. statement beginnings with "CREATE", "ALTER"
+     * or "DROP".
      *
      * <p>Hack: Because Calcite doesn't support statements like 'SELECT ?', use JDBCSchemaInfo as a
-     * fallback if
+     * fallback if parsing with CalciteSchemaInfo fails.
      *
      * @return the @Sql annotation or null if the types could not be determined
      */
@@ -565,6 +568,19 @@ public class OpsAnnotatedTypeFactory
             MethodInvocationTree tree,
             boolean isPreparedStatement,
             boolean warnAndLog) {
+        if (isUnsupportedStatementType(stmt)) {
+            if (warnAndLog) {
+                checker.reportWarning(tree, "statement.skipped", stmt);
+                logger.simpleStatementEntry(
+                        OpsLogEntryKind.SKIPPED_STATEMENT,
+                        getRoot(),
+                        getStartPosition(tree),
+                        "Ignoring statement of unsupported type: " + stmt,
+                        isPreparedStatement);
+            }
+            return null;
+        }
+
         // get placeholder types of prepared statement
         List<String> in;
         try {
@@ -662,6 +678,21 @@ public class OpsAnnotatedTypeFactory
         }
 
         return createSqlAnnotation(in, out, file, line, column);
+    }
+
+    /**
+     * Check if the statement type isSELECT, INSERT, UPDATE, DELETE Includes WITH ... but not WITH
+     * RECURSIVE ...
+     */
+    private static boolean isUnsupportedStatementType(String stmt) {
+        String stmtUpper = stmt.trim().toUpperCase(Locale.ENGLISH);
+        // Use regex to allow for preceding comments and whitespace
+        return !(stmtUpper.matches(
+                        "(?s)^\\s*(--.*\\n)*\\s*(SELECT\\s+|INSERT\\s+|UPDATE\\s+|DELETE\\s+).*")
+                || stmtUpper.matches(
+                        "(?s)^\\s*/\\*.*?\\*/\\s*(SELECT\\s+|INSERT\\s+|UPDATE\\s+|DELETE\\s+).*")
+                || stmtUpper.matches("(?s)^\\s*(--.*\\n)*\\s*WITH\\s+(?!RECURSIVE\\s).*")
+                || stmtUpper.matches("(?s)^\\s*/\\*.*?\\*/\\s*WITH\\s+(?!RECURSIVE\\s).*"));
     }
 
     protected boolean isEnclosingMethodAnnotated(MethodInvocationTree tree) {
