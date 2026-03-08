@@ -22,8 +22,8 @@ apply plugin: "eclipse"
 group = "io.github.eisop"
 version = "0.0.1-SNAPSHOT-java8"
 
-ext.versions= [
-    checkerFramework: "3.42.0-eisop3",
+ext.versions = [
+        checkerFramework: "3.49.1-eisop1",
 ]
 
 dependencies {
@@ -44,6 +44,14 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("io.github.eisop:checker:${versions.checkerFramework}")
     testImplementation("io.github.eisop:framework-test:${versions.checkerFramework}")
+
+    implementation 'org.slf4j:slf4j-api:2.0.16' // Latest version
+    implementation 'ch.qos.logback:logback-classic:1.5.6' // Latest version
+}
+
+configurations.configureEach {
+    exclude group: 'org.checkerframework', module: 'checker-qual'
+    exclude group: 'org.checkerframework', module: 'checker'
 }
 
 sourceSets {
@@ -95,14 +103,14 @@ test {
 tasks.withType(Test) {
     jvmArgs(
             [
-                "code",
-                "comp",
-                "main",
-                "processing",
-                "tree",
-                "util"
+                    "code",
+                    "comp",
+                    "main",
+                    "processing",
+                    "tree",
+                    "util"
             ]
-            .collect { "--add-opens=jdk.compiler/com.sun.tools.javac.$it=ALL-UNNAMED" })
+                    .collect { "--add-opens=jdk.compiler/com.sun.tools.javac.$it=ALL-UNNAMED" })
 
     testLogging {
         showStackTraces = false
