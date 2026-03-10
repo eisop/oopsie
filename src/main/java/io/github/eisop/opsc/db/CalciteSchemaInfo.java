@@ -4,6 +4,7 @@ import static io.github.eisop.opsc.db.JDBCUtil.jdbcTypeNameFromOrdinal;
 
 import com.google.common.collect.ImmutableList;
 import io.github.eisop.opsc.exception.OpsDatabaseException;
+import io.github.eisop.opsc.log.SchemaTimingLogger;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -44,8 +45,12 @@ import org.jspecify.annotations.Nullable;
 public class CalciteSchemaInfo implements SchemaInfo {
 
     private static final String SUB_SCHEMA_NAME = "DB_SCHEMA";
+    private static final String CLASS_NAME = "CalciteSchemaInfo";
+
+    private final SchemaTimingLogger logger;
 
     private final SchemaPlus rootSchema;
+    private final Connection calciteConnection;
 
     SqlParser.Config parserConfig =
             SqlParser.config()
@@ -54,8 +59,15 @@ public class CalciteSchemaInfo implements SchemaInfo {
                     .withConformance(SqlConformanceEnum.BABEL);
 
     public CalciteSchemaInfo(
-            String databaseUrl, @Nullable String username, @Nullable String password)
+            String databaseUrl,
+            @Nullable String username,
+            @Nullable String password,
+            SchemaTimingLogger logger)
             throws OpsDatabaseException {
+        long startTime = System.nanoTime();
+
+        this.logger = logger;
+
         // Explicitly load the Calcite and Postgres JDBC drivers, so it can be used by the checker
         // when compiling the programme under test.
         try {
@@ -71,17 +83,30 @@ public class CalciteSchemaInfo implements SchemaInfo {
             throw new OpsDatabaseException(e);
         }
 
-        CalciteConnection calciteConnection;
+        long schemaSetupStart = System.nanoTime();
         try {
-            Connection conn = DriverManager.getConnection("jdbc:calcite:", new Properties());
-            calciteConnection = conn.unwrap(CalciteConnection.class);
+            this.calciteConnection = DriverManager.getConnection("jdbc:calcite:", new Properties());
+            CalciteConnection conn = this.calciteConnection.unwrap(CalciteConnection.class);
+            DataSource dataSource = JdbcSchema.dataSource(databaseUrl, null, username, password);
+            rootSchema = conn.getRootSchema();
+            Schema subSchema =
+                    JdbcSchema.create(rootSchema, SUB_SCHEMA_NAME, dataSource, null, null);
+            rootSchema.add(SUB_SCHEMA_NAME, subSchema);
+            long schemaSetupTime = System.nanoTime() - schemaSetupStart;
+            logger.logMethodTiming(CLASS_NAME, "schemaSetup", schemaSetupTime, true, databaseUrl);
         } catch (SQLException e) {
+            logger.logMethodTiming(
+                    CLASS_NAME,
+                    "schemaSetup",
+                    System.nanoTime() - schemaSetupStart,
+                    false,
+                    e.getMessage());
             throw new OpsDatabaseException(e);
         }
-        DataSource dataSource = JdbcSchema.dataSource(databaseUrl, null, username, password);
-        rootSchema = calciteConnection.getRootSchema();
-        Schema subSchema = JdbcSchema.create(rootSchema, SUB_SCHEMA_NAME, dataSource, null, null);
-        rootSchema.add(SUB_SCHEMA_NAME, subSchema);
+
+        long totalTime = System.nanoTime() - startTime;
+        logger.logMethodTiming(
+                CLASS_NAME, "constructor", totalTime, true, "initialization complete");
     }
 
     /**
@@ -100,8 +125,12 @@ public class CalciteSchemaInfo implements SchemaInfo {
 
     @Override
     public ImmutableList<String> getResultTypeOf(String stmt) throws OpsDatabaseException {
+        long startTime = System.nanoTime();
         stmt = trimStatement(stmt);
-        return getTypesWithAnnotations(parseSql(stmt).getRowType());
+        ImmutableList<String> result = getTypesWithAnnotations(parseSql(stmt).getRowType());
+        long elapsedTime = System.nanoTime() - startTime;
+        logger.logMethodTiming(CLASS_NAME, "getResultTypeOf", elapsedTime, true, stmt);
+        return result;
     }
 
     private RelNode parseSql(String stmt) throws OpsDatabaseException {
@@ -128,14 +157,20 @@ public class CalciteSchemaInfo implements SchemaInfo {
 
     @Override
     public ImmutableList<String> getPlaceholderTypesOf(String stmt) throws OpsDatabaseException {
+        long startTime = System.nanoTime();
         stmt = trimStatement(stmt);
         RelNode tree = parseSql(stmt);
 
         List<RexDynamicParam> params = findDynamicParams(tree);
-        return params.stream()
-                .sorted(Comparator.comparingInt(RexDynamicParam::getIndex))
-                .map(param -> getJDBCTypeName(param.getType()))
-                .collect(ImmutableList.toImmutableList());
+        ImmutableList<String> result =
+                params.stream()
+                        .sorted(Comparator.comparingInt(RexDynamicParam::getIndex))
+                        .map(param -> getJDBCTypeName(param.getType()))
+                        .collect(ImmutableList.toImmutableList());
+
+        long elapsedTime = System.nanoTime() - startTime;
+        logger.logMethodTiming(CLASS_NAME, "getPlaceholderTypesOf", elapsedTime, true, stmt);
+        return result;
     }
 
     private List<RexDynamicParam> findDynamicParams(RelNode tree) {
@@ -240,5 +275,24 @@ public class CalciteSchemaInfo implements SchemaInfo {
 
     private static String getJDBCTypeName(RelDataType relType) {
         return jdbcTypeNameFromOrdinal(relType.getSqlTypeName().getJdbcOrdinal());
+    }
+
+    public void close() throws SQLException {
+        long startTime = System.nanoTime();
+        try {
+            if (!calciteConnection.isClosed()) {
+                calciteConnection.close();
+            }
+            logger.logMethodTiming(
+                    CLASS_NAME,
+                    "close",
+                    System.nanoTime() - startTime,
+                    true,
+                    "closing calcite connection");
+        } catch (SQLException e) {
+            logger.logMethodTiming(
+                    CLASS_NAME, "close", System.nanoTime() - startTime, false, e.getMessage());
+            throw e;
+        }
     }
 }

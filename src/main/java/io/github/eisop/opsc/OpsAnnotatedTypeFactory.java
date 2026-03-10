@@ -12,6 +12,7 @@ import io.github.eisop.opsc.db.SchemaInfo;
 import io.github.eisop.opsc.exception.OpsDatabaseException;
 import io.github.eisop.opsc.log.OpsLogEntryKind;
 import io.github.eisop.opsc.log.OpsLogger;
+import io.github.eisop.opsc.log.SchemaTimingLogger;
 import io.github.eisop.opsc.qual.CreatesSqlStatement;
 import io.github.eisop.opsc.qual.RetrievesSqlResultSet;
 import io.github.eisop.opsc.qual.Sql;
@@ -19,6 +20,7 @@ import io.github.eisop.opsc.qual.SqlBottom;
 import io.github.eisop.opsc.qual.SqlUnknown;
 import io.github.eisop.opsc.qual.SqlUnsupported;
 import java.lang.annotation.Annotation;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -130,17 +132,20 @@ public class OpsAnnotatedTypeFactory
         if (checker.getOption("dbUrl") == null) {
             throw new UserError("Database URL not specified");
         }
+        SchemaTimingLogger stl = ((OpsChecker) checker).getSchemaLogger();
         try {
             calciteSchemaInfo =
                     new CalciteSchemaInfo(
                             checker.getOption("dbUrl"),
                             checker.getOption("dbUser"),
-                            checker.getOption("dbPassword"));
+                            checker.getOption("dbPassword"),
+                            stl);
             jdbcSchemaInfo =
                     new JDBCSchemaInfo(
                             checker.getOption("dbUrl"),
                             checker.getOption("dbUser"),
-                            checker.getOption("dbPassword"));
+                            checker.getOption("dbPassword"),
+                            stl);
         } catch (OpsDatabaseException e) {
             throw new UserError("Could not connect to database: %s", e.getMessage());
         }
@@ -808,5 +813,17 @@ public class OpsAnnotatedTypeFactory
             boolean isPreparedStatement) {
         logger.supportedStatement(
                 getRoot(), getStartPosition(tree), details, stmt, nParameters, isPreparedStatement);
+    }
+
+    public void shutdown() {
+        try {
+            if (calciteSchemaInfo instanceof JDBCSchemaInfo) {
+                ((JDBCSchemaInfo) calciteSchemaInfo).close();
+            } else if (calciteSchemaInfo instanceof CalciteSchemaInfo) {
+                ((CalciteSchemaInfo) calciteSchemaInfo).close();
+            }
+        } catch (SQLException e) {
+            // Log but don't throw during shutdown
+        }
     }
 }

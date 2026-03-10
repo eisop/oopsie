@@ -2,6 +2,7 @@ package io.github.eisop.opsc.db;
 
 import com.google.common.collect.ImmutableList;
 import io.github.eisop.opsc.exception.OpsDatabaseException;
+import io.github.eisop.opsc.log.SchemaTimingLogger;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ParameterMetaData;
@@ -14,15 +15,21 @@ import org.jspecify.annotations.Nullable;
 
 public class JDBCSchemaInfo implements SchemaInfo {
 
-    private final String databaseUrl;
-    private final @Nullable String username;
-    private final @Nullable String password;
+    private static final String CLASS_NAME = "JDBCSchemaInfo";
 
-    public JDBCSchemaInfo(String databaseUrl, @Nullable String username, @Nullable String password)
+    private final SchemaTimingLogger logger;
+
+    private final Connection connection;
+
+    public JDBCSchemaInfo(
+            String databaseUrl,
+            @Nullable String username,
+            @Nullable String password,
+            SchemaTimingLogger logger)
             throws OpsDatabaseException {
-        this.databaseUrl = databaseUrl;
-        this.username = username;
-        this.password = password;
+        long startTime = System.nanoTime();
+
+        this.logger = logger;
 
         // Explicitly load the PostgreSQL driver, so it can be used by the checker when compiling
         // the programme under test
@@ -32,26 +39,35 @@ public class JDBCSchemaInfo implements SchemaInfo {
             throw new TypeSystemError("PostgreSQL JDBC driver not found: %s", e.getMessage());
         }
 
-        try (Connection conn = DriverManager.getConnection(databaseUrl, username, password)) {
-            conn.createStatement();
+        try {
+            this.connection = DriverManager.getConnection(databaseUrl, username, password);
         } catch (SQLException e) {
             throw new OpsDatabaseException(e);
         }
+
+        long totalTime = System.nanoTime() - startTime;
+        logger.logMethodTiming(
+                CLASS_NAME, "constructor", totalTime, true, "initialization complete");
     }
 
     @Override
     public ImmutableList<String> getResultTypeOf(String stmt) throws OpsDatabaseException {
-        try (Connection conn = DriverManager.getConnection(databaseUrl, username, password)) {
-            PreparedStatement ps = conn.prepareStatement(stmt);
+        long startTime = System.nanoTime();
+        try (PreparedStatement ps = connection.prepareStatement(stmt)) {
             ResultSetMetaData md = ps.getMetaData();
             if (md == null) {
+                logger.logMethodTiming(
+                        CLASS_NAME, "getResultTypeOf", System.nanoTime() - startTime, true, stmt);
                 return ImmutableList.of();
             }
             ImmutableList.Builder<String> builder = ImmutableList.builder();
             for (int i = 1; i <= md.getColumnCount(); i++) {
                 builder.add(getTypeWithAnnotations(i, md));
             }
-            return builder.build();
+            ImmutableList<String> result = builder.build();
+            logger.logMethodTiming(
+                    CLASS_NAME, "getResultTypeOf", System.nanoTime() - startTime, true, stmt);
+            return result;
         } catch (SQLException e) {
             throw new OpsDatabaseException(e);
         }
@@ -59,26 +75,39 @@ public class JDBCSchemaInfo implements SchemaInfo {
 
     @Override
     public ImmutableList<String> getPlaceholderTypesOf(String stmt) throws OpsDatabaseException {
-        // Explicitly load the PostgreSQL driver, so it can be used by the checker when compiling
-        // the programme under test
+        long startTime = System.nanoTime();
         try {
-            Class.forName("org.postgresql.Driver");
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
-
-        try (Connection conn = DriverManager.getConnection(databaseUrl, username, password)) {
-            PreparedStatement ps = conn.prepareStatement(stmt);
-            ParameterMetaData md = ps.getParameterMetaData();
-            if (md == null) {
-                return ImmutableList.of();
+            try (PreparedStatement ps = connection.prepareStatement(stmt)) {
+                ParameterMetaData md = ps.getParameterMetaData();
+                if (md == null) {
+                    logger.logMethodTiming(
+                            CLASS_NAME,
+                            "getPlaceholderTypesOf",
+                            System.nanoTime() - startTime,
+                            true,
+                            stmt);
+                    return ImmutableList.of();
+                }
+                ImmutableList.Builder<String> builder = ImmutableList.builder();
+                for (int i = 1; i <= md.getParameterCount(); i++) {
+                    builder.add(getTypeWithAnnotations(i, md));
+                }
+                ImmutableList<String> result = builder.build();
+                logger.logMethodTiming(
+                        CLASS_NAME,
+                        "getPlaceholderTypesOf",
+                        System.nanoTime() - startTime,
+                        true,
+                        stmt);
+                return result;
             }
-            ImmutableList.Builder<String> builder = ImmutableList.builder();
-            for (int i = 1; i <= md.getParameterCount(); i++) {
-                builder.add(getTypeWithAnnotations(i, md));
-            }
-            return builder.build();
         } catch (SQLException e) {
+            logger.logMethodTiming(
+                    CLASS_NAME,
+                    "getPlaceholderTypesOf",
+                    System.nanoTime() - startTime,
+                    false,
+                    e.getMessage());
             throw new OpsDatabaseException(e);
         }
     }
@@ -127,7 +156,26 @@ public class JDBCSchemaInfo implements SchemaInfo {
                 anno += "@MaxLength(" + precision + ") ";
             }
         }
-        name = name == null || name.isEmpty() ? "" : " " + name;
+        name = name.isEmpty() ? "" : " " + name;
         return anno + className + name;
+    }
+
+    public void close() throws SQLException {
+        long startTime = System.nanoTime();
+        try {
+            if (!connection.isClosed()) {
+                connection.close();
+            }
+            logger.logMethodTiming(
+                    CLASS_NAME,
+                    "close",
+                    System.nanoTime() - startTime,
+                    true,
+                    "closing jdbc connection");
+        } catch (SQLException e) {
+            logger.logMethodTiming(
+                    CLASS_NAME, "close", System.nanoTime() - startTime, false, e.getMessage());
+            throw e;
+        }
     }
 }

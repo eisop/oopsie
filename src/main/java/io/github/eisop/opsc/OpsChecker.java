@@ -1,6 +1,7 @@
 package io.github.eisop.opsc;
 
 import io.github.eisop.opsc.log.OpsLogger;
+import io.github.eisop.opsc.log.SchemaTimingLogger;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
@@ -30,7 +31,8 @@ public class OpsChecker extends BaseTypeChecker {
 
     private static final String LOG_FILE_NAME_PATTERN = "yyyyMMdd-HHmmss'-opslog'";
 
-    protected @Nullable OpsLogger logger;
+    private @Nullable OpsLogger logger;
+    private @Nullable SchemaTimingLogger schemaLogger;
 
     protected String projectRoot = "";
 
@@ -94,6 +96,7 @@ public class OpsChecker extends BaseTypeChecker {
 
     @Override
     protected void shutdownHook() {
+        ((OpsAnnotatedTypeFactory) getTypeFactory()).shutdown();
         try {
             if (logger != null) {
                 logger.close();
@@ -112,7 +115,7 @@ public class OpsChecker extends BaseTypeChecker {
         return checkers;
     }
 
-    @EnsuresNonNull("logger")
+    @EnsuresNonNull({"logger", "schemaLogger"})
     private void initLogger() {
         String logDir;
         if (hasOption("opsLogDir")) {
@@ -152,6 +155,7 @@ public class OpsChecker extends BaseTypeChecker {
                             timeStampedLogDir.resolve("statements.csv"),
                             timeStampedLogDir.resolve("bindings.csv"),
                             projectRoot);
+            schemaLogger = new SchemaTimingLogger(timeStampedLogDir);
         } catch (IOException e) {
             throw new UserError(
                     "Could not create logger. Check the path provided with -AopsLogDir", e);
@@ -166,6 +170,14 @@ public class OpsChecker extends BaseTypeChecker {
         initLogger();
 
         return logger;
+    }
+
+    protected SchemaTimingLogger getSchemaLogger() {
+        if (schemaLogger != null) {
+            return schemaLogger;
+        }
+        initLogger();
+        return schemaLogger;
     }
 
     public TypeMapping getTypeMapping() {
