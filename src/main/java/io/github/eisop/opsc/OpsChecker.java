@@ -2,6 +2,7 @@ package io.github.eisop.opsc;
 
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import io.github.eisop.opsc.log.OpsLogger;
+
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -13,19 +14,25 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Set;
 import javax.annotation.processing.SupportedOptions;
+
+import io.github.eisop.opsc.log.SchemaTimingLogger;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.common.value.ValueChecker;
+import org.checkerframework.framework.source.SourceChecker;
 import org.checkerframework.javacutil.TypeSystemError;
 import org.checkerframework.javacutil.UserError;
 
-/** The main checker class for the Optional Prepared Statement Checker (OPSC). */
+/**
+ * The main checker class for the Optional Prepared Statement Checker (OPSC).
+ */
 @SupportedOptions({"dbUrl", "dbUser", "dbPassword", "enableSqlStringHeuristic", "opsLogDir"})
 public class OpsChecker extends BaseTypeChecker {
 
     private static final String LOG_FILE_NAME_PATTERN = "yyyyMMdd-HHmmss'-opslog'";
 
-    protected OpsLogger logger;
+    private OpsLogger logger;
+    private SchemaTimingLogger schemaLogger;
 
     protected String projectRoot;
 
@@ -74,6 +81,7 @@ public class OpsChecker extends BaseTypeChecker {
                             timeStampedLogDir.resolve("statements.csv"),
                             timeStampedLogDir.resolve("bindings.csv"),
                             projectRoot);
+            schemaLogger = new SchemaTimingLogger(timeStampedLogDir);
         } catch (IOException e) {
             throw new UserError(
                     "Could not create logger. Check the path provided with -AopsLogDir", e);
@@ -128,6 +136,7 @@ public class OpsChecker extends BaseTypeChecker {
 
     @Override
     protected void shutdownHook() {
+        ((OpsAnnotatedTypeFactory) getTypeFactory()).shutdown();
         try {
             logger.close();
         } catch (IOException e) {
@@ -137,8 +146,8 @@ public class OpsChecker extends BaseTypeChecker {
     }
 
     @Override
-    protected Set<Class<? extends BaseTypeChecker>> getImmediateSubcheckerClasses() {
-        Set<Class<? extends BaseTypeChecker>> checkers = super.getImmediateSubcheckerClasses();
+    protected Set<Class<? extends SourceChecker>> getImmediateSubcheckerClasses() {
+        Set<Class<? extends SourceChecker>> checkers = super.getImmediateSubcheckerClasses();
         checkers.add(ValueChecker.class);
 
         return checkers;
@@ -146,6 +155,10 @@ public class OpsChecker extends BaseTypeChecker {
 
     protected OpsLogger getLogger() {
         return logger;
+    }
+
+    protected SchemaTimingLogger getSchemaLogger() {
+        return schemaLogger;
     }
 
     public TypeMapping getTypeMapping() {

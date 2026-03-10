@@ -11,13 +11,16 @@ import io.github.eisop.opsc.db.SchemaInfo;
 import io.github.eisop.opsc.exception.OpsDatabaseException;
 import io.github.eisop.opsc.log.OpsLogEntryKind;
 import io.github.eisop.opsc.log.OpsLogger;
+import io.github.eisop.opsc.log.SchemaTimingLogger;
 import io.github.eisop.opsc.qual.CreatesSqlStatement;
 import io.github.eisop.opsc.qual.RetrievesSqlResultSet;
 import io.github.eisop.opsc.qual.Sql;
 import io.github.eisop.opsc.qual.SqlBottom;
 import io.github.eisop.opsc.qual.SqlUnknown;
 import io.github.eisop.opsc.qual.SqlUnsupported;
+
 import java.lang.annotation.Annotation;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -107,13 +110,19 @@ public class OpsAnnotatedTypeFactory
     private void initSchemaInfo(BaseTypeChecker checker) {
         if (checker.getOption("dbUrl") == null) {
             throw new UserError("Database URL not specified");
-        } else {
-            try {
-                calciteSchemaInfo = new CalciteSchemaInfo(checker.getOption("dbUrl"), checker.getOption("dbUser"), checker.getOption("dbPassword"));
-                jdbcSchemaInfo = new JDBCSchemaInfo(checker.getOption("dbUrl"), checker.getOption("dbUser"), checker.getOption("dbPassword"));
-            } catch (OpsDatabaseException e) {
-                throw new UserError("Could not connect to database: %s", e.getMessage());
-            }
+        }
+        SchemaTimingLogger stl = ((OpsChecker) checker).getSchemaLogger();
+        try {
+            calciteSchemaInfo = new CalciteSchemaInfo(checker.getOption("dbUrl"),
+                    checker.getOption("dbUser"),
+                    checker.getOption("dbPassword"),
+                    stl);
+            jdbcSchemaInfo = new JDBCSchemaInfo(checker.getOption("dbUrl"),
+                    checker.getOption("dbUser"),
+                    checker.getOption("dbPassword"),
+                    stl);
+        } catch (OpsDatabaseException e) {
+            throw new UserError("Could not connect to database: %s", e.getMessage());
         }
     }
 
@@ -452,7 +461,7 @@ public class OpsAnnotatedTypeFactory
         // warn if the annotations are not equal
         if (annos.size() > 1 && !annos.stream().allMatch(a -> sqlAnnotationsEqual(a, annos.get(0)))) {
             checker.reportWarning(arg, "statement.multiple.string.values", stmts.toString());
-            logger.simpleStatementEntry(OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING, root, getStartPosition(arg), "statement string could evaluate to multiple string values", isPreparedStatement);
+            logger.simpleStatementEntry(OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING, getRoot(), getStartPosition(arg), "statement string could evaluate to multiple string values", isPreparedStatement);
             return SQLUNSUPPORTED;
         }
 
@@ -483,7 +492,7 @@ public class OpsAnnotatedTypeFactory
                 checker.reportWarning(tree, "statement.skipped", stmt);
                 logger.simpleStatementEntry(
                         OpsLogEntryKind.SKIPPED_STATEMENT,
-                        root,
+                        getRoot(),
                         getStartPosition(tree),
                         "Ignoring statement of unsupported type: " + stmt,
                         isPreparedStatement);
@@ -505,11 +514,11 @@ public class OpsAnnotatedTypeFactory
             } catch (OpsDatabaseException jdbcException) {
                 if (!warnAndLog) return null;
                 checker.reportError(tree, "determine.in.type.failed.final", calciteException.getMessage() + "\nJDBC: " + jdbcException.getMessage(), stmt);
-                logger.unsupportedPreparedStatement(root, getStartPosition(tree), calciteException.getMessage() + "--- JDBC: " + jdbcException.getMessage(), stmt, isPreparedStatement);
+                logger.unsupportedPreparedStatement(getRoot(), getStartPosition(tree), calciteException.getMessage() + "--- JDBC: " + jdbcException.getMessage(), stmt, isPreparedStatement);
                 return null;
             }
             if (warnAndLog) {
-                logger.simpleStatementEntry(OpsLogEntryKind.USING_FALLBACK, root, getStartPosition(tree), calciteException.getMessage(), isPreparedStatement);
+                logger.simpleStatementEntry(OpsLogEntryKind.USING_FALLBACK, getRoot(), getStartPosition(tree), calciteException.getMessage(), isPreparedStatement);
             }
         }
 
@@ -527,21 +536,21 @@ public class OpsAnnotatedTypeFactory
             } catch (OpsDatabaseException jdbcException) {
                 if (!warnAndLog) return null;
                 checker.reportError(tree, "determine.out.type.failed.final", jdbcException.getMessage() == null ? "" : jdbcException.getMessage(), stmt);
-                logger.unsupportedPreparedStatement(root, getStartPosition(tree), calciteException.getMessage() + "--- JDBC: " + jdbcException.getMessage(), stmt, isPreparedStatement);
+                logger.unsupportedPreparedStatement(getRoot(), getStartPosition(tree), calciteException.getMessage() + "--- JDBC: " + jdbcException.getMessage(), stmt, isPreparedStatement);
                 return null;
             }
             if (warnAndLog) {
-                logger.simpleStatementEntry(OpsLogEntryKind.USING_FALLBACK, root, getStartPosition(tree), calciteException.getMessage(), isPreparedStatement);
+                logger.simpleStatementEntry(OpsLogEntryKind.USING_FALLBACK, getRoot(), getStartPosition(tree), calciteException.getMessage(), isPreparedStatement);
             }
         }
 
         String file = null;
         String line = null;
         String column = null;
-        if (root != null) {
-            file = logger.sanitizeFileName(root.getSourceFile().getName());
-            LineMap lineMap = root.getLineMap();
-            long loc = trees.getSourcePositions().getStartPosition(root, tree);
+        if (getRoot() != null) {
+            file = logger.sanitizeFileName(getRoot().getSourceFile().getName());
+            LineMap lineMap = getRoot().getLineMap();
+            long loc = trees.getSourcePositions().getStartPosition(getRoot(), tree);
             line = String.valueOf(lineMap.getLineNumber(loc));
             column = String.valueOf(lineMap.getColumnNumber(loc));
         }
@@ -557,9 +566,9 @@ public class OpsAnnotatedTypeFactory
         String stmtUpper = stmt.trim().toUpperCase(Locale.ENGLISH);
         // Use regex to allow for preceding comments and whitespace
         return !(stmtUpper.matches(
-                        "(?s)^\\s*(--.*\\n)*\\s*(SELECT\\s+|INSERT\\s+|UPDATE\\s+|DELETE\\s+).*")
+                "(?s)^\\s*(--.*\\n)*\\s*(SELECT\\s+|INSERT\\s+|UPDATE\\s+|DELETE\\s+).*")
                 || stmtUpper.matches(
-                        "(?s)^\\s*/\\*.*?\\*/\\s*(SELECT\\s+|INSERT\\s+|UPDATE\\s+|DELETE\\s+).*")
+                "(?s)^\\s*/\\*.*?\\*/\\s*(SELECT\\s+|INSERT\\s+|UPDATE\\s+|DELETE\\s+).*")
                 || stmtUpper.matches("(?s)^\\s*(--.*\\n)*\\s*WITH\\s+(?!RECURSIVE\\s).*")
                 || stmtUpper.matches("(?s)^\\s*/\\*.*?\\*/\\s*WITH\\s+(?!RECURSIVE\\s).*"));
     }
@@ -598,10 +607,10 @@ public class OpsAnnotatedTypeFactory
     }
 
     private long getStartPosition(Tree tree) {
-        if (root == null) {
+        if (getRoot() == null) {
             return -1;
         }
-        return trees.getSourcePositions().getStartPosition(root, tree);
+        return trees.getSourcePositions().getStartPosition(getRoot(), tree);
     }
 
     private @Nullable List<String> retrieveStringValue(ExpressionTree stringExpression, boolean isPreparedStatement) {
@@ -612,7 +621,7 @@ public class OpsAnnotatedTypeFactory
         AnnotationMirror stringValAnnoMirror = getStringValAnnoMirror(stringExpression);
         if (stringValAnnoMirror == null) {
             checker.reportWarning(stringExpression, "statement.string.retrieval.failed");
-            logger.simpleStatementEntry(OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING, root, getStartPosition(stringExpression), "", isPreparedStatement);
+            logger.simpleStatementEntry(OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING, getRoot(), getStartPosition(stringExpression), "", isPreparedStatement);
             return null;
         }
 
@@ -621,7 +630,7 @@ public class OpsAnnotatedTypeFactory
 
         if (values.isEmpty()) {
             checker.reportWarning(stringExpression, "statement.string.retrieval.failed");
-            logger.simpleStatementEntry(OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING, root, getStartPosition(stringExpression), "", isPreparedStatement);
+            logger.simpleStatementEntry(OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING, getRoot(), getStartPosition(stringExpression), "", isPreparedStatement);
             return null;
         }
 
@@ -631,7 +640,7 @@ public class OpsAnnotatedTypeFactory
 
         if (checker.getBooleanOption("enableSqlStringHeuristic")) { // todo: remove this option?
             checker.reportWarning(stringExpression, "statement.multiple.string.values.continuing", values.toString());
-            logger.simpleStatementEntry(OpsLogEntryKind.USING_SQL_STRING_HEURISTIC, root, getStartPosition(stringExpression), null, isPreparedStatement);
+            logger.simpleStatementEntry(OpsLogEntryKind.USING_SQL_STRING_HEURISTIC, getRoot(), getStartPosition(stringExpression), null, isPreparedStatement);
             return values.subList(0, 1);
         }
 
@@ -649,8 +658,21 @@ public class OpsAnnotatedTypeFactory
     }
 
     protected void logSupportedStatement(MethodInvocationTree tree, String details, String stmt, int nParameters, boolean isPreparedStatement) {
-        logger.supportedStatement(root, getStartPosition(tree), details, stmt, nParameters, isPreparedStatement);
+        logger.supportedStatement(getRoot(), getStartPosition(tree), details, stmt, nParameters, isPreparedStatement);
     }
+
+    public void shutdown() {
+        try {
+            if (calciteSchemaInfo instanceof JDBCSchemaInfo) {
+                ((JDBCSchemaInfo) calciteSchemaInfo).close();
+            } else if (calciteSchemaInfo instanceof CalciteSchemaInfo) {
+                ((CalciteSchemaInfo) calciteSchemaInfo).close();
+            }
+        } catch (SQLException e) {
+            // Log but don't throw during shutdown
+        }
+    }
+
 
 }
 
