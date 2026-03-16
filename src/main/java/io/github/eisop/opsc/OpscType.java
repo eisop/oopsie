@@ -9,6 +9,20 @@ import org.jspecify.annotations.Nullable;
 public record OpscType(
         String columnDataType, List<String> columnAnnotations, @Nullable String columnName) {
 
+    /**
+     * Parses an annotation string and constructs an {@code OpscType} instance based on the parsed
+     * content. The input string is expected to contain a column type, an optional list of
+     * annotations, and an optional column name.
+     *
+     * <p>The annotations begin with the {@code @} symbol and are separated by spaces. Example
+     * strings could be: "@MaxLength(10) @Nullable VARCHAR name", "INTEGER age", or "DATE".
+     *
+     * @param annotationString the string containing type, optional annotations, and optionally the
+     *     column name.
+     * @return an {@code OpscType} instance containing the parsed type, annotations, and column name
+     *     information.
+     * @throws IllegalArgumentException if the input string is empty.
+     */
     public static OpscType fromAnnotationString(String annotationString) {
         String columnDataType;
         List<String> columnAnnotations;
