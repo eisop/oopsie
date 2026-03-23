@@ -3,7 +3,6 @@ package io.github.eisop.opsc;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
-import com.sun.source.tree.Tree;
 import io.github.eisop.opsc.log.OpsLogger;
 import io.github.eisop.opsc.qual.Sql;
 import io.github.eisop.opsc.qual.SqlUnsupported;
@@ -11,11 +10,15 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
+import org.checkerframework.common.value.ValueAnnotatedTypeFactory;
+import org.checkerframework.common.value.ValueChecker;
+import org.checkerframework.common.value.qual.IntVal;
 import org.checkerframework.framework.type.AnnotatedTypeMirror;
 import org.checkerframework.javacutil.AnnotationUtils;
 import org.checkerframework.javacutil.TreeUtils;
@@ -40,6 +43,10 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
     private final Set<ExecutableElement> preparedStatementSetMethodTypes = new HashSet<>();
     private final Set<ExecutableElement> resultSetGetByIndexMethodTypes = new HashSet<>();
     private final Set<ExecutableElement> resultSetGetByNameMethodTypes = new HashSet<>();
+
+    private final ExecutableElement intValValueElement =
+            TreeUtils.getMethod(
+                    "org.checkerframework.common.value.qual.IntVal", "value", 0, processingEnv);
 
     public OpsVisitor(BaseTypeChecker checker) {
         super(checker);
@@ -113,24 +120,29 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
             }
 
             ExpressionTree indexTree = tree.getArguments().get(0);
-            if (indexTree.getKind() == Tree.Kind.INT_LITERAL) {
-                LiteralTree literal = (LiteralTree) indexTree;
-                int index =
-                        (int) literal.getValue() - 1; // PreparedStatement parameters are 1-indexed
+            int literalIndex = retrieveIntValue(indexTree);
+            if (literalIndex == -1) {
+                checker.reportError(tree, "parameter.index.cannot.be.determined");
+                logError(tree, "parameter.index.cannot.be.determined", "", sqlAnnotation);
+            } else {
+                int psIndex = literalIndex - 1; // PreparedStatement parameters are 1-indexed
                 List<String> in =
                         AnnotationUtils.getElementValueArray(
                                 sqlAnnotation, sqlInElement, String.class, Collections.emptyList());
-                if (index >= in.size()) {
+                if (psIndex >= in.size()) {
                     checker.reportError(
-                            tree, "parameter.index.out.of.bounds", index + 1, in.size());
+                            tree, "parameter.index.out.of.bounds", psIndex + 1, in.size());
                     logError(
                             tree,
                             "parameter.index.out.of.bounds",
-                            "index=" + index + ", size=" + in.size(),
+                            "index=" + psIndex + ", size=" + in.size(),
                             sqlAnnotation);
                 } else {
                     checkParameterType(
-                            tree, method.getSimpleName().toString(), in.get(index), sqlAnnotation);
+                            tree,
+                            method.getSimpleName().toString(),
+                            in.get(psIndex),
+                            sqlAnnotation);
                 }
             }
         }
@@ -186,10 +198,13 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
             }
 
             ExpressionTree indexTree = tree.getArguments().get(0);
-            if (indexTree.getKind() == Tree.Kind.INT_LITERAL) {
-                LiteralTree literal = (LiteralTree) indexTree;
-                int index = (int) literal.getValue() - 1; // ResultSet columns are 1-indexed
-                checkGetResult(tree, method.getSimpleName().toString(), sqlAnnotation, index);
+            int literalIndex = retrieveIntValue(indexTree);
+            if (literalIndex == -1) {
+                checker.reportError(tree, "column.index.cannot.be.determined");
+                logError(tree, "column.index.not.cannot.be.determined", "", sqlAnnotation);
+            } else {
+                int columnIndex = literalIndex - 1; // ResultSet columns are 1-indexed
+                checkGetResult(tree, method.getSimpleName().toString(), sqlAnnotation, columnIndex);
             }
         }
     }
@@ -307,6 +322,37 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
     private boolean columnNamesMatch(String ann, String other) {
         String name = OpsAnnotatedTypeFactory.getName(ann);
         return name != null && name.equalsIgnoreCase(other);
+    }
+
+    private int retrieveIntValue(ExpressionTree intExpression) {
+        if (intExpression.getKind() == ExpressionTree.Kind.INT_LITERAL) {
+            return (int) ((LiteralTree) intExpression).getValue();
+        }
+
+        AnnotationMirror intValAnnoMirror = getIntValAnnoMirror(intExpression);
+        if (intValAnnoMirror == null) {
+            return -1;
+        }
+
+        List<Long> values =
+                AnnotationUtils.getElementValueArray(
+                        intValAnnoMirror, intValValueElement, Long.class, Collections.emptyList());
+
+        if (values.size() != 1) {
+            return -1;
+        }
+
+        return values.get(0).intValue();
+    }
+
+    private @Nullable AnnotationMirror getIntValAnnoMirror(final ExpressionTree valueExp) {
+        ValueAnnotatedTypeFactory valueAnnotatedTypeFactory =
+                getTypeFactory().getTypeFactoryOfSubchecker(ValueChecker.class);
+        if (valueAnnotatedTypeFactory == null) {
+            throw new TypeSystemError("Missing subchecker ValueChecker");
+        }
+        AnnotatedTypeMirror valueType = valueAnnotatedTypeFactory.getAnnotatedType(valueExp);
+        return valueType.getAnnotation(IntVal.class);
     }
 
     private void logError(
