@@ -44,9 +44,6 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("io.github.eisop:checker:${versions.checkerFramework}")
     testImplementation("io.github.eisop:framework-test:${versions.checkerFramework}")
-
-    implementation 'org.slf4j:slf4j-api:2.0.16' // Latest version
-    implementation 'ch.qos.logback:logback-classic:1.5.6' // Latest version
 }
 
 configurations.configureEach {
