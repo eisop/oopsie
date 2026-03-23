@@ -180,10 +180,13 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
         if (receiverType.hasAnnotation(Sql.class)) {
             AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
             ExpressionTree indexTree = tree.getArguments().get(0);
-            if (indexTree.getKind() == Tree.Kind.INT_LITERAL) {
-                LiteralTree literal = (LiteralTree) indexTree;
-                int index = (int) literal.getValue() - 1; // ResultSet columns are 1-indexed
-                checkGetResult(tree, method.getSimpleName().toString(), sqlAnnotation, index);
+            int literalIndex = retrieveIntValue(indexTree);
+            if (literalIndex == -1) {
+                checker.reportError(tree, "column.index.cannot.be.determined");
+                logError(tree, "column.index.not.cannot.be.determined", "", sqlAnnotation);
+            } else {
+                int columnIndex = literalIndex - 1; // ResultSet columns are 1-indexed
+                checkGetResult(tree, method.getSimpleName().toString(), sqlAnnotation, columnIndex);
             }
         }
     }
