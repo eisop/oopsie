@@ -1,3 +1,5 @@
+package oopsie;
+
 import io.github.eisop.oopsie.qual.Sql;
 import java.sql.Connection;
 import java.sql.DriverManager;

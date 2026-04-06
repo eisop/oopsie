@@ -1,3 +1,5 @@
+package oopsie;
+
 import io.github.eisop.oopsie.qual.Sql;
 import java.math.BigDecimal;
 import java.sql.*;

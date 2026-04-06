@@ -42,6 +42,28 @@ class SharedStatement {
     }
 
     /**
+     * This example uses the @SqlUnsupported annotation mechanic. This annotation was introduced to
+     * suppress setter/getter accesses to unsupported (= unparsable or not extractable) SQL
+     * statements as for these, a warning is issued on statement declaration. We do, however, want
+     * to warn about/log the usage of getters and setters on "nonlocal" statements and ResultSets,
+     * which are not assigned with @SqlUnsupported (see the corresponding test cases in {@code
+     * SqlUnsupportedAnnotation.java}).
+     */
+    public void sharedStmt2(String preparedSQL, String... param) throws SQLException {
+        // Statement string not extractable, so @SqlUnsupported should be assigned
+        // This suppresses warnings about getter/setter accesses for this statement
+        // :: warning: (statement.string.retrieval.failed)
+        preparedStmt = conn.prepareStatement(preparedSQL); // has @SqlUnsupported anno
+        PreparedStatement localPreparedStmt =
+                // :: warning: (statement.string.retrieval.failed)
+                conn.prepareStatement(preparedSQL); // has @SqlUnsupported anno
+        for (int i = 0; i < param.length; i++) {
+            preparedStmt.setString((i + 1), param[i]);
+            localPreparedStmt.setString((i + 1), param[i]);
+        }
+    }
+
+    /**
      * Here, the PreparedStatement is reinitialized with a new SQL string (parameter and result
      * types are swapped).
      */
