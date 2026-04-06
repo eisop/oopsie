@@ -126,7 +126,7 @@ checkerFramework {
 
 
 test {
-    inputs.files("tests/opsc")
+    inputs.files("tests/oopsie")
 }
 
 tasks.withType(Test) {
@@ -152,7 +152,7 @@ tasks.withType(Test) {
 publishing {
     publications {
         maven(MavenPublication) {
-            artifactId = "opsc"
+            artifactId = "oopsie"
             from components.java
         }
     }
