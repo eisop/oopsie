@@ -22,8 +22,8 @@ public class StringConstValues {
     // Working test from Tiny.java
     void simpleLiteral() throws SQLException {
         @Sql(
-                in = {"Timestamp"},
-                out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
+                in = {"TIMESTAMP"},
+                out = {"INTEGER", "DECIMAL", "VARCHAR"})
         PreparedStatement ps1 =
                 conn.prepareStatement(
                         "SELECT InvoiceId, Total, BillingCountry FROM Invoice WHERE InvoiceDate > ?");
@@ -31,8 +31,8 @@ public class StringConstValues {
 
     void concatenation() throws SQLException {
         @Sql(
-                in = {"Timestamp"},
-                out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
+                in = {"TIMESTAMP"},
+                out = {"INTEGER", "DECIMAL", "VARCHAR"})
         PreparedStatement ps1 =
                 conn.prepareStatement(
                         "SELECT InvoiceId, Total, BillingCountry "
@@ -42,15 +42,15 @@ public class StringConstValues {
     void stringFromLocalVariable() throws SQLException {
         String sql = "SELECT InvoiceId, Total, BillingCountry FROM Invoice WHERE InvoiceDate > ?";
         @Sql(
-                in = {"Timestamp"},
-                out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
+                in = {"TIMESTAMP"},
+                out = {"INTEGER", "DECIMAL", "VARCHAR"})
         PreparedStatement ps1 = conn.prepareStatement(sql);
     }
 
     void stringFromConstantField() throws SQLException {
         @Sql(
-                in = {"Timestamp"},
-                out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
+                in = {"TIMESTAMP"},
+                out = {"INTEGER", "DECIMAL", "VARCHAR"})
         PreparedStatement ps1 = conn.prepareStatement(stmt);
     }
 
@@ -59,8 +59,8 @@ public class StringConstValues {
                 "SELECT InvoiceId, Total, BillingCountry " + "FROM Invoice WHERE InvoiceDate > ?";
 
         @Sql(
-                in = {"Timestamp"},
-                out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
+                in = {"TIMESTAMP"},
+                out = {"INTEGER", "DECIMAL", "VARCHAR"})
         PreparedStatement ps1 = conn.prepareStatement(sql);
     }
 
@@ -70,8 +70,8 @@ public class StringConstValues {
         sql += "FROM Invoice WHERE InvoiceDate > ?";
 
         @Sql(
-                in = {"Timestamp"},
-                out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
+                in = {"TIMESTAMP"},
+                out = {"INTEGER", "DECIMAL", "VARCHAR"})
         PreparedStatement ps1 = conn.prepareStatement(sql);
     }
 
@@ -82,8 +82,8 @@ public class StringConstValues {
                 FROM Invoice WHERE InvoiceDate > ?
                 """;
         @Sql(
-                in = {"Timestamp"},
-                out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
+                in = {"TIMESTAMP"},
+                out = {"INTEGER", "DECIMAL", "VARCHAR"})
         PreparedStatement ps1 = conn.prepareStatement(sql);
     }
 
@@ -94,13 +94,8 @@ public class StringConstValues {
                 FROM Invoice WHERE InvoiceDate > ?
                 """;
         @Sql(
-                in = {"Timestamp"},
-                out = {
-                    "@NonNull INTEGER",
-                    "@NonNull DECIMAL",
-                    "@Nullable @MaxLength(40) VARCHAR",
-                    "@NonNull INTEGER"
-                })
+                in = {"TIMESTAMP"},
+                out = {"INTEGER", "DECIMAL", "VARCHAR", "INTEGER"})
         PreparedStatement ps1 =
                 // :: error: (assignment.type.incompatible)
                 conn.prepareStatement(sql);

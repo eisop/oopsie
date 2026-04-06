@@ -10,7 +10,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import javax.annotation.Nullable;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
@@ -23,6 +22,7 @@ import org.checkerframework.framework.type.AnnotatedTypeMirror;
 import org.checkerframework.javacutil.AnnotationUtils;
 import org.checkerframework.javacutil.TreeUtils;
 import org.checkerframework.javacutil.TypeSystemError;
+import org.jspecify.annotations.Nullable;
 
 public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
 
@@ -243,7 +243,7 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                     AnnotationUtils.getElementValueArray(
                             sqlAnnotation, sqlOutElement, String.class, Collections.emptyList());
             out.stream()
-                    .filter(s -> columnNamesMatch(s, columnName))
+                    .filter(annoColumnName -> columnNamesMatch(annoColumnName, columnName))
                     .findFirst()
                     .ifPresentOrElse(
                             s -> {
@@ -319,9 +319,19 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
         return !(type.hasAnnotation(Sql.class) || type.hasAnnotation(SqlUnsupported.class));
     }
 
-    private boolean columnNamesMatch(String ann, String other) {
-        String name = OpsAnnotatedTypeFactory.getName(ann);
-        return name != null && name.equalsIgnoreCase(other);
+    private boolean columnNamesMatch(String fromAnno, String fromCall) {
+        String name = getName(fromAnno);
+        return name != null && name.equalsIgnoreCase(fromCall);
+    }
+
+    static @Nullable String getName(String annotationString) {
+        // todo improve: e.g. with class for OPSC type
+        String[] tokens = annotationString.split(" ", -1);
+        if (tokens.length >= 2) {
+            return tokens[tokens.length - 1];
+        } else {
+            return null;
+        }
     }
 
     private int retrieveIntValue(ExpressionTree intExpression) {

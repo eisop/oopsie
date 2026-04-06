@@ -25,14 +25,14 @@ class Issues {
         // should work but Calcite is calling the type "DECIMAL" instead of "NUMERIC"
         // -> solved by workaround in type hierarchy
         @Sql(
-                in = {"@NonNull NUMERIC"},
-                out = {"@NonNull INTEGER"})
+                in = {"NUMERIC"},
+                out = {"INTEGER"})
         PreparedStatement ps3 =
                 conn.prepareStatement("SELECT CustomerId FROM Invoice WHERE Total > ?", 1, 2, 3);
 
         @Sql(
-                in = {"@NonNull DECIMAL"},
-                out = {"@NonNull INTEGER"})
+                in = {"DECIMAL"},
+                out = {"INTEGER"})
         PreparedStatement ps4 =
                 conn.prepareStatement("SELECT CustomerId FROM Invoice WHERE Total > ?", 1, 2, 3);
     }

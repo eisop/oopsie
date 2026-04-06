@@ -32,7 +32,6 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
-import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
@@ -259,18 +258,7 @@ public class CalciteSchemaInfo implements SchemaInfo {
 
     private String getTypeWithAnnotations(RelDataType relType, String name) {
         String typeName = getJDBCTypeName(relType);
-
-        String anno = relType.isNullable() ? "@Nullable " : "@NonNull ";
-
-        SqlTypeFamily typeFamily = relType.getSqlTypeName().getFamily();
-        String familyName = typeFamily == null ? "" : typeFamily.name();
-        if (familyName.equals("CHARACTER")) {
-            int maxLength = relType.getPrecision();
-            if (maxLength != RelDataType.PRECISION_NOT_SPECIFIED) {
-                anno += "@MaxLength(" + maxLength + ") ";
-            }
-        }
-        return anno + typeName + " " + name;
+        return typeName + " " + name;
     }
 
     private static String getJDBCTypeName(RelDataType relType) {

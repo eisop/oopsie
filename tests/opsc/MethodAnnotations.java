@@ -15,14 +15,14 @@ class MethodAnnotations {
 
     public @Sql(
             in = {"TIMESTAMP"},
-            out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
-    PreparedStatement getPreparedStatement() throws SQLException {
+            out = {"INTEGER", "DECIMAL", "VARCHAR"}) PreparedStatement getPreparedStatement()
+            throws SQLException {
         return conn.prepareStatement(
                 "SELECT InvoiceId, Total, BillingCountry FROM Invoice WHERE InvoiceDate > ?");
     }
 
-    public @Sql(out = {"@NonNull INTEGER", "@NonNull DECIMAL", "@Nullable @MaxLength(40) VARCHAR"})
-    ResultSet getResultSet() throws SQLException {
+    public @Sql(out = {"INTEGER", "DECIMAL", "VARCHAR"}) ResultSet getResultSet()
+            throws SQLException {
         return getPreparedStatement().executeQuery();
     }
 

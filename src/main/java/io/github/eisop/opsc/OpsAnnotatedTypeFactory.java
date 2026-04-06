@@ -116,16 +116,6 @@ public class OpsAnnotatedTypeFactory
         return typeMapping;
     }
 
-    static @Nullable String getName(String annotationString) {
-        // todo improve: e.g. with class for OPSC type
-        String[] tokens = annotationString.split(" ", -1);
-        if (tokens.length >= 2 && !tokens[tokens.length - 2].startsWith("@")) {
-            return tokens[tokens.length - 1];
-        } else {
-            return null;
-        }
-    }
-
     @EnsuresNonNull({"calciteSchemaInfo", "jdbcSchemaInfo"})
     private void initSchemaInfo(
             @UnderInitialization OpsAnnotatedTypeFactory this, BaseTypeChecker checker) {
@@ -264,43 +254,8 @@ public class OpsAnnotatedTypeFactory
                         && !sup.columnName().equalsIgnoreCase(sub.columnName())) {
                     return false;
                 }
-
-                if (sup.columnAnnotations().contains("@NonNull")
-                        && !sub.columnAnnotations().contains("@NonNull")) {
-                    return false;
-                }
-
-                if (sup.columnAnnotations().stream().anyMatch(s -> s.startsWith("@MaxLength("))) {
-                    if (sub.columnAnnotations().stream()
-                            .noneMatch(s -> s.startsWith("@MaxLength("))) {
-                        return false;
-                    }
-                    int superMax = getMaxLengthValue(sup.columnAnnotations());
-                    int subMax = getMaxLengthValue(sub.columnAnnotations());
-                    if (subMax > superMax) {
-                        return false;
-                    }
-                }
             }
             return true;
-        }
-
-        private Integer getMaxLengthValue(List<String> columnAnnotations) {
-            return columnAnnotations.stream()
-                    // find @MaxLength(...) annotation
-                    .filter(s -> s.startsWith("@MaxLength("))
-                    .map(
-                            s ->
-                                    Integer.parseInt(
-                                            // find the value inside the parentheses
-                                            // of the @MaxLength(...) annotation
-                                            s.split("\\(", 2)[1].split("\\)", 2)[0]))
-                    .findFirst()
-                    .orElseThrow(
-                            () ->
-                                    new TypeSystemError(
-                                            "Invalid @MaxLength annotation: %s",
-                                            (Object) columnAnnotations));
         }
 
         private boolean inIsSubtype(List<String> subIn, List<String> superIn) {
