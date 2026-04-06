@@ -57,13 +57,28 @@ public class OpsAnnotatedTypeFactory
         extends GenericAnnotatedTypeFactory<OpsValue, OpsStore, OpsTransfer, OpsAnalysis> {
 
     protected final AnnotationMirror SQL = AnnotationBuilder.fromClass(elements, Sql.class);
-    protected final AnnotationMirror SQLUNSUPPORTED = AnnotationBuilder.fromClass(elements, SqlUnsupported.class);
-    protected final AnnotationMirror SQLUNKNOWN = AnnotationBuilder.fromClass(elements, SqlUnknown.class);
-    protected final AnnotationMirror SQLBOTTOM = AnnotationBuilder.fromClass(elements, SqlBottom.class);
-    protected final ExecutableElement sqlInElement = TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "in", 0, processingEnv);
-    protected final ExecutableElement sqlOutElement = TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "out", 0, processingEnv);
-    protected final ExecutableElement isPreparedStatementElement = TreeUtils.getMethod("io.github.eisop.opsc.qual.CreatesSqlStatement", "preparedStatement", 0, processingEnv);
-    protected final ExecutableElement statementStringParameterElement = TreeUtils.getMethod("io.github.eisop.opsc.qual.CreatesSqlStatement", "statementStringParameter", 0, processingEnv);
+    protected final AnnotationMirror SQLUNSUPPORTED =
+            AnnotationBuilder.fromClass(elements, SqlUnsupported.class);
+    protected final AnnotationMirror SQLUNKNOWN =
+            AnnotationBuilder.fromClass(elements, SqlUnknown.class);
+    protected final AnnotationMirror SQLBOTTOM =
+            AnnotationBuilder.fromClass(elements, SqlBottom.class);
+    protected final ExecutableElement sqlInElement =
+            TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "in", 0, processingEnv);
+    protected final ExecutableElement sqlOutElement =
+            TreeUtils.getMethod("io.github.eisop.opsc.qual.Sql", "out", 0, processingEnv);
+    protected final ExecutableElement isPreparedStatementElement =
+            TreeUtils.getMethod(
+                    "io.github.eisop.opsc.qual.CreatesSqlStatement",
+                    "preparedStatement",
+                    0,
+                    processingEnv);
+    protected final ExecutableElement statementStringParameterElement =
+            TreeUtils.getMethod(
+                    "io.github.eisop.opsc.qual.CreatesSqlStatement",
+                    "statementStringParameter",
+                    0,
+                    processingEnv);
     private final OpsLogger logger = ((OpsChecker) checker).getLogger();
 
     private final TypeMapping typeMapping = ((OpsChecker) checker).getTypeMapping();
@@ -83,10 +98,14 @@ public class OpsAnnotatedTypeFactory
     public OpsAnnotatedTypeFactory(BaseTypeChecker checker) {
         super(checker);
 
-        sqlUnsupportedMethods = TreeUtils.getMethods("java.sql.Connection", "prepareCall", 1, processingEnv);
-        sqlUnsupportedMethods.addAll(TreeUtils.getMethods("java.sql.Connection", "prepareCall", 3, processingEnv));
-        sqlUnsupportedMethods.addAll(TreeUtils.getMethods("java.sql.Connection", "prepareCall", 4, processingEnv));
-        sqlUnsupportedMethods.addAll(TreeUtils.getMethods("java.sql.Statement", "getGeneratedKeys", 0, processingEnv));
+        sqlUnsupportedMethods =
+                TreeUtils.getMethods("java.sql.Connection", "prepareCall", 1, processingEnv);
+        sqlUnsupportedMethods.addAll(
+                TreeUtils.getMethods("java.sql.Connection", "prepareCall", 3, processingEnv));
+        sqlUnsupportedMethods.addAll(
+                TreeUtils.getMethods("java.sql.Connection", "prepareCall", 4, processingEnv));
+        sqlUnsupportedMethods.addAll(
+                TreeUtils.getMethods("java.sql.Statement", "getGeneratedKeys", 0, processingEnv));
 
         initSchemaInfo(checker);
 
@@ -113,14 +132,18 @@ public class OpsAnnotatedTypeFactory
         }
         SchemaTimingLogger stl = ((OpsChecker) checker).getSchemaLogger();
         try {
-            calciteSchemaInfo = new CalciteSchemaInfo(checker.getOption("dbUrl"),
-                    checker.getOption("dbUser"),
-                    checker.getOption("dbPassword"),
-                    stl);
-            jdbcSchemaInfo = new JDBCSchemaInfo(checker.getOption("dbUrl"),
-                    checker.getOption("dbUser"),
-                    checker.getOption("dbPassword"),
-                    stl);
+            calciteSchemaInfo =
+                    new CalciteSchemaInfo(
+                            checker.getOption("dbUrl"),
+                            checker.getOption("dbUser"),
+                            checker.getOption("dbPassword"),
+                            stl);
+            jdbcSchemaInfo =
+                    new JDBCSchemaInfo(
+                            checker.getOption("dbUrl"),
+                            checker.getOption("dbUser"),
+                            checker.getOption("dbPassword"),
+                            stl);
         } catch (OpsDatabaseException e) {
             throw new UserError("Could not connect to database: %s", e.getMessage());
         }
@@ -231,32 +254,8 @@ public class OpsAnnotatedTypeFactory
                 if (sup.columnName() != null && !sup.columnName().equalsIgnoreCase(sub.columnName())) {
                     return false;
                 }
-
-                if (sup.columnAnnotations().contains("@NonNull") && !sub.columnAnnotations().contains("@NonNull")) {
-                    return false;
-                }
-
-                if (sup.columnAnnotations().stream().anyMatch(s -> s.startsWith("@MaxLength("))) {
-                    if (sub.columnAnnotations().stream().noneMatch(s -> s.startsWith("@MaxLength("))) {
-                        return false;
-                    }
-                    int superMax = getMaxLengthValue(sup.columnAnnotations());
-                    int subMax = getMaxLengthValue(sub.columnAnnotations());
-                    if (subMax > superMax) {
-                        return false;
-                    }
-                }
             }
             return true;
-        }
-
-        private Integer getMaxLengthValue(List<String> columnAnnotations) {
-            return columnAnnotations.stream()
-                    // find @MaxLength(...) annotation
-                    .filter(s -> s.startsWith("@MaxLength(")).map(s -> Integer.parseInt(
-                            // find the value inside the parentheses
-                            // of the @MaxLength(...) annotation
-                            s.split("\\(", 2)[1].split("\\)", 2)[0])).findFirst().orElseThrow(() -> new TypeSystemError("Invalid @MaxLength annotation: %s", (Object) columnAnnotations));
         }
 
         private boolean inIsSubtype(List<String> subIn, List<String> superIn) {

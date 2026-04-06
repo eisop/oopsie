@@ -3,7 +3,6 @@ package io.github.eisop.opsc;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
-import com.sun.source.tree.Tree;
 import io.github.eisop.opsc.log.OpsLogger;
 import io.github.eisop.opsc.qual.Sql;
 import io.github.eisop.opsc.qual.SqlUnsupported;
@@ -17,10 +16,15 @@ import org.checkerframework.javacutil.AnnotationUtils;
 import org.checkerframework.javacutil.TreeUtils;
 import org.checkerframework.javacutil.TypeSystemError;
 
+import javax.annotation.Nullable;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
 
@@ -225,7 +229,7 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
                             Collections.emptyList());
 
             Optional<String> matchedColumn = out.stream()
-                    .filter(s -> columnNamesMatch(s, columnName))
+                    .filter(annoColumnName -> columnNamesMatch(annoColumnName, columnName))
                     .findFirst();
             if (matchedColumn.isPresent()) {
                 int index = out.indexOf(matchedColumn.get());
@@ -291,9 +295,19 @@ public class OpsVisitor extends BaseTypeVisitor<OpsAnnotatedTypeFactory> {
         return !(type.hasAnnotation(Sql.class) || type.hasAnnotation(SqlUnsupported.class));
     }
 
-    private boolean columnNamesMatch(String ann, String other) {
-        String name = OpsAnnotatedTypeFactory.getName(ann);
-        return name != null && name.equalsIgnoreCase(other);
+    private boolean columnNamesMatch(String fromAnno, String fromCall) {
+        String name = getName(fromAnno);
+        return name != null && name.equalsIgnoreCase(fromCall);
+    }
+
+    static @Nullable String getName(String annotationString) {
+        // todo improve: e.g. with class for OPSC type
+        String[] tokens = annotationString.split(" ", -1);
+        if (tokens.length >= 2) {
+            return tokens[tokens.length - 1];
+        } else {
+            return null;
+        }
     }
 
     private int retrieveIntValue(ExpressionTree intExpression) {

@@ -25,15 +25,15 @@ class Issues {
 
         // TODO should work but Calcite is calling the type "DECIMAL" instead of "NUMERIC"
         @Sql(
-                in = {"@NonNull NUMERIC"},
-                out = {"@NonNull INTEGER"})
+                in = {"NUMERIC"},
+                out = {"INTEGER"})
         PreparedStatement ps3 =
                 // :: error: (assignment.type.incompatible)
                 conn.prepareStatement("SELECT CustomerId FROM Invoice WHERE Total > ?", 1, 2, 3);
 
         @Sql(
-                in = {"@NonNull DECIMAL"},
-                out = {"@NonNull INTEGER"})
+                in = {"DECIMAL"},
+                out = {"INTEGER"})
         PreparedStatement ps4 =
                 conn.prepareStatement("SELECT CustomerId FROM Invoice WHERE Total > ?", 1, 2, 3);
     }

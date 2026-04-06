@@ -61,7 +61,7 @@ public class JDBCSchemaInfo implements SchemaInfo {
             }
             ImmutableList.Builder<String> builder = ImmutableList.builder();
             for (int i = 1; i <= md.getColumnCount(); i++) {
-                builder.add(getTypeWithAnnotations(i, md));
+                builder.add(getType(i, md));
             }
             ImmutableList<String> result = builder.build();
             logger.logMethodTiming(
@@ -85,7 +85,7 @@ public class JDBCSchemaInfo implements SchemaInfo {
                 }
                 ImmutableList.Builder<String> builder = ImmutableList.builder();
                 for (int i = 1; i <= md.getParameterCount(); i++) {
-                    builder.add(getTypeWithAnnotations(i, md));
+                    builder.add(getType(i, md));
                 }
                 ImmutableList<String> result = builder.build();
                 logger.logMethodTiming(
@@ -104,50 +104,23 @@ public class JDBCSchemaInfo implements SchemaInfo {
     }
 
     // use the isNullable method of the given ResultSetMetaData OR ParameterMetaData
-    private String getTypeWithAnnotations(int index, ResultSetMetaData md)
-            throws OpsDatabaseException {
+    private String getType(int index, ResultSetMetaData md) throws OpsDatabaseException {
         try {
             String jdbcType = JDBCUtil.jdbcTypeNameFromOrdinal(md.getColumnType(index));
-            return getTypeWithAnnotations(jdbcType, md.isNullable(index), md.getPrecision(index));
+            String name = md.getColumnName(index);
+            name = name.isEmpty() ? "" : " " + name;
+            return jdbcType + name;
         } catch (SQLException e) {
             throw new OpsDatabaseException(e);
         }
     }
 
-    private String getTypeWithAnnotations(int index, ParameterMetaData md)
-            throws OpsDatabaseException {
+    private String getType(int index, ParameterMetaData md) throws OpsDatabaseException {
         try {
-            String jdbcType = JDBCUtil.jdbcTypeNameFromOrdinal(md.getParameterType(index));
-            return getTypeWithAnnotations(jdbcType, md.isNullable(index), md.getPrecision(index));
+            return JDBCUtil.jdbcTypeNameFromOrdinal(md.getParameterType(index));
         } catch (SQLException e) {
             throw new OpsDatabaseException(e);
         }
-    }
-
-    private String getTypeWithAnnotations(String className, int nullability, int precision) {
-        String anno;
-        switch (nullability) {
-            case ParameterMetaData.parameterNoNulls:
-                anno = "@NonNull ";
-                break;
-            case ParameterMetaData.parameterNullable:
-                anno = "@Nullable ";
-                break;
-            case ParameterMetaData.parameterNullableUnknown:
-                anno = "";
-                break;
-            default:
-                throw new IllegalArgumentException(
-                        "nullability must be one of ParameterMetaData.parameterNoNulls, "
-                                + "ParameterMetaData.parameterNullable "
-                                + "or ParameterMetaData.parameterNullableUnknown");
-        }
-        if (Objects.equals(className, "VARCHAR")) {
-            if (precision != 0) {
-                anno += "@MaxLength(" + precision + ") ";
-            }
-        }
-        return anno + className;
     }
 
     public void close() throws SQLException {
