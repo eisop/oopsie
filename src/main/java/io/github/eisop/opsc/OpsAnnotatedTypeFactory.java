@@ -56,6 +56,8 @@ import org.jspecify.annotations.Nullable;
 public class OpsAnnotatedTypeFactory
         extends GenericAnnotatedTypeFactory<OpsValue, OpsStore, OpsTransfer, OpsAnalysis> {
 
+    private final OpsLogger logger = ((OpsChecker) checker).getLogger();
+
     protected final AnnotationMirror SQL = AnnotationBuilder.fromClass(elements, Sql.class);
     protected final AnnotationMirror SQLUNSUPPORTED =
             AnnotationBuilder.fromClass(elements, SqlUnsupported.class);
@@ -79,22 +81,18 @@ public class OpsAnnotatedTypeFactory
                     "statementStringParameter",
                     0,
                     processingEnv);
-    private final OpsLogger logger = ((OpsChecker) checker).getLogger();
-
-    private final TypeMapping typeMapping = ((OpsChecker) checker).getTypeMapping();
-
     protected final ExecutableElement stringValValueElement =
             TreeUtils.getMethod(
                     "org.checkerframework.common.value.qual.StringVal", "value", 0, processingEnv);
+
     private final List<ExecutableElement> sqlUnsupportedMethods;
 
+    private final OpscTypeCache opscTypeCache;
+
     private SchemaInfo calciteSchemaInfo;
-
-    // Used as fallback
-
     private SchemaInfo jdbcSchemaInfo;
 
-    @SuppressWarnings("this-escape") // Call to postInit().
+    @SuppressWarnings({"this-escape", "initialization"}) // Call to postInit().
     public OpsAnnotatedTypeFactory(BaseTypeChecker checker) {
         super(checker);
 
@@ -107,13 +105,9 @@ public class OpsAnnotatedTypeFactory
         sqlUnsupportedMethods.addAll(
                 TreeUtils.getMethods("java.sql.Statement", "getGeneratedKeys", 0, processingEnv));
 
+        opscTypeCache = new OpscTypeCache(this); // todo review initialization warning
         initSchemaInfo(checker);
-
         this.postInit();
-    }
-
-    public TypeMapping getTypeMapping() {
-        return typeMapping;
     }
 
     @EnsuresNonNull({"calciteSchemaInfo", "jdbcSchemaInfo"})
@@ -207,12 +201,13 @@ public class OpsAnnotatedTypeFactory
                 AnnotationMirror superAnno,
                 QualifierKind superKind) {
             if (subKind == SQL_KIND && superKind == SQL_KIND) {
-                List<String> subIn = getInElement(subAnno);
-                List<String> subOut = getOutElement(subAnno);
-                List<String> superIn = getInElement(superAnno);
-                List<String> superOut = getOutElement(superAnno);
+                List<OpscType> subInTypes = opscTypeCache.getInTypes(subAnno);
+                List<OpscType> subOutTypes = opscTypeCache.getOutTypes(subAnno);
+                List<OpscType> superInTypes = opscTypeCache.getInTypes(superAnno);
+                List<OpscType> superOutTypes = opscTypeCache.getOutTypes(superAnno);
 
-                return outIsSubtype(subOut, superOut) && inIsSubtype(subIn, superIn);
+                return outIsSubtype(subOutTypes, superOutTypes)
+                        && inIsSubtype(subInTypes, superInTypes);
             }
             throw new TypeSystemError("Unexpected qualifiers: %s %s", subAnno, superAnno);
         }
@@ -224,25 +219,25 @@ public class OpsAnnotatedTypeFactory
          * "String"})} is a subtype of {@code @Sql(out = {"@Nullable Integer"})}, but not of
          * {@code @Sql(out = {"String"})}.
          *
-         * @param subOut the subtype's out columns
-         * @param superOut the supertype's out columns
+         * @param subOutTypes the subtype's out columns
+         * @param superOutTypes the supertype's out columns
          * @return true if the subtype's out columns are a subtype of the supertype's out columns
          */
-        private boolean outIsSubtype(List<String> subOut, List<String> superOut) {
+        private boolean outIsSubtype(List<OpscType> subOutTypes, List<OpscType> superOutTypes) {
             // Compare lengths: The supertype's out columns can be a prefix of the subtype's
             // columns.
             // In this case, the remaining columns of the subtype are ignored by the supertype.
-            if (subOut.size() < superOut.size()) {
+            if (subOutTypes.size() < superOutTypes.size()) {
                 return false;
             }
-            if (subOut.size() > superOut.size()) {
-                return outIsSubtype(subOut.subList(0, superOut.size()), superOut);
+            if (subOutTypes.size() > superOutTypes.size()) {
+                return outIsSubtype(subOutTypes.subList(0, superOutTypes.size()), superOutTypes);
             }
 
             // Compare individual columns
-            for (int i = 0; i < subOut.size(); i++) {
-                OpscType sub = OpscType.fromAnnotationString(subOut.get(i));
-                OpscType sup = OpscType.fromAnnotationString(superOut.get(i));
+            for (int i = 0; i < subOutTypes.size(); i++) {
+                OpscType sub = subOutTypes.get(i);
+                OpscType sup = superOutTypes.get(i);
 
                 // Check if the types are equal
                 if (!sub.dataTypeMatches(sup)) {
@@ -258,7 +253,7 @@ public class OpsAnnotatedTypeFactory
             return true;
         }
 
-        private boolean inIsSubtype(List<String> subIn, List<String> superIn) {
+        private boolean inIsSubtype(List<OpscType> subIn, List<OpscType> superIn) {
             // Reverse of the hierarchy for out except that the lengths must be equal as parameters
             // have to be specified and no more parameters than exist can be specified.
             return subIn.size() == superIn.size() && outIsSubtype(superIn, subIn);
@@ -281,10 +276,10 @@ public class OpsAnnotatedTypeFactory
                 } else {
                     // an SQL upper bound needs at least the same in columns as a1 and a2,
                     // so a1 and a2 need to have equal in columns
-                    List<String> in1 = getInElement(a1);
-                    List<String> in2 = getInElement(a2);
-                    List<String> out1 = getOutElement(a1);
-                    List<String> out2 = getOutElement(a2);
+                    List<OpscType> in1 = opscTypeCache.getInTypes(a1);
+                    List<OpscType> in2 = opscTypeCache.getInTypes(a2);
+                    List<OpscType> out1 = opscTypeCache.getOutTypes(a1);
+                    List<OpscType> out2 = opscTypeCache.getOutTypes(a2);
 
                     if (!in1.equals(in2)) {
                         return SQLUNKNOWN;
@@ -295,20 +290,21 @@ public class OpsAnnotatedTypeFactory
                     int maxLubOutSize = Math.min(out1.size(), out2.size());
                     List<String> outLub = new ArrayList<>();
                     for (int i = 0; i < maxLubOutSize; i++) {
-                        OpscType out1Type = OpscType.fromAnnotationString(out1.get(i));
-                        OpscType out2Type = OpscType.fromAnnotationString(out2.get(i));
+                        OpscType out1Type = out1.get(i);
+                        OpscType out2Type = out2.get(i);
                         if (out1Type.equals(out2Type)) {
-                            outLub.add(out1.get(i));
+                            outLub.add(out1.get(i).toString());
                         } else {
                             if (out1Type.equalsIgnoringName(out2Type)) {
-                                outLub.add(out1.get(i));
+                                outLub.add(out1.get(i).toString());
                             } else {
                                 break;
                             }
                         }
                     }
 
-                    return createSqlAnnotation(in1, outLub, null, null, null);
+                    List<String> in1Strings = getInElement(a1);
+                    return createSqlAnnotation(in1Strings, outLub, null, null, null);
                 }
             } else if (qualifierKind1 == SQL_KIND && qualifierKind2 == SQLUNSUPPORTED_KIND) {
                 return a1;
@@ -440,12 +436,12 @@ public class OpsAnnotatedTypeFactory
                 .anyMatch(m -> TreeUtils.isMethodInvocation(tree, m, processingEnv));
     }
 
-    private List<String> getInElement(AnnotationMirror a1) {
+    List<String> getInElement(AnnotationMirror a1) {
         return AnnotationUtils.getElementValueArray(
                 a1, sqlInElement, String.class, Collections.emptyList());
     }
 
-    private List<String> getOutElement(AnnotationMirror a1) {
+    List<String> getOutElement(AnnotationMirror a1) {
         return AnnotationUtils.getElementValueArray(
                 a1, sqlOutElement, String.class, Collections.emptyList());
     }
@@ -493,8 +489,8 @@ public class OpsAnnotatedTypeFactory
         }
 
         // warn if the annotations are not equal
-        if (annos.size() > 1
-                && !annos.stream().allMatch(a -> sqlAnnotationsEqual(a, annos.get(0)))) {
+        AnnotationMirror firstAnno = annos.remove(0);
+        if (!annos.isEmpty() && !annos.stream().allMatch(a -> sqlAnnotationsEqual(a, firstAnno))) {
             checker.reportWarning(arg, "statement.multiple.string.values", stmts.toString());
             logger.simpleStatementEntry(
                     OpsLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING,
@@ -505,11 +501,10 @@ public class OpsAnnotatedTypeFactory
             return SQLUNSUPPORTED;
         }
 
-        AnnotationMirror annotation = annos.get(0);
-        String details = annos.get(0).toString();
+        String details = firstAnno.toString();
         logSupportedStatement(
-                tree, details, stmts.get(0), getInElement(annotation).size(), isPreparedStatement);
-        return annotation;
+                tree, details, stmts.get(0), getInElement(firstAnno).size(), isPreparedStatement);
+        return firstAnno;
     }
 
     /**
@@ -667,7 +662,7 @@ public class OpsAnnotatedTypeFactory
     private @Nullable List<String> getOutType(String stmt, SchemaInfo schemaInfo)
             throws OpsDatabaseException {
         List<String> rt = schemaInfo.getResultTypeOf(stmt);
-        if (rt == null || rt.isEmpty()) {
+        if (rt.isEmpty()) {
             return null;
         }
         return rt;
@@ -676,7 +671,7 @@ public class OpsAnnotatedTypeFactory
     private @Nullable List<String> getInType(String stmt, SchemaInfo schemaInfo)
             throws OpsDatabaseException {
         List<String> pt = schemaInfo.getPlaceholderTypesOf(stmt);
-        if (pt == null || pt.isEmpty()) {
+        if (pt.isEmpty()) {
             return null;
         }
         return pt;

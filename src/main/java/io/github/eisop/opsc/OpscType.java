@@ -1,13 +1,11 @@
 package io.github.eisop.opsc;
 
 import com.google.common.base.Splitter;
-import java.util.Collections;
 import java.util.List;
 import org.checkerframework.dataflow.qual.Pure;
 import org.jspecify.annotations.Nullable;
 
-public record OpscType(
-        String columnDataType, @Nullable String columnName) {
+public record OpscType(String columnDataType, @Nullable String columnName) {
 
     /**
      * !FOR NOW, THE AT-SIGN ANNOTATIONS ARE IGNORED!
@@ -27,7 +25,7 @@ public record OpscType(
      */
     public static OpscType fromAnnotationString(String annotationString) {
         String columnDataType;
-//        List<String> columnAnnotations;
+        //        List<String> columnAnnotations;
         String columnName;
 
         List<String> tokens = Splitter.on(' ').splitToList(annotationString);
@@ -38,15 +36,15 @@ public record OpscType(
 
         if (tokens.size() == 1) {
             columnDataType = tokens.get(0);
-//            columnAnnotations = Collections.emptyList();
+            //            columnAnnotations = Collections.emptyList();
             columnName = null;
         } else if (tokens.get(tokens.size() - 2).startsWith("@")) {
             columnDataType = tokens.get(tokens.size() - 1);
-//            columnAnnotations = tokens.subList(0, tokens.size() - 1);
+            //            columnAnnotations = tokens.subList(0, tokens.size() - 1);
             columnName = null;
         } else {
             columnDataType = tokens.get(tokens.size() - 2);
-//            columnAnnotations = tokens.subList(0, tokens.size() - 2);
+            //            columnAnnotations = tokens.subList(0, tokens.size() - 2);
             columnName = tokens.get(tokens.size() - 1);
         }
 
@@ -87,10 +85,9 @@ public record OpscType(
 
     @Override
     public String toString() {
-        String annotationString = columnDataType;
         if (columnName != null) {
-            annotationString = annotationString + " " + columnName;
+            return columnDataType + " " + columnName;
         }
-        return annotationString;
+        return columnDataType;
     }
 }
