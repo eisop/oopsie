@@ -106,7 +106,7 @@ dependencies {
     checkerFramework("io.github.eisop:checker:${versions.checkerFramework}")
 
     // dependency for Calcite, not sure why it's needed here
-    compileOnly("org.immutables:value:2.10.1")
+    compileOnly("org.immutables:value:2.12.1")
 }
 
 checkerFramework {
