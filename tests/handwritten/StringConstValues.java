@@ -1,5 +1,3 @@
-package opsc;
-
 import io.github.eisop.opsc.qual.Sql;
 import java.sql.Connection;
 import java.sql.DriverManager;

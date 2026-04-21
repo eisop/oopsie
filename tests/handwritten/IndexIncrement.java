@@ -1,5 +1,3 @@
-package opsc;
-
 import java.sql.*;
 
 public class IndexIncrement {

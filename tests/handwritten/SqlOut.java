@@ -1,5 +1,3 @@
-package opsc;
-
 import io.github.eisop.opsc.qual.Sql;
 import java.math.BigDecimal;
 import java.sql.*;

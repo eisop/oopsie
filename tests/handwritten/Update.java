@@ -1,5 +1,3 @@
-package opsc;
-
 import java.math.BigDecimal;
 import java.sql.*;
 
