@@ -12,14 +12,12 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Set;
 import javax.annotation.processing.SupportedOptions;
-import javax.tools.Diagnostic;
 import javax.tools.FileObject;
 import javax.tools.StandardLocation;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.common.basetype.BaseTypeChecker;
 import org.checkerframework.common.basetype.BaseTypeVisitor;
 import org.checkerframework.common.value.ValueChecker;
-import org.checkerframework.framework.source.DiagMessage;
 import org.checkerframework.framework.source.SourceChecker;
 import org.checkerframework.javacutil.TypeSystemError;
 import org.checkerframework.javacutil.UserError;
@@ -144,10 +142,7 @@ public class OpsChecker extends BaseTypeChecker {
                             + ". Consider choosing an alternative directory using -AopsLogDir",
                     e);
         }
-
-        report(
-                null,
-                new DiagMessage(Diagnostic.Kind.NOTE, "Storing OPSC logs in " + timeStampedLogDir));
+        System.out.println("Storing OPSC logs in " + timeStampedLogDir);
 
         try {
             logger =
