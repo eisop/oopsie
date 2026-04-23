@@ -25,7 +25,7 @@ group = "io.github.eisop"
 version = "0.0.1-SNAPSHOT"
 
 ext.versions= [
-    checkerFramework: "3.49.1-eisop1",
+    checkerFramework: "3.49.5-eisop1",
 ]
 
 dependencies {
