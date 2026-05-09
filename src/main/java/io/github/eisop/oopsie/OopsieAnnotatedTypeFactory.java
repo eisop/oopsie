@@ -1,0 +1,677 @@
+package io.github.eisop.oopsie;
+
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.LineMap;
+import com.sun.source.tree.LiteralTree;
+import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.Tree;
+import io.github.eisop.oopsie.db.CalciteSchemaInfo;
+import io.github.eisop.oopsie.db.JDBCSchemaInfo;
+import io.github.eisop.oopsie.db.SchemaInfo;
+import io.github.eisop.oopsie.exception.OopsieDatabaseException;
+import io.github.eisop.oopsie.log.OopsieLogEntryKind;
+import io.github.eisop.oopsie.log.OopsieLogger;
+import io.github.eisop.oopsie.log.SchemaTimingLogger;
+import io.github.eisop.oopsie.qual.CreatesSqlStatement;
+import io.github.eisop.oopsie.qual.RetrievesSqlResultSet;
+import io.github.eisop.oopsie.qual.Sql;
+import io.github.eisop.oopsie.qual.SqlBottom;
+import io.github.eisop.oopsie.qual.SqlUnknown;
+import io.github.eisop.oopsie.qual.SqlUnsupported;
+import java.lang.annotation.Annotation;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.util.Elements;
+
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.checkerframework.common.basetype.BaseTypeChecker;
+import org.checkerframework.common.value.ValueAnnotatedTypeFactory;
+import org.checkerframework.common.value.ValueChecker;
+import org.checkerframework.common.value.qual.StringVal;
+import org.checkerframework.framework.flow.CFAbstractAnalysis;
+import org.checkerframework.framework.type.AnnotatedTypeFactory;
+import org.checkerframework.framework.type.AnnotatedTypeMirror;
+import org.checkerframework.framework.type.GenericAnnotatedTypeFactory;
+import org.checkerframework.framework.type.MostlyNoElementQualifierHierarchy;
+import org.checkerframework.framework.type.QualifierHierarchy;
+import org.checkerframework.framework.type.treeannotator.ListTreeAnnotator;
+import org.checkerframework.framework.type.treeannotator.TreeAnnotator;
+import org.checkerframework.framework.util.QualifierKind;
+import org.checkerframework.javacutil.AnnotationBuilder;
+import org.checkerframework.javacutil.AnnotationUtils;
+import org.checkerframework.javacutil.TreeUtils;
+import org.checkerframework.javacutil.TypeSystemError;
+import org.checkerframework.javacutil.UserError;
+
+public class OopsieAnnotatedTypeFactory
+        extends GenericAnnotatedTypeFactory<
+                OopsieValue, OopsieStore, OopsieTransfer, OopsieAnalysis> {
+
+    protected final AnnotationMirror SQL = AnnotationBuilder.fromClass(elements, Sql.class);
+    protected final AnnotationMirror SQLUNSUPPORTED =
+            AnnotationBuilder.fromClass(elements, SqlUnsupported.class);
+    protected final AnnotationMirror SQLUNKNOWN =
+            AnnotationBuilder.fromClass(elements, SqlUnknown.class);
+    protected final AnnotationMirror SQLBOTTOM =
+            AnnotationBuilder.fromClass(elements, SqlBottom.class);
+    protected final ExecutableElement sqlInElement =
+            TreeUtils.getMethod("io.github.eisop.oopsie.qual.Sql", "in", 0, processingEnv);
+    protected final ExecutableElement sqlOutElement =
+            TreeUtils.getMethod("io.github.eisop.oopsie.qual.Sql", "out", 0, processingEnv);
+    protected final ExecutableElement isPreparedStatementElement =
+            TreeUtils.getMethod(
+                    "io.github.eisop.oopsie.qual.CreatesSqlStatement",
+                    "preparedStatement",
+                    0,
+                    processingEnv);
+    protected final ExecutableElement statementStringParameterElement =
+            TreeUtils.getMethod(
+                    "io.github.eisop.oopsie.qual.CreatesSqlStatement",
+                    "statementStringParameter",
+                    0,
+                    processingEnv);
+    private final OopsieLogger logger = ((OopsieChecker) checker).getLogger();
+
+    private final TypeMapping typeMapping = ((OopsieChecker) checker).getTypeMapping();
+
+    protected final ExecutableElement stringValValueElement =
+            TreeUtils.getMethod(
+                    "org.checkerframework.common.value.qual.StringVal", "value", 0, processingEnv);
+    private final List<ExecutableElement> sqlUnsupportedMethods;
+
+    private SchemaInfo calciteSchemaInfo;
+
+    // Used as fallback
+
+    private SchemaInfo jdbcSchemaInfo;
+
+    @SuppressWarnings("this-escape") // Call to postInit().
+    public OopsieAnnotatedTypeFactory(BaseTypeChecker checker) {
+        super(checker);
+
+        sqlUnsupportedMethods =
+                TreeUtils.getMethods("java.sql.Connection", "prepareCall", 1, processingEnv);
+        sqlUnsupportedMethods.addAll(
+                TreeUtils.getMethods("java.sql.Connection", "prepareCall", 3, processingEnv));
+        sqlUnsupportedMethods.addAll(
+                TreeUtils.getMethods("java.sql.Connection", "prepareCall", 4, processingEnv));
+        sqlUnsupportedMethods.addAll(
+                TreeUtils.getMethods("java.sql.Statement", "getGeneratedKeys", 0, processingEnv));
+
+        initSchemaInfo(checker);
+
+        this.postInit();
+    }
+
+    public TypeMapping getTypeMapping() {
+        return typeMapping;
+    }
+
+    static @Nullable String getName(String annotationString) {
+        // todo improve: e.g. with class for OPSC type
+        String[] tokens = annotationString.split(" ", -1);
+        if (tokens.length >= 2 && !tokens[tokens.length - 2].startsWith("@")) {
+            return tokens[tokens.length - 1];
+        } else {
+            return null;
+        }
+    }
+
+    private void initSchemaInfo(BaseTypeChecker checker) {
+        if (checker.getOption("dbUrl") == null) {
+            throw new UserError("Database URL not specified");
+        }
+        SchemaTimingLogger stl = ((OopsieChecker) checker).getSchemaLogger();
+        try {
+            calciteSchemaInfo =
+                    new CalciteSchemaInfo(
+                            checker.getOption("dbUrl"),
+                            checker.getOption("dbUser"),
+                            checker.getOption("dbPassword"),
+                            stl);
+            jdbcSchemaInfo =
+                    new JDBCSchemaInfo(
+                            checker.getOption("dbUrl"),
+                            checker.getOption("dbUser"),
+                            checker.getOption("dbPassword"),
+                            stl);
+        } catch (OopsieDatabaseException e) {
+            throw new UserError("Could not connect to database: %s", e.getMessage());
+        }
+    }
+
+    @Override
+    protected Set<Class<? extends Annotation>> createSupportedTypeQualifiers() {
+        return getBundledTypeQualifiers(SqlUnknown.class, Sql.class, SqlBottom.class);
+    }
+
+    @Override
+    protected OopsieAnalysis createFlowAnalysis() {
+        return new OopsieAnalysis(checker, this);
+    }
+
+    @Override
+    public OopsieTransfer createFlowTransferFunction(
+            CFAbstractAnalysis<OopsieValue, OopsieStore, OopsieTransfer> analysis) {
+        return new OopsieTransfer((OopsieAnalysis) analysis);
+    }
+
+    @Override
+    protected QualifierHierarchy createQualifierHierarchy() {
+        return new OopsieQualifierHierarchy(this.getSupportedTypeQualifiers(), elements);
+    }
+
+    @Override
+    protected TreeAnnotator createTreeAnnotator() {
+        return new ListTreeAnnotator(super.createTreeAnnotator(), new OopsieTreeAnnotator(this));
+    }
+
+    /**
+     * Returns a new SQL annotation with the given in and out types.
+     */
+    private @NonNull AnnotationMirror createSqlAnnotation(
+            @Nullable List<String> in,
+            @Nullable List<String> out,
+            @Nullable String file,
+            @Nullable String line,
+            @Nullable String column) {
+        AnnotationBuilder builder = new AnnotationBuilder(processingEnv, Sql.class);
+        if (in != null) builder.setValue("in", in);
+        if (out != null) builder.setValue("out", out);
+        if (file != null) builder.setValue("file", file);
+        if (line != null) builder.setValue("line", line);
+        if (column != null) builder.setValue("column", column);
+        return builder.build();
+    }
+
+    private final class OopsieQualifierHierarchy extends MostlyNoElementQualifierHierarchy {
+        private final QualifierKind SQL_KIND;
+        private final QualifierKind SQLUNSUPPORTED_KIND;
+        private final QualifierKind SQLBOTTOM_KIND;
+
+        private OopsieQualifierHierarchy(Collection<Class<? extends Annotation>> qualifierClasses, Elements elements) {
+            super(qualifierClasses, elements, OopsieAnnotatedTypeFactory.this);
+            SQL_KIND = getQualifierKind(SQL);
+            SQLUNSUPPORTED_KIND = getQualifierKind(SQLUNSUPPORTED);
+            SQLBOTTOM_KIND = getQualifierKind(SQLBOTTOM);
+        }
+
+        @Override
+        protected boolean isSubtypeWithElements(AnnotationMirror subAnno, QualifierKind subKind, AnnotationMirror superAnno, QualifierKind superKind) {
+            if (subKind == SQL_KIND && superKind == SQL_KIND) {
+                List<String> subIn = getInElement(subAnno);
+                List<String> subOut = getOutElement(subAnno);
+                List<String> superIn = getInElement(superAnno);
+                List<String> superOut = getOutElement(superAnno);
+
+                return outIsSubtype(subOut, superOut) && inIsSubtype(subIn, superIn);
+            }
+            throw new TypeSystemError("Unexpected qualifiers: %s %s", subAnno, superAnno);
+        }
+
+        /**
+         * Returns true if the subtype's out columns are a subtype of the supertype's out columns.
+         * If the supertype has n out columns, the subtypes first n out columns must match,
+         * considering the type annotations. For example, {@code @Sql(out = {"@NonNull Integer",
+         * "String"})} is a subtype of {@code @Sql(out = {"@Nullable Integer"})}, but not of
+         * {@code @Sql(out = {"String"})}.
+         *
+         * @param subOut   the subtype's out columns
+         * @param superOut the supertype's out columns
+         * @return true if the subtype's out columns are a subtype of the supertype's out columns
+         */
+        private boolean outIsSubtype(List<String> subOut, List<String> superOut) {
+            // Compare lengths: The supertype's out columns can be a prefix of the subtype's
+            // columns.
+            // In this case, the remaining columns of the subtype are ignored by the supertype.
+            if (subOut.size() < superOut.size()) {
+                return false;
+            }
+            if (subOut.size() > superOut.size()) {
+                return outIsSubtype(subOut.subList(0, superOut.size()), superOut);
+            }
+
+            // Compare individual columns
+            for (int i = 0; i < subOut.size(); i++) {
+                OopsieType sub = OopsieType.fromAnnotationString(subOut.get(i));
+                OopsieType sup = OopsieType.fromAnnotationString(superOut.get(i));
+
+                // Check if the types are equal
+                if (!sub.dataTypeMatches(sup)) {
+                    return false;
+                }
+
+                // Check if the column names are equal (if specified in the supertype)
+                if (sup.columnName() != null && !sup.columnName().equalsIgnoreCase(sub.columnName())) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private boolean inIsSubtype(List<String> subIn, List<String> superIn) {
+            // Reverse of the hierarchy for out except that the lengths must be equal as parameters
+            // have to be specified and no more parameters than exist can be specified.
+            return subIn.size() == superIn.size() && outIsSubtype(superIn, subIn);
+        }
+
+        @Override
+        protected AnnotationMirror leastUpperBoundWithElements(AnnotationMirror a1, QualifierKind qualifierKind1, AnnotationMirror a2, QualifierKind qualifierKind2, QualifierKind lubKind) {
+            if (qualifierKind1 == SQL_KIND && qualifierKind2 == SQL_KIND) {
+                if (a1 == a2) {
+                    return a1;
+                } else if (isSubtypeWithElements(a1, qualifierKind1, a2, qualifierKind2)) {
+                    return a2;
+                } else if (isSubtypeWithElements(a2, qualifierKind2, a1, qualifierKind1)) {
+                    return a1;
+                } else {
+                    // an SQL upper bound needs at least the same in columns as a1 and a2,
+                    // so a1 and a2 need to have equal in columns
+                    List<String> in1 = getInElement(a1);
+                    List<String> in2 = getInElement(a2);
+                    List<String> out1 = getOutElement(a1);
+                    List<String> out2 = getOutElement(a2);
+
+                    if (!in1.equals(in2)) {
+                        return SQLUNKNOWN;
+                    }
+
+                    // the lub has the common first out columns of a1 and a2
+                    // if only the column names don't match, the lub has no name for this column
+                    int maxLubOutSize = Math.min(out1.size(), out2.size());
+                    List<String> outLub = new ArrayList<>();
+                    for (int i = 0; i < maxLubOutSize; i++) {
+                        OopsieType out1Type = OopsieType.fromAnnotationString(out1.get(i));
+                        OopsieType out2Type = OopsieType.fromAnnotationString(out2.get(i));
+                        if (out1Type.equals(out2Type)) {
+                            outLub.add(out1.get(i));
+                        } else {
+                            if (out1Type.equalsIgnoringName(out2Type)) {
+                                outLub.add(out1.get(i));
+                            } else {
+                                break;
+                            }
+                        }
+                    }
+
+                    return createSqlAnnotation(in1, outLub, null, null, null);
+                }
+            } else if (qualifierKind1 == SQL_KIND && qualifierKind2 == SQLUNSUPPORTED_KIND) {
+                return a1;
+            } else if (qualifierKind1 == SQLUNSUPPORTED_KIND && qualifierKind2 == SQL_KIND) {
+                return a2;
+            } else if (qualifierKind1 == SQL_KIND && qualifierKind2 == SQLBOTTOM_KIND) {
+                return a1;
+            } else if (qualifierKind1 == SQLBOTTOM_KIND && qualifierKind2 == SQL_KIND) {
+                return a2;
+            }
+
+            throw new TypeSystemError("Unexpected qualifiers: %s %s", a1, a2);
+        }
+
+        @Override
+        protected AnnotationMirror greatestLowerBoundWithElements(AnnotationMirror a1, QualifierKind qualifierKind1, AnnotationMirror a2, QualifierKind qualifierKind2, QualifierKind glbKind) {
+            if (qualifierKind1 == SQL_KIND && qualifierKind2 == SQL_KIND) {
+                if (a1 == a2) {
+                    return a1;
+                } else if (isSubtypeWithElements(a1, qualifierKind1, a2, qualifierKind2)) {
+                    return a1;
+                } else if (isSubtypeWithElements(a2, qualifierKind1, a1, qualifierKind2)) {
+                    return a2;
+                } else {
+                    return SQLBOTTOM;
+                }
+            } else if ((qualifierKind1 == SQL_KIND && qualifierKind2 == SQLUNSUPPORTED_KIND) || (qualifierKind1 == SQLUNSUPPORTED_KIND && qualifierKind2 == SQL_KIND)) {
+                return SQLUNSUPPORTED;
+            } else if ((qualifierKind1 == SQLBOTTOM_KIND && qualifierKind2 == SQL_KIND) || (qualifierKind1 == SQL_KIND && qualifierKind2 == SQLBOTTOM_KIND)) {
+                return SQLBOTTOM;
+            }
+
+            throw new TypeSystemError("Unexpected qualifiers: %s %s", a1, a2);
+        }
+    }
+
+    private class OopsieTreeAnnotator extends TreeAnnotator {
+        public OopsieTreeAnnotator(AnnotatedTypeFactory atypeFactory) {
+            super(atypeFactory);
+        }
+
+        /**
+         * Add annotation for Strings in prepareStatement() calls and transfer annotation from
+         * PreparedStatement to ResultSet in executeQuery() calls.
+         */
+        @Override
+        public Void visitMethodInvocation(MethodInvocationTree tree, AnnotatedTypeMirror type) {
+            AnnotationMirror createsSqlStatementAnno = getCreatesSqlStatementAnno(tree);
+            if (createsSqlStatementAnno != null && !isEnclosingMethodAnnotated(tree)) {
+                type.replaceAnnotation(annotateStatement(tree, createsSqlStatementAnno));
+                return super.visitMethodInvocation(tree, type);
+            }
+
+            AnnotationMirror resultSetRetrievalAnno = getResultSetRetrievalAnno(tree);
+            if (resultSetRetrievalAnno != null && !isEnclosingMethodAnnotated(tree)) {
+                handleResultSetRetrieval(tree, type);
+                return super.visitMethodInvocation(tree, type);
+            }
+
+            if (isSqlUnsupportedMethodInvocation(tree) && !isEnclosingMethodAnnotated(tree)) {
+                type.replaceAnnotation(SQLUNSUPPORTED);
+            }
+
+            return super.visitMethodInvocation(tree, type);
+        }
+
+        private @Nullable AnnotationMirror getCreatesSqlStatementAnno(MethodInvocationTree invocation) {
+            ExecutableElement method = TreeUtils.elementFromUse(invocation);
+            return atypeFactory.getDeclAnnotation(method, CreatesSqlStatement.class);
+        }
+
+        private @Nullable AnnotationMirror getResultSetRetrievalAnno(MethodInvocationTree invocation) {
+            ExecutableElement method = TreeUtils.elementFromUse(invocation);
+            return atypeFactory.getDeclAnnotation(method, RetrievesSqlResultSet.class);
+        }
+
+        private void handleResultSetRetrieval(MethodInvocationTree tree, AnnotatedTypeMirror type) {
+            // get type annotation from PreparedStatement and transfer it to the result set
+            AnnotatedTypeMirror receiverType = atypeFactory.getReceiverType(tree);
+
+            if (receiverType == null) {
+                throw new TypeSystemError("could not get receiver type of PreparedStatement");
+            }
+
+            AnnotationMirror sqlUnsupportedAnnotation = receiverType.getAnnotation(SqlUnsupported.class);
+            AnnotationMirror sqlAnnotation = receiverType.getAnnotation(Sql.class);
+
+            if (sqlUnsupportedAnnotation != null) {
+                // Transfer @SqlUnsupported from PreparedStatement to ResultSet
+                type.replaceAnnotation(sqlUnsupportedAnnotation);
+            } else if (sqlAnnotation != null) {
+                List<String> out = AnnotationUtils.getElementValueArray(sqlAnnotation, sqlOutElement, String.class, Collections.emptyList());
+                String file = AnnotationUtils.getElementValueOrNull(sqlAnnotation, "file", String.class, true);
+                String line = AnnotationUtils.getElementValueOrNull(sqlAnnotation, "line", String.class, true);
+                String column = AnnotationUtils.getElementValueOrNull(sqlAnnotation, "column", String.class, true);
+                type.replaceAnnotation(createSqlAnnotation(null, out, file, line, column));
+            }
+        }
+    }
+
+    private boolean isSqlUnsupportedMethodInvocation(MethodInvocationTree tree) {
+        int argSize = tree.getArguments().size();
+        if (argSize == 2 || argSize > 4) {
+            return false;
+        }
+        return sqlUnsupportedMethods.stream().anyMatch(m -> TreeUtils.isMethodInvocation(tree, m, processingEnv));
+    }
+
+    private List<String> getInElement(AnnotationMirror a1) {
+        return AnnotationUtils.getElementValueArray(a1, sqlInElement, String.class, Collections.emptyList());
+    }
+
+    private List<String> getOutElement(AnnotationMirror a1) {
+        return AnnotationUtils.getElementValueArray(a1, sqlOutElement, String.class, Collections.emptyList());
+    }
+
+    /**
+     * Returns @Sql annotation for a declaration call, or @SqlUnsupported if not extractable or not
+     * parsable. Success or errors are logged and appropriate warnings emitted.
+     */
+    protected AnnotationMirror annotateStatement(MethodInvocationTree tree, AnnotationMirror methodAnnotation) {
+        boolean isPreparedStatement = AnnotationUtils.getElementValueBoolean(methodAnnotation, isPreparedStatementElement, true);
+        int stmtStringParameterIndex = AnnotationUtils.getElementValueInt(methodAnnotation, statementStringParameterElement, 0);
+
+        ExpressionTree arg = tree.getArguments().get(stmtStringParameterIndex);
+        List<String> stmts = retrieveStringValue(arg, isPreparedStatement);
+
+        if (stmts == null) {
+            // if stmts == null retrieveStringValue already reported an error
+            return SQLUNSUPPORTED;
+        }
+
+        // If multiple strings are possible, determine types for all of them and if they are the
+        // same for
+        // all strings, continue.
+
+        // determine types for the first string, with warnings flag activated
+        List<AnnotationMirror> annos = new ArrayList<>();
+
+        boolean first = true;
+        for (String stmt : stmts) {
+            AnnotationMirror anno = buildSqlAnnotation(stmt, tree, isPreparedStatement, first);
+            if (anno == null) {
+                return SQLUNSUPPORTED;
+            }
+            annos.add(anno);
+            first = false;
+        }
+
+        if (annos.isEmpty()) {
+            return SQLUNSUPPORTED;
+        }
+
+        // warn if the annotations are not equal
+        if (annos.size() > 1 && !annos.stream().allMatch(a -> sqlAnnotationsEqual(a, annos.get(0)))) {
+            checker.reportWarning(arg, "statement.multiple.string.values", stmts.toString());
+            logger.simpleStatementEntry(OopsieLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING, getRoot(), getStartPosition(arg), "statement string could evaluate to multiple string values", isPreparedStatement);
+            return SQLUNSUPPORTED;
+        }
+
+        AnnotationMirror annotation = annos.get(0);
+        String details = annos.get(0).toString();
+        logSupportedStatement(tree, details, stmts.get(0), getInElement(annotation).size(), isPreparedStatement);
+        return annotation;
+    }
+
+    /**
+     * Determines result and placeholder types of the SQL statement and builds a corresponding @Sql
+     * annotation. If a statement is not supported or its types cannot be determined, the method
+     * returns null. This includes DDL statements, i.e. statement beginnings with "CREATE", "ALTER"
+     * or "DROP".
+     *
+     * <p>Hack: Because Calcite doesn't support statements like 'SELECT ?', use JDBCSchemaInfo as a
+     * fallback if parsing with CalciteSchemaInfo fails.
+     *
+     * @return the @Sql annotation or null if the types could not be determined
+     */
+    private @Nullable AnnotationMirror buildSqlAnnotation(
+            String stmt,
+            MethodInvocationTree tree,
+            boolean isPreparedStatement,
+            boolean warnAndLog) {
+        if (isUnsupportedStatementType(stmt)) {
+            if (warnAndLog) {
+                checker.reportWarning(tree, "statement.skipped", stmt);
+                logger.simpleStatementEntry(
+                        OopsieLogEntryKind.SKIPPED_STATEMENT,
+                        getRoot(),
+                        getStartPosition(tree),
+                        "Ignoring statement of unsupported type: " + stmt,
+                        isPreparedStatement);
+            }
+            return null;
+        }
+
+        // get placeholder types of prepared statement
+        List<String> in;
+        try {
+            in = getInType(stmt, calciteSchemaInfo);
+        } catch (OopsieDatabaseException calciteException) {
+            // Retry with fallback JDBCSchemaInfo
+            try {
+                in = getInType(stmt, jdbcSchemaInfo);
+                if (warnAndLog) {
+                    checker.reportWarning(tree, "determine.in.type.failed.first.try", calciteException.getMessage() == null ? "" : calciteException.getMessage(), stmt);
+                }
+            } catch (OopsieDatabaseException jdbcException) {
+                if (!warnAndLog) return null;
+                checker.reportError(tree, "determine.in.type.failed.final", calciteException.getMessage() + "\nJDBC: " + jdbcException.getMessage(), stmt);
+                logger.unsupportedPreparedStatement(getRoot(), getStartPosition(tree), calciteException.getMessage() + "--- JDBC: " + jdbcException.getMessage(), stmt, isPreparedStatement);
+                return null;
+            }
+            if (warnAndLog) {
+                logger.simpleStatementEntry(OopsieLogEntryKind.USING_FALLBACK, getRoot(), getStartPosition(tree), calciteException.getMessage(), isPreparedStatement);
+            }
+        }
+
+        // get result type of prepared statement
+        List<String> out;
+        try {
+            out = getOutType(stmt, calciteSchemaInfo);
+        } catch (OopsieDatabaseException calciteException) {
+            // Retry with fallback JDBCSchemaInfo
+            try {
+                out = getOutType(stmt, jdbcSchemaInfo);
+                if (warnAndLog) {
+                    checker.reportWarning(tree, "determine.out.type.failed.first.try", calciteException.getMessage() == null ? "" : calciteException.getMessage(), stmt);
+                }
+            } catch (OopsieDatabaseException jdbcException) {
+                if (!warnAndLog) return null;
+                checker.reportError(tree, "determine.out.type.failed.final", jdbcException.getMessage() == null ? "" : jdbcException.getMessage(), stmt);
+                logger.unsupportedPreparedStatement(getRoot(), getStartPosition(tree), calciteException.getMessage() + "--- JDBC: " + jdbcException.getMessage(), stmt, isPreparedStatement);
+                return null;
+            }
+            if (warnAndLog) {
+                logger.simpleStatementEntry(OopsieLogEntryKind.USING_FALLBACK, getRoot(), getStartPosition(tree), calciteException.getMessage(), isPreparedStatement);
+            }
+        }
+
+        String file = null;
+        String line = null;
+        String column = null;
+        if (getRoot() != null) {
+            file = logger.sanitizeFileName(getRoot().getSourceFile().getName());
+            LineMap lineMap = getRoot().getLineMap();
+            long loc = trees.getSourcePositions().getStartPosition(getRoot(), tree);
+            line = String.valueOf(lineMap.getLineNumber(loc));
+            column = String.valueOf(lineMap.getColumnNumber(loc));
+        }
+
+        return createSqlAnnotation(in, out, file, line, column);
+    }
+
+    /**
+     * Check if the statement type isSELECT, INSERT, UPDATE, DELETE Includes WITH ... but not WITH
+     * RECURSIVE ...
+     */
+    private static boolean isUnsupportedStatementType(String stmt) {
+        String stmtUpper = stmt.trim().toUpperCase(Locale.ENGLISH);
+        // Use regex to allow for preceding comments and whitespace
+        return !(stmtUpper.matches(
+                "(?s)^\\s*(--.*\\n)*\\s*(SELECT\\s+|INSERT\\s+|UPDATE\\s+|DELETE\\s+).*")
+                || stmtUpper.matches(
+                "(?s)^\\s*/\\*.*?\\*/\\s*(SELECT\\s+|INSERT\\s+|UPDATE\\s+|DELETE\\s+).*")
+                || stmtUpper.matches("(?s)^\\s*(--.*\\n)*\\s*WITH\\s+(?!RECURSIVE\\s).*")
+                || stmtUpper.matches("(?s)^\\s*/\\*.*?\\*/\\s*WITH\\s+(?!RECURSIVE\\s).*"));
+    }
+
+    protected boolean isEnclosingMethodAnnotated(MethodInvocationTree tree) {
+        Tree enclosingClassOrMethod = getEnclosingClassOrMethod(tree);
+        if (enclosingClassOrMethod == null) return false;
+        Element element = TreeUtils.elementFromTree(enclosingClassOrMethod);
+        if (element == null) return false;
+        return element.getAnnotation(CreatesSqlStatement.class) != null
+                || element.getAnnotation(RetrievesSqlResultSet.class) != null;
+    }
+
+    private @Nullable List<String> getOutType(String stmt, SchemaInfo schemaInfo)
+            throws OopsieDatabaseException {
+        List<String> rt = schemaInfo.getResultTypeOf(stmt);
+        if (rt == null || rt.isEmpty()) {
+            return null;
+        }
+        return rt;
+    }
+
+    private @Nullable List<String> getInType(String stmt, SchemaInfo schemaInfo) throws OopsieDatabaseException {
+        List<String> pt = schemaInfo.getPlaceholderTypesOf(stmt);
+        if (pt == null || pt.isEmpty()) {
+            return null;
+        }
+        return pt;
+    }
+
+    protected boolean sqlAnnotationsEqual(AnnotationMirror a1, AnnotationMirror a2) {
+        // compare in and out elements
+        return a1 == a2
+                || (getInElement(a1).equals(getInElement(a2))
+                && getOutElement(a1).equals(getOutElement(a2)));
+    }
+
+    private long getStartPosition(Tree tree) {
+        if (getRoot() == null) {
+            return -1;
+        }
+        return trees.getSourcePositions().getStartPosition(getRoot(), tree);
+    }
+
+    private @Nullable List<String> retrieveStringValue(ExpressionTree stringExpression, boolean isPreparedStatement) {
+        if (stringExpression.getKind() == ExpressionTree.Kind.STRING_LITERAL) {
+            return Collections.singletonList((String) ((LiteralTree) stringExpression).getValue());
+        }
+
+        AnnotationMirror stringValAnnoMirror = getStringValAnnoMirror(stringExpression);
+        if (stringValAnnoMirror == null) {
+            checker.reportWarning(stringExpression, "statement.string.retrieval.failed");
+            logger.simpleStatementEntry(OopsieLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING, getRoot(), getStartPosition(stringExpression), "", isPreparedStatement);
+            return null;
+        }
+
+        List<String> values =
+                OopsieUtils.retrieveStringValues(stringValAnnoMirror, stringValValueElement);
+
+        if (values.isEmpty()) {
+            checker.reportWarning(stringExpression, "statement.string.retrieval.failed");
+            logger.simpleStatementEntry(OopsieLogEntryKind.CANNOT_DETERMINE_STATEMENT_STRING, getRoot(), getStartPosition(stringExpression), "", isPreparedStatement);
+            return null;
+        }
+
+        if (values.size() == 1) {
+            return values;
+        }
+
+        if (checker.getBooleanOption("enableSqlStringHeuristic")) { // todo: remove this option?
+            checker.reportWarning(stringExpression, "statement.multiple.string.values.continuing", values.toString());
+            logger.simpleStatementEntry(OopsieLogEntryKind.USING_SQL_STRING_HEURISTIC, getRoot(), getStartPosition(stringExpression), null, isPreparedStatement);
+            return values.subList(0, 1);
+        }
+
+        return values;
+    }
+
+    protected @Nullable AnnotationMirror getStringValAnnoMirror(final ExpressionTree valueExp) {
+        ValueAnnotatedTypeFactory valueAnnotatedTypeFactory =
+                getTypeFactoryOfSubchecker(ValueChecker.class);
+        if (valueAnnotatedTypeFactory == null) {
+            throw new TypeSystemError("Missing subchecker ValueChecker");
+        }
+        AnnotatedTypeMirror valueType = valueAnnotatedTypeFactory.getAnnotatedType(valueExp);
+        return valueType.getAnnotation(StringVal.class);
+    }
+
+    protected void logSupportedStatement(MethodInvocationTree tree, String details, String stmt, int nParameters, boolean isPreparedStatement) {
+        logger.supportedStatement(getRoot(), getStartPosition(tree), details, stmt, nParameters, isPreparedStatement);
+    }
+
+    public void shutdown() {
+        try {
+            if (calciteSchemaInfo instanceof JDBCSchemaInfo) {
+                ((JDBCSchemaInfo) calciteSchemaInfo).close();
+            } else if (calciteSchemaInfo instanceof CalciteSchemaInfo) {
+                ((CalciteSchemaInfo) calciteSchemaInfo).close();
+            }
+        } catch (SQLException e) {
+            // Log but don't throw during shutdown
+        }
+    }
+
+
+}
+

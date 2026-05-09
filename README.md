@@ -1,13 +1,14 @@
-# Optional PreparedStatement Checker (OPSC)
+# _Oopsie_ 🫢
 
-OPSC is a type-checker for Java using the [Checker Framework](https://checkerframework.org/).
-It check if JDBC PreparedStatements are used correctly by
+_Oopsie_ is a type-checker for Java using the [Checker Framework](https://checkerframework.org/).
+It verifies that JDBC (Prepared)Statements are used correctly by
 - Checking if the correct number of parameters (`?`s in the query) are set with the correct types
 - Checking if the result set columns are read into the correct Java types (by prohibiting the use of the `getString` on an integer column, for example)
-- The checker considers further details of the type such as nullability or VARCHAR length (WIP)
 
-As a pluggable type checker for Java, OPSC performs the checks during compile time and can prevent many SQLExceptions
+As a pluggable type checker for Java, _Oopsie_ performs the checks during compile time and can prevent many SQLExceptions
 stemming from bugs that would otherwise only be detected at runtime.
+
+The project was originally named "Optional Prepared Statement Checker (OPSC)", but as it outgrew its scope, we only kept the homophone "Oopsie".
 
 ## Usage
 
@@ -25,22 +26,22 @@ docker-compose up
 * Apply formatting with `./gradlew spotlessApply`.
 
 * Run `./gradlew publishToMavenLocal` to publish to your local Maven repository.
-  The OPSC dependency should now be available to local Gradle projects that have declared the mavenLocal() repository:
+  The _Oopsie_ dependency should now be available to local Gradle projects that have declared the mavenLocal() repository:
   ```groovy
   repositories {
       mavenLocal()
   }
 
   dependencies {
-      compileOnly "io.github.eisop:opsc:0.0.1-SNAPSHOT"
-      checkerFramework "io.github.eisop:opsc:0.0.1-SNAPSHOT"
+      compileOnly "io.github.eisop:oopsie:0.0.1-SNAPSHOT"
+      checkerFramework "io.github.eisop:oopsie:0.0.1-SNAPSHOT"
   }
   ```
 
 ### To manually run against a file (without gradle):
 
 ````
-../checker-framework/checker/bin/javac -classpath ./build/classes/java/main/ -processor io.github.eisop.opsc.OpsChecker tests/opsc/Tiny.java
+../checker-framework/checker/bin/javac -classpath ./build/classes/java/main/ -processor io.github.eisop.oopsie.OopsieChecker tests/oopsie/Tiny.java
 ````
 
 This requires that you built the EISOP Framework in `../checker-framework/`:
@@ -54,8 +55,8 @@ The second one, `bindings.csv` lists all the legal or illegal bindings of the pa
 
 #### Configuration
 
-By default, the log files are created in the `opslogs` directory withing the project root.
-An alternative directory can be specified by setting the `-AopsLogDir' compiler option to the desired path.
+By default, the log files are created in the `oopsielogs` directory withing the project root.
+An alternative directory can be specified by setting the `-AoopsieLogDir' compiler option to the desired path.
 
 
 #### Log format
