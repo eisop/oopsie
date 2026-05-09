@@ -6,13 +6,14 @@ import java.util.List;
 import org.checkerframework.framework.test.CheckerFrameworkPerDirectoryTest;
 import org.junit.runners.Parameterized.Parameters;
 
-public class HandwrittenTests extends CheckerFrameworkPerDirectoryTest {
+/** Run the Oopsie tests. */
+public class OopsieTest extends CheckerFrameworkPerDirectoryTest {
 
     private static final String DB_URL = "jdbc:postgresql://localhost:5432/chinook";
     private static final String DB_USER = "postgres";
     private static final String DB_PASSWORD = "postgres";
 
-    public HandwrittenTests(List<File> testFiles) {
+    public OopsieTest(List<File> testFiles) {
         // set checker options for db connection
         super(
                 testFiles,
@@ -22,12 +23,11 @@ public class HandwrittenTests extends CheckerFrameworkPerDirectoryTest {
                 "-AdbUser=" + DB_USER,
                 "-AdbPassword=" + DB_PASSWORD,
                 "-AenableSqlStringHeuristic=false",
-                "-AnonNullStringsConcatenation=true",
-                "-AoopsieLogDir=handwritten-logs");
+                "-AnonNullStringsConcatenation=true");
     }
 
     @Parameters
     public static String[] getTestDirs() {
-        return new String[] {"handwritten"};
+        return new String[] {"oopsie"};
     }
 }
