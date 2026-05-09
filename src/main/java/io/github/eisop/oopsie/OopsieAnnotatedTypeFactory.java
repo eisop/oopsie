@@ -350,7 +350,7 @@ public class OopsieAnnotatedTypeFactory
     }
 
     private class OopsieTreeAnnotator extends TreeAnnotator {
-        public OopsieTreeAnnotator(AnnotatedTypeFactory atypeFactory) {
+        private OopsieTreeAnnotator(AnnotatedTypeFactory atypeFactory) {
             super(atypeFactory);
         }
 
