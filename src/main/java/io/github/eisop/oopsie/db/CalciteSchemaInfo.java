@@ -133,7 +133,7 @@ public class CalciteSchemaInfo implements SchemaInfo {
     }
 
     private RelNode parseSql(String stmt) throws OopsieDatabaseException {
-        SchemaPlus subSchema = rootSchema.getSubSchema(SUB_SCHEMA_NAME);
+        SchemaPlus subSchema = rootSchema.subSchemas().get(SUB_SCHEMA_NAME);
         if (subSchema == null) {
             throw new OopsieDatabaseException("Could not find sub-schema: " + SUB_SCHEMA_NAME);
         }
